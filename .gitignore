@@ -1,0 +1,18 @@
+# Node / Frontend
+node_modules/
+dist/
+.vite/
+*.local
+
+# Python / Backend
+.venv/
+__pycache__/
+*.pyc
+.env
+
+# Editor / OS
+.vscode/
+.DS_Store
+
+# PWA build artifacts
+sw.js.map

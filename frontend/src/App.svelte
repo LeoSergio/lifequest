@@ -1,20 +1,27 @@
 <script>
   import { liveQuery } from 'dexie';
   import { db } from './db/db.js';
+  import { currentRoute } from './lib/nav.js';
   import Onboarding from './routes/Onboarding.svelte';
   import Dashboard from './components/Dashboard.svelte';
+  import Pantry from './routes/Pantry.svelte';
+  import NavBar from './components/NavBar.svelte';
 
-  // Regra de navegação da Etapa 4: sem player salvo -> Onboarding.
-  // Com player salvo -> Dashboard. Reativo: assim que o Onboarding
-  // salvar o player no Dexie, essa liveQuery dispara de novo sozinha
-  // e a tela troca, sem precisarmos de router nem de eventos manuais.
   const hasPlayer = liveQuery(async () => (await db.player.count()) > 0);
 </script>
 
-{#await $hasPlayer then playerExists}
-  {#if playerExists}
-    <Dashboard />
+{#if $hasPlayer === undefined}
+  <main class="min-h-screen flex items-center justify-center">
+    <p class="text-white/40 text-sm">Carregando...</p>
+  </main>
+{:else if $hasPlayer}
+  {#if $currentRoute === 'pantry'}
+    <Pantry />
   {:else}
-    <Onboarding />
+    <Dashboard />
   {/if}
-{/await}
+  <NavBar />
+{:else}
+  <Onboarding />
+{/if}
+

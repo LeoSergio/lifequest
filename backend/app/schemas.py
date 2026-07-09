@@ -22,6 +22,26 @@ class RecipeResponse(BaseModel):
     instructions: str
 
 
+class OnboardingRequest(BaseModel):
+    # dict simples: { "pergunta_1": "resposta escolhida", ... }
+    # fica livre de propósito, pra você poder mudar as perguntas do quiz
+    # sem precisar mexer no backend.
+    answers: dict[str, str]
+
+
+class InitialMission(BaseModel):
+    pillar: str  # lar | academia | disciplina | social
+    title: str
+    description: str
+    xp_reward: int
+
+
+class OnboardingResponse(BaseModel):
+    archetype: str
+    archetype_description: str
+    initial_missions: list[InitialMission]
+
+
 class MissionRequest(BaseModel):
     pillar: str  # lar | academia | disciplina | social
     player_level: int

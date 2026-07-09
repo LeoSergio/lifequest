@@ -4,6 +4,8 @@ from app.ai_client import generate_json
 from app.schemas import (
     MissionRequest,
     MissionResponse,
+    OnboardingRequest,
+    OnboardingResponse,
     RecipeRequest,
     RecipeResponse,
     WorkoutCalibrationRequest,
@@ -35,6 +37,25 @@ async def generate_recipe(payload: RecipeRequest):
 
     data = await generate_json(system_prompt, user_prompt)
     return RecipeResponse(**data)
+
+
+@router.post("/onboarding/archetype", response_model=OnboardingResponse)
+async def generate_archetype(payload: OnboardingRequest):
+    system_prompt = (
+        "Você é o mestre de jogo de um RPG de gestão doméstica chamado LifeQuest. "
+        "Com base nas respostas do quiz de onboarding, defina um arquétipo/classe "
+        "criativo (ex: 'Guerreiro da Rotina', 'Estrategista Financeiro') e gere "
+        "exatamente 3 missões iniciais, uma para os pilares: lar, academia, disciplina. "
+        "Responda SOMENTE em JSON, schema: {archetype, archetype_description, "
+        "initial_missions: [{pillar, title, description, xp_reward}]}. "
+        "Missões iniciais devem ser fáceis (xp_reward entre 10 e 30) para dar uma "
+        "primeira vitória rápida ao jogador."
+    )
+    respostas = "; ".join(f"{pergunta}: {resposta}" for pergunta, resposta in payload.answers.items())
+    user_prompt = f"Respostas do quiz: {respostas}"
+
+    data = await generate_json(system_prompt, user_prompt)
+    return OnboardingResponse(**data)
 
 
 @router.post("/missions/generate", response_model=MissionResponse)

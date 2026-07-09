@@ -14,6 +14,9 @@ async function request(path, options = {}) {
 // Backend é 100% stateless: cada chamada envia o contexto necessário
 // (itens da despensa, objetivo, feedback de treino) no próprio payload.
 export const api = {
+  generateArchetype: (answers) =>
+    request('/ai/onboarding/archetype', { method: 'POST', body: JSON.stringify({ answers }) }),
+
   generateMission: (payload) =>
     request('/ai/missions/generate', { method: 'POST', body: JSON.stringify(payload) }),
 

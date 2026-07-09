@@ -59,3 +59,36 @@ unificados como um RPG, com missões geradas por IA.
 - `guildas/`: microsserviço isolado para estado social mínimo (ver Stack acima)
 
 Planejamento detalhado por etapas: ver `docs/PLANEJAMENTO.md`.
+
+## Ambiente de desenvolvimento
+
+Setup rápido (cria `.env` a partir dos exemplos e instala dependências):
+
+```bash
+./scripts/setup.sh
+```
+
+Depois, rode cada serviço em um terminal:
+
+```bash
+# 1) Frontend (PWA local-first)
+cd frontend && npm run dev            # http://localhost:5173
+
+# 2) Backend (ponte stateless para IA)
+cd backend && source .venv/bin/activate && uvicorn app.main:app --reload   # http://localhost:8000
+
+# 3) Guildas (microsserviço isolado, precisa de Redis do Upstash)
+cd guildas && source .venv/bin/activate && uvicorn app.main:app --reload --port 8001
+```
+
+Ou, para subir backend + guildas via Docker:
+
+```bash
+docker compose up --build
+```
+
+Antes de rodar, preencha as chaves nos `.env`:
+- `backend/.env`: `GROQ_API_KEY`, `GEMINI_API_KEY`
+- `guildas/.env`: `UPSTASH_REDIS_URL`, `UPSTASH_REDIS_TOKEN` (crie um banco free no [Upstash](https://upstash.com))
+
+O Vite já faz proxy de `/api` para `http://localhost:8000`, então o frontend não precisa de configuração extra em dev.

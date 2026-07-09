@@ -7,6 +7,10 @@ from app.config import settings
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
 
+# Groq descontinua modelos com frequência — confira a lista atual em
+# https://console.groq.com/docs/models antes de trocar isto.
+GROQ_MODEL = "openai/gpt-oss-120b"
+
 
 class AIClientError(Exception):
     pass
@@ -19,7 +23,7 @@ async def call_groq(system_prompt: str, user_prompt: str) -> dict:
             GROQ_URL,
             headers={"Authorization": f"Bearer {settings.groq_api_key}"},
             json={
-                "model": "llama-3.1-70b-versatile",
+                "model": GROQ_MODEL,
                 "messages": [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
@@ -48,8 +52,13 @@ async def call_gemini(system_prompt: str, user_prompt: str) -> dict:
 
 
 async def generate_json(system_prompt: str, user_prompt: str) -> dict:
-    """Tenta Groq primeiro; cai para Gemini se falhar. Nunca persiste nada — stateless."""
+    """Tenta Groq primeiro; cai para Gemini se falhar E houver chave configurada.
+    Nunca persiste nada — stateless."""
     try:
         return await call_groq(system_prompt, user_prompt)
-    except Exception:
+    except Exception as groq_error:
+        if not settings.gemini_api_key:
+            # Sem chave de fallback: relança o erro original da Groq,
+            # que é o que realmente importa pra debugar.
+            raise groq_error
         return await call_gemini(system_prompt, user_prompt)

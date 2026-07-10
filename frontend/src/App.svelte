@@ -7,6 +7,8 @@
   import Pantry from './routes/Pantry.svelte';
   import ScanReceipt from './routes/ScanReceipt.svelte';
   import Training from './routes/Training.svelte';
+  import NewWorkoutPlan from './routes/NewWorkoutPlan.svelte';
+  import TrainingMetrics from './routes/TrainingMetrics.svelte';
   import WorkoutPlanDetail from './routes/WorkoutPlanDetail.svelte';
   import NavBar from './components/NavBar.svelte';
 
@@ -24,6 +26,10 @@
     <ScanReceipt />
   {:else if $nav.name === 'training'}
     <Training />
+  {:else if $nav.name === 'training-new'}
+    <NewWorkoutPlan />
+  {:else if $nav.name === 'training-metrics'}
+    <TrainingMetrics />
   {:else if $nav.name === 'workout-plan-detail'}
     <WorkoutPlanDetail planId={$nav.params.planId} />
   {:else}

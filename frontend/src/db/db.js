@@ -27,4 +27,12 @@ db.version(1).stores({
   guildMembership: '++id, guildId, joinedAt'
 });
 
+// Migração aditiva: só precisamos declarar a tabela NOVA aqui — o Dexie
+// mantém automaticamente todas as tabelas já definidas na version(1).
+// Isso é importante: quem já tinha o app instalado no navegador vai
+// receber essa tabela nova sem perder nenhum dado existente.
+db.version(2).stores({
+  bodyMeasurements: '++id, date'
+});
+
 export default db;

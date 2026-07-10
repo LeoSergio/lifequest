@@ -2,19 +2,19 @@
   import { liveQuery } from 'dexie';
   import { db } from '../db/db.js';
   import { applyXp } from '../lib/gamification.js';
+  import { currentStreak, last7DaysActivity } from '../lib/metrics.js';
   import StatsBar from '../components/StatsBar.svelte';
   import MissionCard from '../components/MissionCard.svelte';
+  import StreakCalendar from '../components/StreakCalendar.svelte';
 
-  // liveQuery = a "mágica" do local-first: essa query roda de novo
-  // AUTOMATICAMENTE toda vez que a tabela player ou missions muda no
-  // IndexedDB. Não precisamos de fetch, refresh manual, nem estado global.
-  //
-  // $player e $missions (com o "$") já são os VALORES atuais dessas stores,
-  // não Promises — por isso usamos {#if} normal aqui, não {#await}.
-  // No instante inicial, antes do Dexie responder pela primeira vez,
-  // esse valor é `undefined`, então sempre checamos isso antes de usar.
   const player = liveQuery(() => db.player.toCollection().first());
   const missions = liveQuery(() => db.missions.where('status').equals('pending').toArray());
+  const sessions = liveQuery(() => db.workoutSessions.toArray());
+
+  // Streak sempre derivado do histórico de sessões — nunca lido de um
+  // campo "streak" guardado solto (ver comentário em lib/metrics.js).
+  $: streak = $sessions ? currentStreak($sessions) : 0;
+  $: weekActivity = $sessions ? last7DaysActivity($sessions) : [];
 
   async function completeMission(event) {
     const mission = event.detail;
@@ -26,8 +26,6 @@
     await db.missions.update(mission.id, { status: 'done' });
 
     if (leveledUp) {
-      // Placeholder simples por enquanto — na Etapa 8 (motor de gamificação)
-      // isso pode virar uma animação/modal de "level up!".
       alert(`Level up! Agora você é nível ${level} 🎉`);
     }
   }
@@ -40,8 +38,10 @@
       <p class="text-sm text-white/60">{$player.archetypeDescription}</p>
     </div>
 
-    <StatsBar level={$player.level} xp={$player.xp} streak={$player.streak} />
+    <StatsBar level={$player.level} xp={$player.xp} {streak} />
   {/if}
+
+  <StreakCalendar days={weekActivity} {streak} />
 
   <div>
     <h2 class="text-sm uppercase text-white/40 mb-3">Missões de hoje</h2>

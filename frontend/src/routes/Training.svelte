@@ -4,34 +4,20 @@
   import { navigate } from '../lib/nav.js';
   import { WEEKDAYS } from '../lib/constants.js';
 
-  let name = '';
-  let weekday = null;
-  let estimatedDuration = '';
-  let showForm = false;
-
   const plans = liveQuery(() => db.workoutPlans.toArray());
+
+  let openMenuId = null;
 
   function weekdayLabel(value) {
     return WEEKDAYS.find((w) => w.value === value)?.label ?? 'Livre';
   }
 
-  async function createPlan() {
-    if (!name.trim()) return;
-
-    await db.workoutPlans.add({
-      name: name.trim(),
-      weekday,
-      estimatedDuration: estimatedDuration ? Number(estimatedDuration) : null
-    });
-
-    name = '';
-    weekday = null;
-    estimatedDuration = '';
-    showForm = false;
+  function toggleMenu(id) {
+    openMenuId = openMenuId === id ? null : id;
   }
 
-  async function removePlan(id, event) {
-    event.stopPropagation(); // não deixa o clique "vazar" pro card e abrir o detalhe
+  async function removePlan(id) {
+    openMenuId = null;
     if (!confirm('Remover este treino e todos os exercícios dele?')) return;
 
     // Remove o plano e os exercícios ligados a ele (limpeza em cascata manual,
@@ -44,59 +30,68 @@
 </script>
 
 <main class="min-h-screen p-6 pb-24 max-w-md mx-auto">
-  <div class="flex justify-between items-center mb-6">
+  <div class="flex justify-between items-center mb-2">
     <h1 class="text-2xl font-bold text-primary">Treinos</h1>
-    <button class="bg-primary text-white rounded-lg px-3 py-2 text-sm" on:click={() => (showForm = !showForm)}>
-      {showForm ? 'Cancelar' : '+ Novo'}
+    <button
+      class="bg-primary text-white rounded-full px-4 py-2 text-sm font-medium flex items-center gap-1"
+      on:click={() => navigate('training-new')}
+    >
+      <span class="text-base leading-none">+</span> Novo treino
     </button>
   </div>
 
-  {#if showForm}
-    <form on:submit|preventDefault={createPlan} class="bg-surface rounded-xl p-4 mb-6 flex flex-col gap-3">
-      <input
-        class="bg-bg border border-white/10 rounded-lg px-3 py-3 text-sm"
-        placeholder="Nome (ex: Treino A - Peito e Tríceps)"
-        bind:value={name}
-      />
-      <div class="flex gap-2">
-        <select class="flex-1 bg-bg border border-white/10 rounded-lg px-3 py-3 text-sm" bind:value={weekday}>
-          {#each WEEKDAYS as w}
-            <option value={w.value}>{w.label}</option>
-          {/each}
-        </select>
-        <input
-          class="w-32 bg-bg border border-white/10 rounded-lg px-3 py-3 text-sm"
-          placeholder="Min (opc.)"
-          type="number"
-          bind:value={estimatedDuration}
-        />
-      </div>
-      <button type="submit" class="bg-primary text-white rounded-lg py-3 font-medium">Criar treino</button>
-    </form>
-  {/if}
+  <button class="text-xs text-white/40 mb-6 flex items-center gap-1" on:click={() => navigate('training-metrics')}>
+    📊 Ver métricas
+  </button>
 
   {#if $plans === undefined}
     <p class="text-sm text-white/40">Carregando...</p>
   {:else if $plans.length === 0}
-    <p class="text-sm text-white/40">Nenhum treino cadastrado ainda.</p>
+    <div class="bg-surface rounded-xl p-6 text-center">
+      <p class="text-sm text-white/40 mb-1">Nenhum treino cadastrado ainda.</p>
+      <p class="text-xs text-white/30">Toque em "+ Novo treino" para criar o primeiro.</p>
+    </div>
   {:else}
     <div class="flex flex-col gap-3">
       {#each $plans as plan (plan.id)}
-        <button
-          class="bg-surface rounded-xl p-4 text-left flex justify-between items-center"
-          on:click={() => navigate('workout-plan-detail', { planId: plan.id })}
-        >
-          <div>
-            <h3 class="font-semibold">{plan.name}</h3>
-            <p class="text-xs text-white/40">
-              {weekdayLabel(plan.weekday)}
-              {#if plan.estimatedDuration}· ~{plan.estimatedDuration} min{/if}
-            </p>
-          </div>
-          <span class="text-white/40 text-sm" on:click={(e) => removePlan(plan.id, e)} role="button" tabindex="0">
-            remover
-          </span>
-        </button>
+        <div class="bg-surface rounded-xl p-3 flex items-center gap-3 relative">
+          <button
+            class="flex items-center gap-3 flex-1 min-w-0 text-left"
+            on:click={() => navigate('workout-plan-detail', { planId: plan.id })}
+          >
+            <div
+              class="w-11 h-11 shrink-0 rounded-full flex items-center justify-center text-lg"
+              style="background: linear-gradient(135deg, #7c5cff, #4c2fc9);"
+            >
+              🏋️
+            </div>
+            <div class="min-w-0">
+              <h3 class="font-semibold truncate">{plan.name}</h3>
+              <p class="text-xs text-white/40">
+                {weekdayLabel(plan.weekday)}
+                {#if plan.estimatedDuration}· ~{plan.estimatedDuration} min{/if}
+              </p>
+            </div>
+          </button>
+
+          <button
+            class="text-white/40 px-2 py-1 text-lg shrink-0"
+            on:click|stopPropagation={() => toggleMenu(plan.id)}
+          >
+            ⋮
+          </button>
+
+          {#if openMenuId === plan.id}
+            <div class="absolute right-3 top-14 bg-bg border border-white/10 rounded-lg shadow-lg py-1 z-10 w-32">
+              <button
+                class="w-full text-left px-3 py-2 text-sm text-danger hover:bg-white/5"
+                on:click|stopPropagation={() => removePlan(plan.id)}
+              >
+                Remover
+              </button>
+            </div>
+          {/if}
+        </div>
       {/each}
     </div>
   {/if}

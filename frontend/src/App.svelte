@@ -5,7 +5,7 @@
   import Onboarding from './routes/Onboarding.svelte';
   import Dashboard from './components/Dashboard.svelte';
   import Pantry from './routes/Pantry.svelte';
-  import ScanReceipt from './routes/ScanReceipt.svelte';
+  import Habits from './routes/Habits.svelte';
   import Training from './routes/Training.svelte';
   import NewWorkoutPlan from './routes/NewWorkoutPlan.svelte';
   import TrainingMetrics from './routes/TrainingMetrics.svelte';
@@ -22,8 +22,8 @@
 {:else if $hasPlayer}
   {#if $nav.name === 'pantry'}
     <Pantry />
-  {:else if $nav.name === 'scan'}
-    <ScanReceipt />
+  {:else if $nav.name === 'habits'}
+    <Habits />
   {:else if $nav.name === 'training'}
     <Training />
   {:else if $nav.name === 'training-new'}

@@ -35,4 +35,13 @@ db.version(2).stores({
   bodyMeasurements: '++id, date'
 });
 
+// Hábitos absorvem o que antes era "missões": em vez de a IA gerar missões
+// pontuais no onboarding, o usuário cria e mantém seus próprios hábitos,
+// com histórico de conclusões (habitCompletions) — igual ao streak de
+// treino em metrics.js, nunca guardamos "streak" como campo solto.
+db.version(3).stores({
+  habits: '++id, title, icon, cadence, weeklyTarget, xpReward, archivedAt, createdAt',
+  habitCompletions: '++id, habitId, date'
+});
+
 export default db;

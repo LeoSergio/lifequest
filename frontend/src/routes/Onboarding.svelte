@@ -1,101 +1,72 @@
 <script>
   import { db } from '../db/db.js';
-  import { api } from '../lib/api.js';
 
-  // Perguntas do quiz. Mude aqui à vontade — o backend recebe um dict livre
-  // { pergunta: resposta }, então não precisa tocar no backend pra ajustar isso.
-  const questions = [
-    {
-      id: 'maior_desafio',
-      text: 'Qual seu maior desafio hoje?',
-      options: ['Organizar a casa', 'Constância na academia', 'Comer melhor', 'Manter disciplina']
-    },
-    {
-      id: 'tempo_disponivel',
-      text: 'Quanto tempo livre você tem por dia?',
-      options: ['Menos de 30min', '30min a 1h', '1h a 2h', 'Mais de 2h']
-    },
-    {
-      id: 'motivacao',
-      text: 'O que mais te motiva a continuar um hábito?',
-      options: ['Ver progresso visual', 'Competir com outras pessoas', 'Recompensas', 'Rotina fixa']
-    }
+  // Onboarding simplificado: só pedimos o nome, sem quiz de arquétipo e
+  // sem chamada de IA no primeiro acesso. Isso tem uma vantagem prática
+  // além da simplicidade: o app agora funciona 100% offline desde o
+  // primeiro segundo, sem depender do backend estar no ar pra o usuário
+  // conseguir nem entrar.
+  let name = '';
+  let saving = false;
+
+  // Hábitos iniciais pra a tela de Hábitos não começar vazia. O usuário
+  // pode apagar ou arquivar qualquer um deles depois — são só um ponto
+  // de partida, não uma imposição.
+  const starterHabits = [
+    { title: 'Beber 2L de água', icon: '💧', cadence: 'daily', weeklyTarget: null, xpReward: 10 },
+    { title: 'Dormir 7-8h', icon: '😴', cadence: 'daily', weeklyTarget: null, xpReward: 10 },
+    { title: 'Treinar', icon: '💪', cadence: 'weekly', weeklyTarget: 4, xpReward: 20 }
   ];
 
-  let step = 0;
-  let answers = {};
-  let loading = false;
-  let error = null;
+  async function start() {
+    if (!name.trim() || saving) return;
+    saving = true;
 
-  function selectAnswer(option) {
-    answers[questions[step].id] = option;
-    if (step < questions.length - 1) {
-      step += 1;
-    } else {
-      submit();
-    }
-  }
-
-  async function submit() {
-    loading = true;
-    error = null;
     try {
-      const result = await api.generateArchetype(answers);
-
-      // Salva o jogador localmente — a partir daqui, o App.svelte percebe
-      // (via liveQuery) que já existe um player e troca pra tela de Dashboard
-      // sozinho. Não precisamos "navegar" manualmente pra lugar nenhum.
       await db.player.add({
-        archetype: result.archetype,
-        archetypeDescription: result.archetype_description,
+        name: name.trim(),
         level: 1,
         xp: 0,
         streak: 0,
         createdAt: new Date().toISOString()
       });
 
-      await db.missions.bulkAdd(
-        result.initial_missions.map((m) => ({
-          pillar: m.pillar,
-          title: m.title,
-          description: m.description,
-          xpReward: m.xp_reward,
-          status: 'pending',
-          dueDate: new Date().toISOString().slice(0, 10),
-          difficulty: 'facil'
-        }))
+      // A partir daqui, o App.svelte percebe (via liveQuery) que já existe
+      // um player e troca pra tela de Início sozinho — não precisamos
+      // "navegar" manualmente pra lugar nenhum.
+      await db.habits.bulkAdd(
+        starterHabits.map((h) => ({ ...h, archivedAt: null, createdAt: new Date().toISOString() }))
       );
-    } catch (e) {
-      error = 'Não consegui gerar seu arquétipo agora. Verifique se o backend está rodando e tente de novo.';
-      console.error(e);
     } finally {
-      loading = false;
+      saving = false;
     }
   }
 </script>
 
 <main class="min-h-screen flex flex-col justify-center items-center p-6">
-  {#if loading}
-    <p class="text-lg animate-pulse">Consultando os oráculos da IA...</p>
-  {:else}
-    <div class="w-full max-w-sm">
-      <p class="text-xs text-white/40 mb-2">Passo {step + 1} de {questions.length}</p>
-      <h2 class="text-xl font-semibold mb-6">{questions[step].text}</h2>
+  <div class="w-full max-w-sm text-center flex flex-col items-center gap-5">
+    <div class="w-14 h-14 rounded-full bg-primary/20 flex items-center justify-center text-2xl">✨</div>
 
-      <div class="flex flex-col gap-3">
-        {#each questions[step].options as option}
-          <button
-            class="bg-surface hover:bg-primary/20 border border-white/10 rounded-xl py-4 px-4 text-left transition-colors"
-            on:click={() => selectAnswer(option)}
-          >
-            {option}
-          </button>
-        {/each}
-      </div>
-
-      {#if error}
-        <p class="text-danger text-sm mt-4">{error}</p>
-      {/if}
+    <div>
+      <h1 class="text-xl font-semibold mb-1">Bem-vindo ao LifeQuest</h1>
+      <p class="text-sm text-white/60">Como podemos te chamar?</p>
     </div>
-  {/if}
+
+    <form on:submit|preventDefault={start} class="w-full flex flex-col gap-3">
+      <input
+        class="bg-surface border border-white/10 rounded-xl px-4 py-3 text-sm text-center"
+        placeholder="Seu nome"
+        bind:value={name}
+        autofocus
+      />
+
+      <button
+        type="submit"
+        class="bg-primary text-white rounded-xl py-3 font-medium disabled:opacity-40"
+        disabled={!name.trim() || saving}
+      >
+        {saving ? 'Preparando sua jornada...' : 'Começar jornada'}
+      </button>
+    </form>
+  </div>
 </main>

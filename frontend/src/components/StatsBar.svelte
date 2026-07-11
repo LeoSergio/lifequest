@@ -17,5 +17,6 @@
   <div class="w-full bg-white/10 rounded-full h-2 overflow-hidden">
     <div class="bg-xp h-2 rounded-full transition-all" style="width: {progress}%"></div>
   </div>
+  <p class="text-[11px] text-white/40 mt-1">{progress}% até o nível {level + 1}</p>
   <p class="text-xs text-white/50 mt-2">🔥 Streak: {streak} dia{streak === 1 ? '' : 's'}</p>
 </div>

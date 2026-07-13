@@ -40,10 +40,6 @@
     </button>
   </div>
 
-  <button class="text-xs text-white/40 mb-6 flex items-center gap-1" on:click={() => navigate('training-metrics')}>
-    📊 Ver métricas
-  </button>
-
   {#if $plans === undefined}
     <p class="text-sm text-white/40">Carregando...</p>
   {:else if $plans.length === 0}

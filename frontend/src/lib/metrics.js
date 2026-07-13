@@ -56,6 +56,36 @@ export function last7DaysActivity(sessions) {
 }
 
 /**
+ * Monta uma grade de semanas x dias (estilo GitHub/Duolingo) marcando em
+ * quais dias houve treino concluído, pras últimas `weeks` semanas. Cada
+ * semana começa na segunda-feira, igual ao resto do app (ver startOfWeek).
+ */
+export function weeklyCalendar(sessions, weeks = 9) {
+  const trainedDays = new Set(sessions.filter((s) => s.finishedAt).map((s) => s.finishedAt.slice(0, 10)));
+  const monthLabels = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
+  const currentWeekStart = new Date(startOfWeek(new Date()));
+  const gridStart = new Date(currentWeekStart);
+  gridStart.setDate(gridStart.getDate() - (weeks - 1) * 7);
+
+  const columns = [];
+  const today = new Date().toISOString().slice(0, 10);
+
+  for (let w = 0; w < weeks; w++) {
+    const days = [];
+    for (let d = 0; d < 7; d++) {
+      const date = new Date(gridStart);
+      date.setDate(date.getDate() + w * 7 + d);
+      const iso = date.toISOString().slice(0, 10);
+      days.push({ date: iso, trained: trainedDays.has(iso), isToday: iso === today, isFuture: iso > today });
+    }
+    columns.push({ days, monthLabel: monthLabels[new Date(days[0].date).getMonth()] });
+  }
+
+  return columns;
+}
+
+/**
  * Conta quantas sessões de treino finalizadas existem por semana,
  * nas últimas `weeksBack` semanas (incluindo a atual).
  */

@@ -8,7 +8,9 @@
     { id: 'dashboard', label: 'Início', icon: '🏠' },
     { id: 'pantry', label: 'Despensa', icon: '🥫' },
     { id: 'habits', label: 'Hábitos', icon: '✅' },
-    { id: 'training', label: 'Treino', icon: '💪' }
+    { id: 'goals', label: 'Metas', icon: '🏆' },
+    { id: 'training', label: 'Treino', icon: '💪' },
+    { id: 'training-metrics', label: 'Métricas', icon: '📊' }
   ];
 </script>
 

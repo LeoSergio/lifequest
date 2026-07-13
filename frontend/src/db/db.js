@@ -44,4 +44,70 @@ db.version(3).stores({
   habitCompletions: '++id, habitId, date'
 });
 
+// Metas: diferente de hábito (repetição contínua), uma meta tem um alvo
+// numérico único e um fim — ao bater `targetValue`, ela é marcada como
+// alcançada (achievedAt) e não volta atrás. Progresso é atualizado
+// manualmente pelo usuário (local-first: sem depender de nenhuma fonte
+// externa por padrão).
+db.version(4).stores({
+  goals: '++id, title, targetValue, currentValue, unit, reward, xpReward, deadline, achievedAt, createdAt'
+});
+
+// Conserta uma lacuna que existia desde a v1: o índice `exerciseId` já
+// estava declarado em workoutPlanExercises, mas o app nunca escrevia
+// nele — exercícios eram identificados só por um `exerciseName` solto
+// copiado em cada plano, e a tabela `exercises` (catálogo) ficava sem
+// uso. Consequência prática: apagar um treino apagava o acesso ao
+// histórico de carga daquele exercício em Métricas, mesmo os dados
+// (sessionSets) continuando salvos.
+//
+// Agora exerciseId vira a identidade estável: workoutPlanExercises
+// aponta pra um exercicio do catálogo, e sessionSets guarda o
+// exerciseId direto (não só o workoutPlanExerciseId), então o
+// histórico de desempenho sobrevive mesmo se o plano for apagado depois.
+db.version(5)
+  .stores({
+    sessionSets: '++id, workoutSessionId, workoutPlanExerciseId, exerciseId, setNumber, weightKg, repsDone, completedAt'
+  })
+  .upgrade(async (tx) => {
+    const wpeTable = tx.table('workoutPlanExercises');
+    const exTable = tx.table('exercises');
+    const setsTable = tx.table('sessionSets');
+
+    const oldRows = await wpeTable.toArray();
+    const nameToId = new Map();
+    const wpeIdToExerciseId = new Map();
+
+    for (const row of oldRows) {
+      if (row.exerciseId != null) {
+        wpeIdToExerciseId.set(row.id, row.exerciseId);
+        continue;
+      }
+
+      const key = (row.exerciseName ?? '').trim().toLowerCase();
+      if (!key) continue;
+
+      let exerciseId = nameToId.get(key);
+      if (exerciseId == null) {
+        exerciseId = await exTable.add({
+          name: row.exerciseName.trim(),
+          muscleGroup: row.muscleGroup ?? null,
+          equipment: row.equipment ?? null
+        });
+        nameToId.set(key, exerciseId);
+      }
+
+      wpeIdToExerciseId.set(row.id, exerciseId);
+      await wpeTable.update(row.id, { exerciseId });
+    }
+
+    const oldSets = await setsTable.toArray();
+    for (const set of oldSets) {
+      const exerciseId = wpeIdToExerciseId.get(set.workoutPlanExerciseId);
+      if (exerciseId != null) {
+        await setsTable.update(set.id, { exerciseId });
+      }
+    }
+  });
+
 export default db;

@@ -2,20 +2,26 @@
   import { liveQuery } from 'dexie';
   import { db } from '../db/db.js';
   import { navigate } from '../lib/nav.js';
-  import LineChart from '../components/LineChart.svelte';
   import BarChart from '../components/BarChart.svelte';
   import RadarChart from '../components/RadarChart.svelte';
-  import { sessionsPerWeek, maxWeightByDay } from '../lib/metrics.js';
+  import LineChart from '../components/LineChart.svelte';
+  import ConsistencyCalendar from '../components/ConsistencyCalendar.svelte';
+  import { maxWeightByDay, weeklyCalendar, currentStreak } from '../lib/metrics.js';
+
+  // Vindo de um link contextual em WorkoutPlanDetail (ex: "ver evolução
+  // de carga" depois de terminar um treino) — se presente, a aba de
+  // Desempenho já abre com esse exercício selecionado.
+  export let focusExerciseId = null;
+
+  let tab = focusExerciseId ? 'desempenho' : 'perimetricas'; // perimetricas | desempenho | consistencia
 
   // ---------- Perimétricas ----------
   let date = new Date().toISOString().slice(0, 10);
 
-  // Perfil — escalas diferentes das circunferências, não entram no radar
   let age = '';
   let weight = '';
   let height = '';
 
-  // Circunferências — todas em cm, comparáveis entre si no radar
   let shoulder = '';
   let chest = '';
   let abdomen = '';
@@ -45,6 +51,16 @@
       }
     : null;
 
+  // Peso ao longo do tempo — já tínhamos o histórico completo em
+  // bodyMeasurements, só não existia nenhum gráfico usando ele (só o
+  // "retrato" mais recente aparecia, no radar).
+  $: weightTrend = $measurements
+    ? {
+        labels: $measurements.filter((m) => m.weight != null).map((m) => m.date.slice(5).split('-').reverse().join('/')),
+        data: $measurements.filter((m) => m.weight != null).map((m) => m.weight)
+      }
+    : { labels: [], data: [] };
+
   function toNumberOrNull(value) {
     return value === '' ? null : Number(value);
   }
@@ -69,132 +85,152 @@
   }
 
   // ---------- Desempenho (carga por exercício) ----------
-  const planExercises = liveQuery(() => db.workoutPlanExercises.toArray());
-
-  // Vários registros de workoutPlanExercises podem ter o mesmo nome
-  // (o mesmo exercício em treinos diferentes) — juntamos pelo nome
-  // pra não fragmentar o histórico de carga em gráficos separados.
-  $: exerciseNames = $planExercises ? [...new Set($planExercises.map((e) => e.exerciseName))] : [];
-
-  let selectedExercise = '';
-  $: if (!selectedExercise && exerciseNames.length > 0) selectedExercise = exerciseNames[0];
-
-  $: matchingIds = $planExercises
-    ? $planExercises.filter((e) => e.exerciseName === selectedExercise).map((e) => e.id)
-    : [];
-
+  // Antes isso vinha de workoutPlanExercises, o que fazia o histórico
+  // sumir do dropdown se o plano fosse apagado. Agora vem do catálogo
+  // `exercises`, que é estável — e sessionSets guarda exerciseId direto
+  // (ver migração v5 em db.js), então o dado não depende do plano.
+  const catalog = liveQuery(() => db.exercises.toArray());
   const allSessionSets = liveQuery(() => db.sessionSets.toArray());
 
+  let selectedExercise = focusExerciseId ?? null;
+
+  // Exercícios com histórico de sessão aparecem primeiro — assim a
+  // pessoa não precisa abrir 4 exercícios vazios até achar um com dado.
+  $: exerciseOptions = ($catalog ?? [])
+    .map((e) => ({
+      ...e,
+      hasData: ($allSessionSets ?? []).some((s) => s.exerciseId === e.id)
+    }))
+    .sort((a, b) => Number(b.hasData) - Number(a.hasData) || a.name.localeCompare(b.name));
+
+  $: if (selectedExercise == null && exerciseOptions.length > 0) selectedExercise = exerciseOptions[0].id;
+
   $: performanceData =
-    matchingIds.length > 0 && $allSessionSets
-      ? maxWeightByDay($allSessionSets.filter((s) => matchingIds.includes(s.workoutPlanExerciseId)))
+    selectedExercise != null && $allSessionSets
+      ? maxWeightByDay($allSessionSets.filter((s) => s.exerciseId === selectedExercise))
       : { labels: [], data: [] };
+
+  $: selectedExerciseName = exerciseOptions.find((e) => e.id === selectedExercise)?.name ?? '';
 
   // ---------- Consistência ----------
   const sessions = liveQuery(() => db.workoutSessions.toArray());
-  $: consistencyData = $sessions ? sessionsPerWeek($sessions, 8) : { labels: [], data: [] };
+  $: calendarColumns = $sessions ? weeklyCalendar($sessions, 9) : [];
+  $: totalTrained = $sessions ? new Set($sessions.filter((s) => s.finishedAt).map((s) => s.finishedAt.slice(0, 10))).size : 0;
+  $: streak = $sessions ? currentStreak($sessions) : 0;
 </script>
 
 <main class="min-h-screen p-6 pb-24 max-w-md mx-auto">
   <button class="text-sm text-white/40 mb-4" on:click={() => navigate('training')}>← Treinos</button>
-  <h1 class="text-2xl font-bold text-primary mb-6">Métricas</h1>
+  <h1 class="text-2xl font-bold text-primary mb-4">Métricas</h1>
 
-  <!-- Perimétricas -->
-  <section class="mb-8">
-    <h2 class="text-sm uppercase text-white/40 mb-3">Perimétricas</h2>
+  <div class="flex bg-surface rounded-xl p-1 mb-6 text-xs">
+    {#each [['perimetricas', 'Perimétricas'], ['desempenho', 'Desempenho'], ['consistencia', 'Consistência']] as [value, label]}
+      <button
+        class="flex-1 py-2 rounded-lg transition-colors {tab === value ? 'bg-primary text-white' : 'text-white/40'}"
+        on:click={() => (tab = value)}
+      >
+        {label}
+      </button>
+    {/each}
+  </div>
 
-    {#if latestMeasurement}
-      <div class="bg-surface rounded-xl p-4 mb-3 flex justify-around text-center">
+  {#if tab === 'perimetricas'}
+    <section>
+      {#if latestMeasurement}
+        <div class="bg-surface rounded-xl p-4 mb-3 flex justify-around text-center">
+          <div>
+            <p class="text-xs text-white/40">Idade</p>
+            <p class="font-semibold">{latestMeasurement.age ?? '-'}</p>
+          </div>
+          <div>
+            <p class="text-xs text-white/40">Peso</p>
+            <p class="font-semibold">{latestMeasurement.weight ? `${latestMeasurement.weight}kg` : '-'}</p>
+          </div>
+          <div>
+            <p class="text-xs text-white/40">Altura</p>
+            <p class="font-semibold">{latestMeasurement.height ? `${latestMeasurement.height}cm` : '-'}</p>
+          </div>
+        </div>
+      {/if}
+
+      {#if weightTrend.labels.length >= 2}
+        <div class="bg-surface rounded-xl p-4 mb-3">
+          <p class="text-xs text-white/40 mb-2">Peso ao longo do tempo</p>
+          <LineChart labels={weightTrend.labels} data={weightTrend.data} label="Peso (kg)" />
+        </div>
+      {/if}
+
+      {#if radarData}
+        <div class="bg-surface rounded-xl p-4 mb-4">
+          <RadarChart labels={radarData.labels} data={radarData.data} label="cm (última medição)" />
+        </div>
+      {:else}
+        <p class="text-sm text-white/40 mb-4">Registre sua primeira medição abaixo para ver o gráfico.</p>
+      {/if}
+
+      <form on:submit|preventDefault={addMeasurement} class="bg-surface rounded-xl p-4 flex flex-col gap-3">
+        <input type="date" class="bg-bg border border-white/10 rounded-lg px-3 py-2 text-sm" bind:value={date} />
+
         <div>
-          <p class="text-xs text-white/40">Idade</p>
-          <p class="font-semibold">{latestMeasurement.age ?? '-'}</p>
+          <p class="text-xs text-white/40 mb-1">Perfil</p>
+          <div class="grid grid-cols-3 gap-2">
+            <input class="bg-bg border border-white/10 rounded-lg px-3 py-2 text-sm" placeholder="Idade" type="number" bind:value={age} />
+            <input class="bg-bg border border-white/10 rounded-lg px-3 py-2 text-sm" placeholder="Peso (kg)" type="number" bind:value={weight} />
+            <input class="bg-bg border border-white/10 rounded-lg px-3 py-2 text-sm" placeholder="Altura (cm)" type="number" bind:value={height} />
+          </div>
         </div>
+
         <div>
-          <p class="text-xs text-white/40">Peso</p>
-          <p class="font-semibold">{latestMeasurement.weight ? `${latestMeasurement.weight}kg` : '-'}</p>
+          <p class="text-xs text-white/40 mb-1">Circunferências (cm)</p>
+          <div class="grid grid-cols-2 gap-2">
+            <input class="bg-bg border border-white/10 rounded-lg px-3 py-2 text-sm" placeholder="Ombro" type="number" bind:value={shoulder} />
+            <input class="bg-bg border border-white/10 rounded-lg px-3 py-2 text-sm" placeholder="Tórax" type="number" bind:value={chest} />
+            <input class="bg-bg border border-white/10 rounded-lg px-3 py-2 text-sm" placeholder="Abdômen" type="number" bind:value={abdomen} />
+            <input class="bg-bg border border-white/10 rounded-lg px-3 py-2 text-sm" placeholder="Coxa" type="number" bind:value={thigh} />
+            <input class="bg-bg border border-white/10 rounded-lg px-3 py-2 text-sm" placeholder="Panturrilha" type="number" bind:value={calf} />
+            <input class="bg-bg border border-white/10 rounded-lg px-3 py-2 text-sm" placeholder="Antebraço" type="number" bind:value={forearm} />
+            <input class="bg-bg border border-white/10 rounded-lg px-3 py-2 text-sm" placeholder="Braço esquerdo" type="number" bind:value={armLeft} />
+            <input class="bg-bg border border-white/10 rounded-lg px-3 py-2 text-sm" placeholder="Braço direito" type="number" bind:value={armRight} />
+          </div>
         </div>
-        <div>
-          <p class="text-xs text-white/40">Altura</p>
-          <p class="font-semibold">{latestMeasurement.height ? `${latestMeasurement.height}cm` : '-'}</p>
+
+        <button type="submit" class="bg-primary text-white rounded-lg py-3 font-medium text-sm">Registrar medição</button>
+      </form>
+    </section>
+  {:else if tab === 'desempenho'}
+    <section>
+      {#if exerciseOptions.length === 0}
+        <p class="text-sm text-white/40">Cadastre exercícios em um treino para ver a evolução de carga aqui.</p>
+      {:else}
+        <select class="w-full bg-surface border border-white/10 rounded-lg px-3 py-2 text-sm mb-3" bind:value={selectedExercise}>
+          {#each exerciseOptions as ex}
+            <option value={ex.id}>{ex.name}{ex.hasData ? '' : ' (sem dados ainda)'}</option>
+          {/each}
+        </select>
+
+        <div class="bg-surface rounded-xl p-4">
+          {#if performanceData.labels.length === 0}
+            <p class="text-sm text-white/40">
+              Ainda sem sessões registradas para "{selectedExerciseName}". Esse gráfico se preenche quando você
+              começar a executar os treinos e registrar peso/reps.
+            </p>
+          {:else}
+            <BarChart labels={performanceData.labels} data={performanceData.data} label="{selectedExerciseName} (kg)" />
+          {/if}
         </div>
-      </div>
-    {/if}
-
-    {#if radarData}
-      <div class="bg-surface rounded-xl p-4 mb-4">
-        <RadarChart labels={radarData.labels} data={radarData.data} label="cm (última medição)" />
-      </div>
-    {:else}
-      <p class="text-sm text-white/40 mb-4">Registre sua primeira medição abaixo para ver o gráfico.</p>
-    {/if}
-
-    <form on:submit|preventDefault={addMeasurement} class="bg-surface rounded-xl p-4 flex flex-col gap-3">
-      <input type="date" class="bg-bg border border-white/10 rounded-lg px-3 py-2 text-sm" bind:value={date} />
-
-      <div>
-        <p class="text-xs text-white/40 mb-1">Perfil</p>
-        <div class="grid grid-cols-3 gap-2">
-          <input class="bg-bg border border-white/10 rounded-lg px-3 py-2 text-sm" placeholder="Idade" type="number" bind:value={age} />
-          <input class="bg-bg border border-white/10 rounded-lg px-3 py-2 text-sm" placeholder="Peso (kg)" type="number" bind:value={weight} />
-          <input class="bg-bg border border-white/10 rounded-lg px-3 py-2 text-sm" placeholder="Altura (cm)" type="number" bind:value={height} />
-        </div>
-      </div>
-
-      <div>
-        <p class="text-xs text-white/40 mb-1">Circunferências (cm)</p>
-        <div class="grid grid-cols-2 gap-2">
-          <input class="bg-bg border border-white/10 rounded-lg px-3 py-2 text-sm" placeholder="Ombro" type="number" bind:value={shoulder} />
-          <input class="bg-bg border border-white/10 rounded-lg px-3 py-2 text-sm" placeholder="Tórax" type="number" bind:value={chest} />
-          <input class="bg-bg border border-white/10 rounded-lg px-3 py-2 text-sm" placeholder="Abdômen" type="number" bind:value={abdomen} />
-          <input class="bg-bg border border-white/10 rounded-lg px-3 py-2 text-sm" placeholder="Coxa" type="number" bind:value={thigh} />
-          <input class="bg-bg border border-white/10 rounded-lg px-3 py-2 text-sm" placeholder="Panturrilha" type="number" bind:value={calf} />
-          <input class="bg-bg border border-white/10 rounded-lg px-3 py-2 text-sm" placeholder="Antebraço" type="number" bind:value={forearm} />
-          <input class="bg-bg border border-white/10 rounded-lg px-3 py-2 text-sm" placeholder="Braço esquerdo" type="number" bind:value={armLeft} />
-          <input class="bg-bg border border-white/10 rounded-lg px-3 py-2 text-sm" placeholder="Braço direito" type="number" bind:value={armRight} />
-        </div>
-      </div>
-
-      <button type="submit" class="bg-primary text-white rounded-lg py-3 font-medium text-sm">Registrar medição</button>
-    </form>
-  </section>
-
-  <!-- Desempenho -->
-  <section class="mb-8">
-    <h2 class="text-sm uppercase text-white/40 mb-3">Desempenho</h2>
-
-    {#if exerciseNames.length === 0}
-      <p class="text-sm text-white/40">Cadastre exercícios em um treino para ver a evolução de carga aqui.</p>
-    {:else}
-      <select class="w-full bg-surface border border-white/10 rounded-lg px-3 py-2 text-sm mb-3" bind:value={selectedExercise}>
-        {#each exerciseNames as name}
-          <option value={name}>{name}</option>
-        {/each}
-      </select>
-
+      {/if}
+    </section>
+  {:else}
+    <section>
       <div class="bg-surface rounded-xl p-4">
-        {#if performanceData.labels.length === 0}
+        {#if $sessions && $sessions.length === 0}
           <p class="text-sm text-white/40">
-            Ainda sem sessões registradas para "{selectedExercise}". Esse gráfico se preenche quando você
-            começar a executar os treinos e registrar peso/reps.
+            Nenhuma sessão de treino concluída ainda — esse calendário marca em quais dias você treinou.
           </p>
         {:else}
-          <BarChart labels={performanceData.labels} data={performanceData.data} label="{selectedExercise} (kg)" />
+          <ConsistencyCalendar columns={calendarColumns} {totalTrained} {streak} />
         {/if}
       </div>
-    {/if}
-  </section>
-
-  <!-- Consistência -->
-  <section>
-    <h2 class="text-sm uppercase text-white/40 mb-3">Consistência</h2>
-    <div class="bg-surface rounded-xl p-4">
-      {#if $sessions && $sessions.length === 0}
-        <p class="text-sm text-white/40">
-          Nenhuma sessão de treino concluída ainda — esse gráfico mostra quantos treinos você fecha por semana.
-        </p>
-      {:else}
-        <LineChart labels={consistencyData.labels} data={consistencyData.data} label="Treinos por semana" />
-      {/if}
-    </div>
-  </section>
+    </section>
+  {/if}
 </main>

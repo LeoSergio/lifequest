@@ -6,6 +6,7 @@
   import Dashboard from './components/Dashboard.svelte';
   import Pantry from './routes/Pantry.svelte';
   import Habits from './routes/Habits.svelte';
+  import Goals from './routes/Goals.svelte';
   import Training from './routes/Training.svelte';
   import NewWorkoutPlan from './routes/NewWorkoutPlan.svelte';
   import TrainingMetrics from './routes/TrainingMetrics.svelte';
@@ -24,12 +25,14 @@
     <Pantry />
   {:else if $nav.name === 'habits'}
     <Habits />
+  {:else if $nav.name === 'goals'}
+    <Goals />
   {:else if $nav.name === 'training'}
     <Training />
   {:else if $nav.name === 'training-new'}
     <NewWorkoutPlan />
   {:else if $nav.name === 'training-metrics'}
-    <TrainingMetrics />
+    <TrainingMetrics focusExerciseId={$nav.params.focusExerciseId} />
   {:else if $nav.name === 'workout-plan-detail'}
     <WorkoutPlanDetail planId={$nav.params.planId} />
   {:else}

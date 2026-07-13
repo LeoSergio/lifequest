@@ -14,33 +14,74 @@
   let targetReps = '8-12';
   let restSeconds = 90;
   let completing = false;
+  let starting = false;
+
+  // Inputs de peso/reps ainda não salvos, por "linkId-numeroDaSerie".
+  // Só existe em memória até o usuário tocar em "salvar" naquela série.
+  let setInputs = {};
 
   const plan = liveQuery(() => db.workoutPlans.get(planId));
-  const exercises = liveQuery(() =>
+
+  // workoutPlanExercises guarda só o "vínculo" (quantas séries, reps,
+  // descanso, ordem) — o nome/grupo muscular/equipamento vivem no
+  // catálogo `exercises`, que é compartilhado entre todos os planos.
+  // Isso é o que faz o histórico de carga sobreviver mesmo se esse
+  // plano for apagado depois (ver comentário na migração v5 em db.js).
+  const links = liveQuery(() =>
     db.workoutPlanExercises.where('workoutPlanId').equals(planId).sortBy('order')
   );
+  const catalog = liveQuery(() => db.exercises.toArray());
+
+  $: exercises = ($links ?? []).map((link) => ({
+    ...link,
+    exercise: ($catalog ?? []).find((e) => e.id === link.exerciseId) ?? { name: '(exercício removido)' }
+  }));
+
+  const planSessions = liveQuery(() => db.workoutSessions.where('workoutPlanId').equals(planId).toArray());
+  const allSessionSets = liveQuery(() => db.sessionSets.toArray());
 
   const today = new Date().toISOString().slice(0, 10);
-  // Verifica se esse treino específico já foi concluído hoje, pra não
-  // deixar o usuário clicar várias vezes e "farmar" XP no mesmo dia.
-  const todaysSession = liveQuery(() =>
-    db.workoutSessions
-      .where('workoutPlanId')
-      .equals(planId)
-      .filter((s) => s.finishedAt?.slice(0, 10) === today)
-      .first()
-  );
+
+  // Sessão em andamento (iniciada, ainda sem finishedAt) — é aqui que a
+  // tela de registro de séries aparece. Sessão finalizada hoje é outro
+  // estado, só pra travar um segundo treino no mesmo dia.
+  $: activeSession = ($planSessions ?? []).find((s) => !s.finishedAt) ?? null;
+  $: todaysFinishedSession = ($planSessions ?? []).find((s) => s.finishedAt?.slice(0, 10) === today);
+
+  $: activeSets = activeSession && $allSessionSets
+    ? $allSessionSets.filter((s) => s.workoutSessionId === activeSession.id)
+    : [];
+
+  function savedSet(linkId, setNumber) {
+    return activeSets.find((s) => s.workoutPlanExerciseId === linkId && s.setNumber === setNumber);
+  }
+
+  // Acha um exercício já existente no catálogo pelo nome (sem diferenciar
+  // maiúsculas/minúsculas, pra "Supino Reto" e "supino reto" não virarem
+  // duas linhas de histórico separadas) ou cria um novo. Se já existir,
+  // atualiza o grupo muscular/equipamento pro que foi escolhido agora —
+  // o catálogo reflete sempre a classificação mais recente.
+  async function findOrCreateExercise(name, mg, eq) {
+    const trimmed = name.trim();
+    const existing = ($catalog ?? []).find((e) => e.name.toLowerCase() === trimmed.toLowerCase());
+
+    if (existing) {
+      await db.exercises.update(existing.id, { muscleGroup: mg, equipment: eq });
+      return existing.id;
+    }
+
+    return db.exercises.add({ name: trimmed, muscleGroup: mg, equipment: eq });
+  }
 
   async function addExercise() {
     if (!exerciseName.trim()) return;
 
+    const exerciseId = await findOrCreateExercise(exerciseName, muscleGroup, equipment);
     const count = await db.workoutPlanExercises.where('workoutPlanId').equals(planId).count();
 
     await db.workoutPlanExercises.add({
       workoutPlanId: planId,
-      exerciseName: exerciseName.trim(),
-      muscleGroup,
-      equipment,
+      exerciseId,
       order: count,
       targetSets: Number(targetSets),
       targetReps,
@@ -53,24 +94,62 @@
     restSeconds = 90;
   }
 
-  async function removeExercise(id) {
-    await db.workoutPlanExercises.delete(id);
+  async function removeExercise(linkId) {
+    // Remove só o vínculo desse plano com o exercício — o exercício em
+    // si continua no catálogo, então o histórico de carga dele em
+    // Métricas não é afetado.
+    await db.workoutPlanExercises.delete(linkId);
   }
 
-  async function completeWorkout() {
-    completing = true;
+  async function startWorkout() {
+    starting = true;
     try {
-      const now = new Date().toISOString();
-
       await db.workoutSessions.add({
         workoutPlanId: planId,
-        startedAt: now,
-        finishedAt: now
+        startedAt: new Date().toISOString(),
+        finishedAt: null
       });
+    } finally {
+      starting = false;
+    }
+  }
+
+  // Grava (ou atualiza, se o usuário corrigir um valor) uma série
+  // específica — é isso que alimenta o gráfico de Desempenho em
+  // TrainingMetrics.svelte. Guardamos exerciseId direto aqui (além do
+  // workoutPlanExerciseId) pra esse histórico não depender do vínculo
+  // com o plano continuar existindo.
+  async function saveSet(link, setNumber) {
+    const key = `${link.id}-${setNumber}`;
+    const input = setInputs[key] ?? {};
+    const weightKg = input.weight === '' || input.weight == null ? null : Number(input.weight);
+    const repsDone = input.reps === '' || input.reps == null ? null : Number(input.reps);
+
+    const existing = savedSet(link.id, setNumber);
+    if (existing) {
+      await db.sessionSets.update(existing.id, { weightKg, repsDone, completedAt: new Date().toISOString() });
+    } else {
+      await db.sessionSets.add({
+        workoutSessionId: activeSession.id,
+        workoutPlanExerciseId: link.id,
+        exerciseId: link.exerciseId,
+        setNumber,
+        weightKg,
+        repsDone,
+        completedAt: new Date().toISOString()
+      });
+    }
+  }
+
+  async function finishWorkout() {
+    if (!activeSession) return;
+    completing = true;
+    try {
+      await db.workoutSessions.update(activeSession.id, { finishedAt: new Date().toISOString() });
 
       // XP proporcional ao tamanho do treino, com um piso — treinos
       // maiores rendem mais, mas nenhum treino concluído vale "pouco".
-      const exerciseCount = $exercises?.length ?? 0;
+      const exerciseCount = exercises.length;
       const xpReward = Math.max(30, exerciseCount * 15);
 
       const currentPlayer = await db.player.toCollection().first();
@@ -117,52 +196,110 @@
 
     <div class="flex gap-2">
       <div class="flex-1">
-        <label class="text-xs text-white/40">Séries</label>
-        <input type="number" class="w-full bg-bg border border-white/10 rounded-lg px-2 py-2 text-sm" bind:value={targetSets} />
+        <label class="text-xs text-white/40" for="target-sets">Séries</label>
+        <input id="target-sets" type="number" class="w-full bg-bg border border-white/10 rounded-lg px-2 py-2 text-sm" bind:value={targetSets} />
       </div>
       <div class="flex-1">
-        <label class="text-xs text-white/40">Reps</label>
-        <input class="w-full bg-bg border border-white/10 rounded-lg px-2 py-2 text-sm" bind:value={targetReps} />
+        <label class="text-xs text-white/40" for="target-reps">Reps</label>
+        <input id="target-reps" class="w-full bg-bg border border-white/10 rounded-lg px-2 py-2 text-sm" bind:value={targetReps} />
       </div>
       <div class="flex-1">
-        <label class="text-xs text-white/40">Descanso (s)</label>
-        <input type="number" class="w-full bg-bg border border-white/10 rounded-lg px-2 py-2 text-sm" bind:value={restSeconds} />
+        <label class="text-xs text-white/40" for="rest-seconds">Descanso (s)</label>
+        <input id="rest-seconds" type="number" class="w-full bg-bg border border-white/10 rounded-lg px-2 py-2 text-sm" bind:value={restSeconds} />
       </div>
     </div>
 
     <button type="submit" class="bg-primary text-white rounded-lg py-3 font-medium">Adicionar exercício</button>
   </form>
 
-  {#if $exercises === undefined}
+  {#if $links === undefined}
     <p class="text-sm text-white/40">Carregando...</p>
-  {:else if $exercises.length === 0}
+  {:else if exercises.length === 0}
     <p class="text-sm text-white/40">Nenhum exercício ainda. Adicione o primeiro acima.</p>
   {:else}
     <div class="flex flex-col gap-2 mb-6">
-      {#each $exercises as ex (ex.id)}
+      {#each exercises as link (link.id)}
         <div class="bg-surface rounded-lg p-3 flex justify-between items-center">
           <div>
-            <h3 class="text-sm font-semibold">{ex.exerciseName}</h3>
+            <h3 class="text-sm font-semibold">{link.exercise.name}</h3>
             <p class="text-xs text-white/40">
-              {ex.muscleGroup} · {ex.equipment} · {ex.targetSets}x{ex.targetReps} · {ex.restSeconds}s descanso
+              {link.exercise.muscleGroup} · {link.exercise.equipment} · {link.targetSets}x{link.targetReps} · {link.restSeconds}s descanso
             </p>
           </div>
-          <button class="text-white/40 text-sm shrink-0" on:click={() => removeExercise(ex.id)}>remover</button>
+          {#if !activeSession}
+            <button class="text-white/40 text-sm shrink-0" on:click={() => removeExercise(link.id)}>remover</button>
+          {/if}
         </div>
       {/each}
     </div>
 
-    {#if $todaysSession}
-      <div class="bg-xp/10 border border-xp/30 rounded-xl p-4 text-center text-sm text-xp">
+    {#if todaysFinishedSession}
+      <div class="bg-xp/10 border border-xp/30 rounded-xl p-4 text-center text-sm text-xp mb-3">
         ✅ Treino já concluído hoje
       </div>
-    {:else}
+      <button
+        class="w-full bg-surface text-sm text-primary rounded-xl py-3"
+        on:click={() => navigate('training-metrics', { focusExerciseId: exercises[0]?.exerciseId })}
+      >
+        Ver evolução de carga →
+      </button>
+    {:else if activeSession}
+      <div class="mb-4">
+        <h2 class="text-sm uppercase text-white/40 mb-3">Sessão de hoje — registre suas séries</h2>
+        <div class="flex flex-col gap-4">
+          {#each exercises as link (link.id)}
+            <div class="bg-surface rounded-xl p-4">
+              <h3 class="text-sm font-semibold mb-3">{link.exercise.name}</h3>
+              <div class="flex flex-col gap-2">
+                {#each Array(link.targetSets) as _, i}
+                  {@const setNumber = i + 1}
+                  {@const saved = savedSet(link.id, setNumber)}
+                  {@const key = `${link.id}-${setNumber}`}
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs text-white/40 w-14 shrink-0">Série {setNumber}</span>
+                    <input
+                      type="number"
+                      class="flex-1 bg-bg border border-white/10 rounded-lg px-2 py-2 text-sm"
+                      placeholder="kg"
+                      value={saved ? saved.weightKg : (setInputs[key]?.weight ?? '')}
+                      on:input={(e) => (setInputs[key] = { ...setInputs[key], weight: e.target.value })}
+                    />
+                    <input
+                      type="number"
+                      class="flex-1 bg-bg border border-white/10 rounded-lg px-2 py-2 text-sm"
+                      placeholder="reps"
+                      value={saved ? saved.repsDone : (setInputs[key]?.reps ?? '')}
+                      on:input={(e) => (setInputs[key] = { ...setInputs[key], reps: e.target.value })}
+                    />
+                    <button
+                      class="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center text-sm {saved ? 'bg-xp text-bg' : 'bg-primary text-white'}"
+                      on:click={() => saveSet(link, setNumber)}
+                      aria-label="Salvar série {setNumber} de {link.exercise.name}"
+                    >
+                      {saved ? '✓' : '💾'}
+                    </button>
+                  </div>
+                {/each}
+              </div>
+            </div>
+          {/each}
+        </div>
+      </div>
+
       <button
         class="w-full bg-xp text-bg rounded-xl py-4 font-semibold disabled:opacity-50"
         disabled={completing}
-        on:click={completeWorkout}
+        on:click={finishWorkout}
       >
-        {completing ? 'Registrando...' : '✅ Concluir treino'}
+        {completing ? 'Registrando...' : '✅ Finalizar treino'}
+      </button>
+    {:else}
+      <button
+        class="w-full bg-primary text-white rounded-xl py-4 font-semibold disabled:opacity-50"
+        disabled={starting}
+        on:click={startWorkout}
+      >
+        {starting ? 'Iniciando...' : '▶ Iniciar treino'}
       </button>
     {/if}
   {/if}

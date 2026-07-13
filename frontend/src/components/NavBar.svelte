@@ -4,13 +4,15 @@
   // "Escanear" saiu da barra: o scan de nota fiscal agora vive dentro da
   // própria tela de Despensa (ver routes/Pantry.svelte), então não faz
   // sentido ocupar uma aba própria só pra isso.
+  // Métricas não é uma aba própria: ela é uma "sub-tela" de Treino,
+  // acessada por um botão dentro da lista de treinos (ver Training.svelte)
+  // — assim como "novo treino" também não tem aba própria.
   const tabs = [
     { id: 'dashboard', label: 'Início', icon: '🏠' },
     { id: 'pantry', label: 'Despensa', icon: '🥫' },
     { id: 'habits', label: 'Hábitos', icon: '✅' },
     { id: 'goals', label: 'Metas', icon: '🏆' },
-    { id: 'training', label: 'Treino', icon: '💪' },
-    { id: 'training-metrics', label: 'Métricas', icon: '📊' }
+    { id: 'training', label: 'Treino', icon: '💪' }
   ];
 </script>
 

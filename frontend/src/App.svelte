@@ -32,7 +32,7 @@
   {:else if $nav.name === 'training-new'}
     <NewWorkoutPlan />
   {:else if $nav.name === 'training-metrics'}
-    <TrainingMetrics focusExerciseId={$nav.params.focusExerciseId} />
+    <TrainingMetrics focusPlanId={$nav.params.focusPlanId} />
   {:else if $nav.name === 'workout-plan-detail'}
     <WorkoutPlanDetail planId={$nav.params.planId} />
   {:else}

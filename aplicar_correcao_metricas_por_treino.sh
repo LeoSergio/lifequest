@@ -1,123 +1,314 @@
 #!/usr/bin/env bash
 set -e
 # Rode a partir da raiz do repo lifequest (onde fica a pasta frontend/).
-# Pré-requisito: já ter aplicado os scripts anteriores (habitos/scan/onboarding, metas, calendario).
+# Pré-requisito: já ter aplicado o script anterior (reforma treino/metricas).
 
-mkdir -p "frontend/src/db"
-cat > "frontend/src/db/db.js" << 'LIFEQUEST_EOF'
-import Dexie from 'dexie';
+mkdir -p "frontend/src/lib"
+cat > "frontend/src/lib/metrics.js" << 'LIFEQUEST_EOF'
+// Retorna a "segunda-feira" da semana de uma data, como string YYYY-MM-DD.
+// Usamos isso como chave de agrupamento pra "quantos treinos por semana".
+function startOfWeek(date) {
+  const d = new Date(date);
+  const day = d.getDay(); // 0 = domingo
+  const diff = (day === 0 ? -6 : 1) - day; // volta até a segunda-feira
+  d.setDate(d.getDate() + diff);
+  return d.toISOString().slice(0, 10);
+}
 
-// Local-first: este é o único "banco de dados" do usuário.
-// Nada aqui sobe para o backend, exceto payloads efêmeros enviados
-// pontualmente para as rotas de IA (backend é stateless).
-export const db = new Dexie('lifequest');
+/**
+ * Streak (ofensiva) calculado sempre a partir do histórico real de sessões
+ * concluídas — nunca guardamos esse número num campo solto, pra não correr
+ * risco de ele dessincronizar da realidade (ex: se uma sessão for apagada).
+ */
+export function currentStreak(sessions) {
+  const trainedDays = new Set(sessions.filter((s) => s.finishedAt).map((s) => s.finishedAt.slice(0, 10)));
 
-db.version(1).stores({
-  // Pilar 1 — Onboarding & Dashboard
-  player: '++id, archetype, level, xp, streak, createdAt',
-  missions: '++id, pillar, status, dueDate, difficulty',
+  let streak = 0;
+  const cursor = new Date();
 
-  // Pilar 2 — Gestão do Lar & Inteligência Financeira
-  pantryItems: '++id, name, category, quantity, updatedAt',
-  shoppingList: '++id, itemName, checked, recipeId, createdAt',
-  budget: '++id, month, limit, spent',
+  // Se hoje ainda não treinou, começa a contagem em ontem — assim a
+  // ofensiva não "quebra" visualmente só porque o dia ainda não acabou.
+  if (!trainedDays.has(cursor.toISOString().slice(0, 10))) {
+    cursor.setDate(cursor.getDate() - 1);
+  }
 
-  // Pilar 3 — Academia & Nutrição Sincronizada
-  workoutPlans: '++id, name, weekday, estimatedDuration',
-  workoutPlanExercises: '++id, workoutPlanId, exerciseId, order, targetSets, targetReps, restSeconds',
-  exercises: '++id, name, muscleGroup, equipment',
-  workoutSessions: '++id, workoutPlanId, startedAt, finishedAt',
-  sessionSets: '++id, workoutSessionId, workoutPlanExerciseId, setNumber, weightKg, repsDone, completedAt',
-  recipes: '++id, title, goalContext, createdAt',
+  while (trainedDays.has(cursor.toISOString().slice(0, 10))) {
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
 
-  // Pilar 4 — Disciplina & Social (apenas o vínculo local com a guilda)
-  guildMembership: '++id, guildId, joinedAt'
-});
+  return streak;
+}
 
-// Migração aditiva: só precisamos declarar a tabela NOVA aqui — o Dexie
-// mantém automaticamente todas as tabelas já definidas na version(1).
-// Isso é importante: quem já tinha o app instalado no navegador vai
-// receber essa tabela nova sem perder nenhum dado existente.
-db.version(2).stores({
-  bodyMeasurements: '++id, date'
-});
+/** Últimos 7 dias, marcando quais tiveram treino concluído — pro calendário estilo Duolingo. */
+export function last7DaysActivity(sessions) {
+  const trainedDays = new Set(sessions.filter((s) => s.finishedAt).map((s) => s.finishedAt.slice(0, 10)));
+  const dayLabels = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+  const today = new Date();
+  const days = [];
 
-// Hábitos absorvem o que antes era "missões": em vez de a IA gerar missões
-// pontuais no onboarding, o usuário cria e mantém seus próprios hábitos,
-// com histórico de conclusões (habitCompletions) — igual ao streak de
-// treino em metrics.js, nunca guardamos "streak" como campo solto.
-db.version(3).stores({
-  habits: '++id, title, icon, cadence, weeklyTarget, xpReward, archivedAt, createdAt',
-  habitCompletions: '++id, habitId, date'
-});
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const iso = d.toISOString().slice(0, 10);
+    days.push({
+      date: iso,
+      label: dayLabels[d.getDay()],
+      trained: trainedDays.has(iso),
+      isToday: i === 0
+    });
+  }
 
-// Metas: diferente de hábito (repetição contínua), uma meta tem um alvo
-// numérico único e um fim — ao bater `targetValue`, ela é marcada como
-// alcançada (achievedAt) e não volta atrás. Progresso é atualizado
-// manualmente pelo usuário (local-first: sem depender de nenhuma fonte
-// externa por padrão).
-db.version(4).stores({
-  goals: '++id, title, targetValue, currentValue, unit, reward, xpReward, deadline, achievedAt, createdAt'
-});
+  return days;
+}
 
-// Conserta uma lacuna que existia desde a v1: o índice `exerciseId` já
-// estava declarado em workoutPlanExercises, mas o app nunca escrevia
-// nele — exercícios eram identificados só por um `exerciseName` solto
-// copiado em cada plano, e a tabela `exercises` (catálogo) ficava sem
-// uso. Consequência prática: apagar um treino apagava o acesso ao
-// histórico de carga daquele exercício em Métricas, mesmo os dados
-// (sessionSets) continuando salvos.
-//
-// Agora exerciseId vira a identidade estável: workoutPlanExercises
-// aponta pra um exercicio do catálogo, e sessionSets guarda o
-// exerciseId direto (não só o workoutPlanExerciseId), então o
-// histórico de desempenho sobrevive mesmo se o plano for apagado depois.
-db.version(5)
-  .stores({
-    sessionSets: '++id, workoutSessionId, workoutPlanExerciseId, exerciseId, setNumber, weightKg, repsDone, completedAt'
-  })
-  .upgrade(async (tx) => {
-    const wpeTable = tx.table('workoutPlanExercises');
-    const exTable = tx.table('exercises');
-    const setsTable = tx.table('sessionSets');
+/**
+ * Monta uma grade de semanas x dias (estilo GitHub/Duolingo) marcando em
+ * quais dias houve treino concluído, pras últimas `weeks` semanas. Cada
+ * semana começa na segunda-feira, igual ao resto do app (ver startOfWeek).
+ */
+export function weeklyCalendar(sessions, weeks = 9) {
+  const trainedDays = new Set(sessions.filter((s) => s.finishedAt).map((s) => s.finishedAt.slice(0, 10)));
+  const monthLabels = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 
-    const oldRows = await wpeTable.toArray();
-    const nameToId = new Map();
-    const wpeIdToExerciseId = new Map();
+  const currentWeekStart = new Date(startOfWeek(new Date()));
+  const gridStart = new Date(currentWeekStart);
+  gridStart.setDate(gridStart.getDate() - (weeks - 1) * 7);
 
-    for (const row of oldRows) {
-      if (row.exerciseId != null) {
-        wpeIdToExerciseId.set(row.id, row.exerciseId);
-        continue;
-      }
+  const columns = [];
+  const today = new Date().toISOString().slice(0, 10);
 
-      const key = (row.exerciseName ?? '').trim().toLowerCase();
-      if (!key) continue;
-
-      let exerciseId = nameToId.get(key);
-      if (exerciseId == null) {
-        exerciseId = await exTable.add({
-          name: row.exerciseName.trim(),
-          muscleGroup: row.muscleGroup ?? null,
-          equipment: row.equipment ?? null
-        });
-        nameToId.set(key, exerciseId);
-      }
-
-      wpeIdToExerciseId.set(row.id, exerciseId);
-      await wpeTable.update(row.id, { exerciseId });
+  for (let w = 0; w < weeks; w++) {
+    const days = [];
+    for (let d = 0; d < 7; d++) {
+      const date = new Date(gridStart);
+      date.setDate(date.getDate() + w * 7 + d);
+      const iso = date.toISOString().slice(0, 10);
+      days.push({ date: iso, trained: trainedDays.has(iso), isToday: iso === today, isFuture: iso > today });
     }
+    columns.push({ days, monthLabel: monthLabels[new Date(days[0].date).getMonth()] });
+  }
 
-    const oldSets = await setsTable.toArray();
-    for (const set of oldSets) {
-      const exerciseId = wpeIdToExerciseId.get(set.workoutPlanExerciseId);
-      if (exerciseId != null) {
-        await setsTable.update(set.id, { exerciseId });
-      }
-    }
-  });
+  return columns;
+}
 
-export default db;
+/**
+ * Conta quantas sessões de treino finalizadas existem por semana,
+ * nas últimas `weeksBack` semanas (incluindo a atual).
+ */
+export function sessionsPerWeek(sessions, weeksBack = 8) {
+  const today = new Date();
+  const weeks = [];
+
+  for (let i = weeksBack - 1; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i * 7);
+    weeks.push(startOfWeek(d));
+  }
+
+  const counts = Object.fromEntries(weeks.map((w) => [w, 0]));
+
+  for (const session of sessions) {
+    if (!session.finishedAt) continue; // só conta treino que foi concluído
+    const week = startOfWeek(session.finishedAt);
+    if (week in counts) counts[week] += 1;
+  }
+
+  return {
+    labels: weeks.map((w) => {
+      const [, m, d] = w.split('-');
+      return `${d}/${m}`;
+    }),
+    data: weeks.map((w) => counts[w])
+  };
+}
+
+/**
+ * Maior peso registrado por dia, pra um conjunto de sessionSets de um
+ * único exercício — vira a linha de progressão de carga no gráfico.
+ */
+export function maxWeightByDay(sessionSets) {
+  const byDay = {};
+
+  for (const set of sessionSets) {
+    if (set.weightKg == null) continue;
+    const day = set.completedAt.slice(0, 10);
+    byDay[day] = Math.max(byDay[day] ?? 0, set.weightKg);
+  }
+
+  const days = Object.keys(byDay).sort();
+
+  return {
+    labels: days.map((d) => {
+      const [, m, day] = d.split('-');
+      return `${day}/${m}`;
+    }),
+    data: days.map((d) => byDay[d])
+  };
+}
+
+/**
+ * Igual a maxWeightByDay, mas agrupado por mês — melhor pra ver a
+ * evolução de carga ao longo de várias semanas sem um gráfico lotado de
+ * barras diárias. Mostra os últimos `monthsBack` meses, incluindo o atual.
+ */
+export function maxWeightByMonth(sessionSets, monthsBack = 6) {
+  const monthNames = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  const today = new Date();
+
+  const months = [];
+  for (let i = monthsBack - 1; i >= 0; i--) {
+    const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+    months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+  }
+
+  const byMonth = {};
+  for (const set of sessionSets) {
+    if (set.weightKg == null) continue;
+    const month = set.completedAt.slice(0, 7);
+    byMonth[month] = Math.max(byMonth[month] ?? 0, set.weightKg);
+  }
+
+  return {
+    labels: months.map((m) => monthNames[Number(m.slice(5, 7)) - 1]),
+    data: months.map((m) => byMonth[m] ?? null)
+  };
+}
+LIFEQUEST_EOF
+
+mkdir -p "frontend/src/components"
+cat > "frontend/src/components/NavBar.svelte" << 'LIFEQUEST_EOF'
+<script>
+  import { nav, navigate } from '../lib/nav.js';
+
+  // "Escanear" saiu da barra: o scan de nota fiscal agora vive dentro da
+  // própria tela de Despensa (ver routes/Pantry.svelte), então não faz
+  // sentido ocupar uma aba própria só pra isso.
+  // Métricas não é uma aba própria: ela é uma "sub-tela" de Treino,
+  // acessada por um botão dentro da lista de treinos (ver Training.svelte)
+  // — assim como "novo treino" também não tem aba própria.
+  const tabs = [
+    { id: 'dashboard', label: 'Início', icon: '🏠' },
+    { id: 'pantry', label: 'Despensa', icon: '🥫' },
+    { id: 'habits', label: 'Hábitos', icon: '✅' },
+    { id: 'goals', label: 'Metas', icon: '🏆' },
+    { id: 'training', label: 'Treino', icon: '💪' }
+  ];
+</script>
+
+<nav class="fixed bottom-0 left-0 right-0 bg-surface border-t border-white/10 flex">
+  {#each tabs as tab}
+    <button
+      class="flex-1 flex flex-col items-center gap-1 py-3 text-xs {$nav.name === tab.id ? 'text-primary' : 'text-white/40'}"
+      on:click={() => navigate(tab.id)}
+    >
+      <span class="text-xl">{tab.icon}</span>
+      {tab.label}
+    </button>
+  {/each}
+</nav>
+LIFEQUEST_EOF
+
+mkdir -p "frontend/src/routes"
+cat > "frontend/src/routes/Training.svelte" << 'LIFEQUEST_EOF'
+<script>
+  import { liveQuery } from 'dexie';
+  import { db } from '../db/db.js';
+  import { navigate } from '../lib/nav.js';
+  import { WEEKDAYS } from '../lib/constants.js';
+
+  const plans = liveQuery(() => db.workoutPlans.toArray());
+
+  let openMenuId = null;
+
+  function weekdayLabel(value) {
+    return WEEKDAYS.find((w) => w.value === value)?.label ?? 'Livre';
+  }
+
+  function toggleMenu(id) {
+    openMenuId = openMenuId === id ? null : id;
+  }
+
+  async function removePlan(id) {
+    openMenuId = null;
+    if (!confirm('Remover este treino e todos os exercícios dele?')) return;
+
+    // Remove o plano e os exercícios ligados a ele (limpeza em cascata manual,
+    // já que o Dexie não faz isso sozinho como um banco relacional faria).
+    await db.transaction('rw', db.workoutPlans, db.workoutPlanExercises, async () => {
+      await db.workoutPlans.delete(id);
+      await db.workoutPlanExercises.where('workoutPlanId').equals(id).delete();
+    });
+  }
+</script>
+
+<main class="min-h-screen p-6 pb-24 max-w-md mx-auto">
+  <div class="flex justify-between items-center mb-2">
+    <h1 class="text-2xl font-bold text-primary">Treinos</h1>
+    <button
+      class="bg-primary text-white rounded-full px-4 py-2 text-sm font-medium flex items-center gap-1"
+      on:click={() => navigate('training-new')}
+    >
+      <span class="text-base leading-none">+</span> Novo treino
+    </button>
+  </div>
+
+  <button class="text-xs text-white/40 mb-6 flex items-center gap-1" on:click={() => navigate('training-metrics')}>
+    📊 Ver métricas de desempenho
+  </button>
+
+  {#if $plans === undefined}
+    <p class="text-sm text-white/40">Carregando...</p>
+  {:else if $plans.length === 0}
+    <div class="bg-surface rounded-xl p-6 text-center">
+      <p class="text-sm text-white/40 mb-1">Nenhum treino cadastrado ainda.</p>
+      <p class="text-xs text-white/30">Toque em "+ Novo treino" para criar o primeiro.</p>
+    </div>
+  {:else}
+    <div class="flex flex-col gap-3">
+      {#each $plans as plan (plan.id)}
+        <div class="bg-surface rounded-xl p-3 flex items-center gap-3 relative">
+          <button
+            class="flex items-center gap-3 flex-1 min-w-0 text-left"
+            on:click={() => navigate('workout-plan-detail', { planId: plan.id })}
+          >
+            <div
+              class="w-11 h-11 shrink-0 rounded-full flex items-center justify-center text-lg"
+              style="background: linear-gradient(135deg, #7c5cff, #4c2fc9);"
+            >
+              🏋️
+            </div>
+            <div class="min-w-0">
+              <h3 class="font-semibold truncate">{plan.name}</h3>
+              <p class="text-xs text-white/40">
+                {weekdayLabel(plan.weekday)}
+                {#if plan.estimatedDuration}· ~{plan.estimatedDuration} min{/if}
+              </p>
+            </div>
+          </button>
+
+          <button
+            class="text-white/40 px-2 py-1 text-lg shrink-0"
+            on:click|stopPropagation={() => toggleMenu(plan.id)}
+          >
+            ⋮
+          </button>
+
+          {#if openMenuId === plan.id}
+            <div class="absolute right-3 top-14 bg-bg border border-white/10 rounded-lg shadow-lg py-1 z-10 w-32">
+              <button
+                class="w-full text-left px-3 py-2 text-sm text-danger hover:bg-white/5"
+                on:click|stopPropagation={() => removePlan(plan.id)}
+              >
+                Remover
+              </button>
+            </div>
+          {/if}
+        </div>
+      {/each}
+    </div>
+  {/if}
+</main>
 LIFEQUEST_EOF
 
 mkdir -p "frontend/src/routes"
@@ -363,9 +554,9 @@ cat > "frontend/src/routes/WorkoutPlanDetail.svelte" << 'LIFEQUEST_EOF'
       </div>
       <button
         class="w-full bg-surface text-sm text-primary rounded-xl py-3"
-        on:click={() => navigate('training-metrics', { focusExerciseId: exercises[0]?.exerciseId })}
+        on:click={() => navigate('training-metrics', { focusPlanId: planId })}
       >
-        Ver evolução de carga →
+        Ver evolução deste treino →
       </button>
     {:else if activeSession}
       <div class="mb-4">
@@ -437,19 +628,47 @@ cat > "frontend/src/routes/TrainingMetrics.svelte" << 'LIFEQUEST_EOF'
   import { db } from '../db/db.js';
   import { navigate } from '../lib/nav.js';
   import BarChart from '../components/BarChart.svelte';
-  import RadarChart from '../components/RadarChart.svelte';
   import LineChart from '../components/LineChart.svelte';
   import ConsistencyCalendar from '../components/ConsistencyCalendar.svelte';
-  import { maxWeightByDay, weeklyCalendar, currentStreak } from '../lib/metrics.js';
+  import { maxWeightByMonth, weeklyCalendar, currentStreak } from '../lib/metrics.js';
 
-  // Vindo de um link contextual em WorkoutPlanDetail (ex: "ver evolução
-  // de carga" depois de terminar um treino) — se presente, a aba de
-  // Desempenho já abre com esse exercício selecionado.
-  export let focusExerciseId = null;
+  // Vindo de "ver evolução deste treino" em WorkoutPlanDetail — se
+  // presente, a aba de Desempenho já abre com esse treino selecionado.
+  export let focusPlanId = null;
 
-  let tab = focusExerciseId ? 'desempenho' : 'perimetricas'; // perimetricas | desempenho | consistencia
+  let tab = 'desempenho'; // desempenho | perimetricas | consistencia
+
+  // ---------- Desempenho (por treino, agrupado por mês) ----------
+  // Antes isso era um dropdown achatado com TODO exercício de TODO
+  // plano, e o link contextual tinha que "adivinhar" qual exercício
+  // abrir (bug: sempre abria o primeiro da lista, então "Supino Reto"
+  // podia aparecer vazio se não fosse o primeiro exercício do treino).
+  // Agora escolhe-se o TREINO, e a tela mostra todos os exercícios dele
+  // de uma vez — sem adivinhação nenhuma.
+  const plans = liveQuery(() => db.workoutPlans.toArray());
+  const allLinks = liveQuery(() => db.workoutPlanExercises.toArray());
+  const catalog = liveQuery(() => db.exercises.toArray());
+  const allSessionSets = liveQuery(() => db.sessionSets.toArray());
+
+  let selectedPlan = focusPlanId;
+
+  $: if (selectedPlan == null && $plans && $plans.length > 0) selectedPlan = $plans[0].id;
+
+  $: planExercises = ($allLinks ?? [])
+    .filter((l) => l.workoutPlanId === selectedPlan)
+    .sort((a, b) => a.order - b.order)
+    .map((link) => ({
+      ...link,
+      exercise: ($catalog ?? []).find((e) => e.id === link.exerciseId) ?? { name: '(exercício removido)' },
+      chart: $allSessionSets
+        ? maxWeightByMonth($allSessionSets.filter((s) => s.exerciseId === link.exerciseId))
+        : { labels: [], data: [] }
+    }));
 
   // ---------- Perimétricas ----------
+  // O gráfico de radar das circunferências saiu daqui: apontaram que não
+  // era intuitivo. Ficam só os números da última medição e a evolução de
+  // peso (um gráfico de linha simples, que é bem mais direto de ler).
   let date = new Date().toISOString().slice(0, 10);
 
   let age = '';
@@ -469,25 +688,6 @@ cat > "frontend/src/routes/TrainingMetrics.svelte" << 'LIFEQUEST_EOF'
 
   $: latestMeasurement = $measurements && $measurements.length > 0 ? $measurements[$measurements.length - 1] : null;
 
-  $: radarData = latestMeasurement
-    ? {
-        labels: ['Ombro', 'Tórax', 'Abdômen', 'Coxa', 'Panturrilha', 'Braço E', 'Braço D', 'Antebraço'],
-        data: [
-          latestMeasurement.shoulder ?? 0,
-          latestMeasurement.chest ?? 0,
-          latestMeasurement.abdomen ?? 0,
-          latestMeasurement.thigh ?? 0,
-          latestMeasurement.calf ?? 0,
-          latestMeasurement.armLeft ?? 0,
-          latestMeasurement.armRight ?? 0,
-          latestMeasurement.forearm ?? 0
-        ]
-      }
-    : null;
-
-  // Peso ao longo do tempo — já tínhamos o histórico completo em
-  // bodyMeasurements, só não existia nenhum gráfico usando ele (só o
-  // "retrato" mais recente aparecia, no radar).
   $: weightTrend = $measurements
     ? {
         labels: $measurements.filter((m) => m.weight != null).map((m) => m.date.slice(5).split('-').reverse().join('/')),
@@ -518,34 +718,6 @@ cat > "frontend/src/routes/TrainingMetrics.svelte" << 'LIFEQUEST_EOF'
     age = weight = height = shoulder = chest = abdomen = thigh = calf = armLeft = armRight = forearm = '';
   }
 
-  // ---------- Desempenho (carga por exercício) ----------
-  // Antes isso vinha de workoutPlanExercises, o que fazia o histórico
-  // sumir do dropdown se o plano fosse apagado. Agora vem do catálogo
-  // `exercises`, que é estável — e sessionSets guarda exerciseId direto
-  // (ver migração v5 em db.js), então o dado não depende do plano.
-  const catalog = liveQuery(() => db.exercises.toArray());
-  const allSessionSets = liveQuery(() => db.sessionSets.toArray());
-
-  let selectedExercise = focusExerciseId ?? null;
-
-  // Exercícios com histórico de sessão aparecem primeiro — assim a
-  // pessoa não precisa abrir 4 exercícios vazios até achar um com dado.
-  $: exerciseOptions = ($catalog ?? [])
-    .map((e) => ({
-      ...e,
-      hasData: ($allSessionSets ?? []).some((s) => s.exerciseId === e.id)
-    }))
-    .sort((a, b) => Number(b.hasData) - Number(a.hasData) || a.name.localeCompare(b.name));
-
-  $: if (selectedExercise == null && exerciseOptions.length > 0) selectedExercise = exerciseOptions[0].id;
-
-  $: performanceData =
-    selectedExercise != null && $allSessionSets
-      ? maxWeightByDay($allSessionSets.filter((s) => s.exerciseId === selectedExercise))
-      : { labels: [], data: [] };
-
-  $: selectedExerciseName = exerciseOptions.find((e) => e.id === selectedExercise)?.name ?? '';
-
   // ---------- Consistência ----------
   const sessions = liveQuery(() => db.workoutSessions.toArray());
   $: calendarColumns = $sessions ? weeklyCalendar($sessions, 9) : [];
@@ -558,7 +730,7 @@ cat > "frontend/src/routes/TrainingMetrics.svelte" << 'LIFEQUEST_EOF'
   <h1 class="text-2xl font-bold text-primary mb-4">Métricas</h1>
 
   <div class="flex bg-surface rounded-xl p-1 mb-6 text-xs">
-    {#each [['perimetricas', 'Perimétricas'], ['desempenho', 'Desempenho'], ['consistencia', 'Consistência']] as [value, label]}
+    {#each [['desempenho', 'Desempenho'], ['perimetricas', 'Perimétricas'], ['consistencia', 'Consistência']] as [value, label]}
       <button
         class="flex-1 py-2 rounded-lg transition-colors {tab === value ? 'bg-primary text-white' : 'text-white/40'}"
         on:click={() => (tab = value)}
@@ -568,7 +740,39 @@ cat > "frontend/src/routes/TrainingMetrics.svelte" << 'LIFEQUEST_EOF'
     {/each}
   </div>
 
-  {#if tab === 'perimetricas'}
+  {#if tab === 'desempenho'}
+    <section>
+      {#if $plans === undefined || $plans.length === 0}
+        <p class="text-sm text-white/40">Crie um treino em Treinos para ver a evolução de carga aqui.</p>
+      {:else}
+        <select class="w-full bg-surface border border-white/10 rounded-lg px-3 py-2 text-sm mb-4" bind:value={selectedPlan}>
+          {#each $plans as plan}
+            <option value={plan.id}>{plan.name}</option>
+          {/each}
+        </select>
+
+        {#if planExercises.length === 0}
+          <p class="text-sm text-white/40">Esse treino ainda não tem exercícios cadastrados.</p>
+        {:else}
+          <div class="flex flex-col gap-4">
+            {#each planExercises as pe (pe.id)}
+              <div class="bg-surface rounded-xl p-4">
+                <p class="text-sm font-semibold mb-2">{pe.exercise.name}</p>
+                {#if pe.chart.data.every((v) => v == null)}
+                  <p class="text-xs text-white/40">
+                    Ainda sem sessões registradas para esse exercício. O gráfico se preenche quando você
+                    treinar e registrar peso/reps.
+                  </p>
+                {:else}
+                  <BarChart labels={pe.chart.labels} data={pe.chart.data} label="{pe.exercise.name} (kg/mês)" />
+                {/if}
+              </div>
+            {/each}
+          </div>
+        {/if}
+      {/if}
+    </section>
+  {:else if tab === 'perimetricas'}
     <section>
       {#if latestMeasurement}
         <div class="bg-surface rounded-xl p-4 mb-3 flex justify-around text-center">
@@ -588,18 +792,10 @@ cat > "frontend/src/routes/TrainingMetrics.svelte" << 'LIFEQUEST_EOF'
       {/if}
 
       {#if weightTrend.labels.length >= 2}
-        <div class="bg-surface rounded-xl p-4 mb-3">
+        <div class="bg-surface rounded-xl p-4 mb-4">
           <p class="text-xs text-white/40 mb-2">Peso ao longo do tempo</p>
           <LineChart labels={weightTrend.labels} data={weightTrend.data} label="Peso (kg)" />
         </div>
-      {/if}
-
-      {#if radarData}
-        <div class="bg-surface rounded-xl p-4 mb-4">
-          <RadarChart labels={radarData.labels} data={radarData.data} label="cm (última medição)" />
-        </div>
-      {:else}
-        <p class="text-sm text-white/40 mb-4">Registre sua primeira medição abaixo para ver o gráfico.</p>
       {/if}
 
       <form on:submit|preventDefault={addMeasurement} class="bg-surface rounded-xl p-4 flex flex-col gap-3">
@@ -628,31 +824,15 @@ cat > "frontend/src/routes/TrainingMetrics.svelte" << 'LIFEQUEST_EOF'
           </div>
         </div>
 
+        {#if latestMeasurement}
+          <p class="text-[11px] text-white/30">
+            Última medição ({latestMeasurement.date}): ombro {latestMeasurement.shoulder ?? '-'}cm · tórax {latestMeasurement.chest ?? '-'}cm ·
+            abdômen {latestMeasurement.abdomen ?? '-'}cm · coxa {latestMeasurement.thigh ?? '-'}cm
+          </p>
+        {/if}
+
         <button type="submit" class="bg-primary text-white rounded-lg py-3 font-medium text-sm">Registrar medição</button>
       </form>
-    </section>
-  {:else if tab === 'desempenho'}
-    <section>
-      {#if exerciseOptions.length === 0}
-        <p class="text-sm text-white/40">Cadastre exercícios em um treino para ver a evolução de carga aqui.</p>
-      {:else}
-        <select class="w-full bg-surface border border-white/10 rounded-lg px-3 py-2 text-sm mb-3" bind:value={selectedExercise}>
-          {#each exerciseOptions as ex}
-            <option value={ex.id}>{ex.name}{ex.hasData ? '' : ' (sem dados ainda)'}</option>
-          {/each}
-        </select>
-
-        <div class="bg-surface rounded-xl p-4">
-          {#if performanceData.labels.length === 0}
-            <p class="text-sm text-white/40">
-              Ainda sem sessões registradas para "{selectedExerciseName}". Esse gráfico se preenche quando você
-              começar a executar os treinos e registrar peso/reps.
-            </p>
-          {:else}
-            <BarChart labels={performanceData.labels} data={performanceData.data} label="{selectedExerciseName} (kg)" />
-          {/if}
-        </div>
-      {/if}
     </section>
   {:else}
     <section>
@@ -668,135 +848,6 @@ cat > "frontend/src/routes/TrainingMetrics.svelte" << 'LIFEQUEST_EOF'
     </section>
   {/if}
 </main>
-LIFEQUEST_EOF
-
-mkdir -p "frontend/src/routes"
-cat > "frontend/src/routes/Training.svelte" << 'LIFEQUEST_EOF'
-<script>
-  import { liveQuery } from 'dexie';
-  import { db } from '../db/db.js';
-  import { navigate } from '../lib/nav.js';
-  import { WEEKDAYS } from '../lib/constants.js';
-
-  const plans = liveQuery(() => db.workoutPlans.toArray());
-
-  let openMenuId = null;
-
-  function weekdayLabel(value) {
-    return WEEKDAYS.find((w) => w.value === value)?.label ?? 'Livre';
-  }
-
-  function toggleMenu(id) {
-    openMenuId = openMenuId === id ? null : id;
-  }
-
-  async function removePlan(id) {
-    openMenuId = null;
-    if (!confirm('Remover este treino e todos os exercícios dele?')) return;
-
-    // Remove o plano e os exercícios ligados a ele (limpeza em cascata manual,
-    // já que o Dexie não faz isso sozinho como um banco relacional faria).
-    await db.transaction('rw', db.workoutPlans, db.workoutPlanExercises, async () => {
-      await db.workoutPlans.delete(id);
-      await db.workoutPlanExercises.where('workoutPlanId').equals(id).delete();
-    });
-  }
-</script>
-
-<main class="min-h-screen p-6 pb-24 max-w-md mx-auto">
-  <div class="flex justify-between items-center mb-2">
-    <h1 class="text-2xl font-bold text-primary">Treinos</h1>
-    <button
-      class="bg-primary text-white rounded-full px-4 py-2 text-sm font-medium flex items-center gap-1"
-      on:click={() => navigate('training-new')}
-    >
-      <span class="text-base leading-none">+</span> Novo treino
-    </button>
-  </div>
-
-  {#if $plans === undefined}
-    <p class="text-sm text-white/40">Carregando...</p>
-  {:else if $plans.length === 0}
-    <div class="bg-surface rounded-xl p-6 text-center">
-      <p class="text-sm text-white/40 mb-1">Nenhum treino cadastrado ainda.</p>
-      <p class="text-xs text-white/30">Toque em "+ Novo treino" para criar o primeiro.</p>
-    </div>
-  {:else}
-    <div class="flex flex-col gap-3">
-      {#each $plans as plan (plan.id)}
-        <div class="bg-surface rounded-xl p-3 flex items-center gap-3 relative">
-          <button
-            class="flex items-center gap-3 flex-1 min-w-0 text-left"
-            on:click={() => navigate('workout-plan-detail', { planId: plan.id })}
-          >
-            <div
-              class="w-11 h-11 shrink-0 rounded-full flex items-center justify-center text-lg"
-              style="background: linear-gradient(135deg, #7c5cff, #4c2fc9);"
-            >
-              🏋️
-            </div>
-            <div class="min-w-0">
-              <h3 class="font-semibold truncate">{plan.name}</h3>
-              <p class="text-xs text-white/40">
-                {weekdayLabel(plan.weekday)}
-                {#if plan.estimatedDuration}· ~{plan.estimatedDuration} min{/if}
-              </p>
-            </div>
-          </button>
-
-          <button
-            class="text-white/40 px-2 py-1 text-lg shrink-0"
-            on:click|stopPropagation={() => toggleMenu(plan.id)}
-          >
-            ⋮
-          </button>
-
-          {#if openMenuId === plan.id}
-            <div class="absolute right-3 top-14 bg-bg border border-white/10 rounded-lg shadow-lg py-1 z-10 w-32">
-              <button
-                class="w-full text-left px-3 py-2 text-sm text-danger hover:bg-white/5"
-                on:click|stopPropagation={() => removePlan(plan.id)}
-              >
-                Remover
-              </button>
-            </div>
-          {/if}
-        </div>
-      {/each}
-    </div>
-  {/if}
-</main>
-LIFEQUEST_EOF
-
-mkdir -p "frontend/src/components"
-cat > "frontend/src/components/NavBar.svelte" << 'LIFEQUEST_EOF'
-<script>
-  import { nav, navigate } from '../lib/nav.js';
-
-  // "Escanear" saiu da barra: o scan de nota fiscal agora vive dentro da
-  // própria tela de Despensa (ver routes/Pantry.svelte), então não faz
-  // sentido ocupar uma aba própria só pra isso.
-  const tabs = [
-    { id: 'dashboard', label: 'Início', icon: '🏠' },
-    { id: 'pantry', label: 'Despensa', icon: '🥫' },
-    { id: 'habits', label: 'Hábitos', icon: '✅' },
-    { id: 'goals', label: 'Metas', icon: '🏆' },
-    { id: 'training', label: 'Treino', icon: '💪' },
-    { id: 'training-metrics', label: 'Métricas', icon: '📊' }
-  ];
-</script>
-
-<nav class="fixed bottom-0 left-0 right-0 bg-surface border-t border-white/10 flex">
-  {#each tabs as tab}
-    <button
-      class="flex-1 flex flex-col items-center gap-1 py-3 text-xs {$nav.name === tab.id ? 'text-primary' : 'text-white/40'}"
-      on:click={() => navigate(tab.id)}
-    >
-      <span class="text-xl">{tab.icon}</span>
-      {tab.label}
-    </button>
-  {/each}
-</nav>
 LIFEQUEST_EOF
 
 mkdir -p "frontend/src/."
@@ -835,7 +886,7 @@ cat > "frontend/src/App.svelte" << 'LIFEQUEST_EOF'
   {:else if $nav.name === 'training-new'}
     <NewWorkoutPlan />
   {:else if $nav.name === 'training-metrics'}
-    <TrainingMetrics focusExerciseId={$nav.params.focusExerciseId} />
+    <TrainingMetrics focusPlanId={$nav.params.focusPlanId} />
   {:else if $nav.name === 'workout-plan-detail'}
     <WorkoutPlanDetail planId={$nav.params.planId} />
   {:else}

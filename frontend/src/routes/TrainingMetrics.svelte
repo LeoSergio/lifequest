@@ -3,19 +3,47 @@
   import { db } from '../db/db.js';
   import { navigate } from '../lib/nav.js';
   import BarChart from '../components/BarChart.svelte';
-  import RadarChart from '../components/RadarChart.svelte';
   import LineChart from '../components/LineChart.svelte';
   import ConsistencyCalendar from '../components/ConsistencyCalendar.svelte';
-  import { maxWeightByDay, weeklyCalendar, currentStreak } from '../lib/metrics.js';
+  import { maxWeightByMonth, weeklyCalendar, currentStreak } from '../lib/metrics.js';
 
-  // Vindo de um link contextual em WorkoutPlanDetail (ex: "ver evolução
-  // de carga" depois de terminar um treino) — se presente, a aba de
-  // Desempenho já abre com esse exercício selecionado.
-  export let focusExerciseId = null;
+  // Vindo de "ver evolução deste treino" em WorkoutPlanDetail — se
+  // presente, a aba de Desempenho já abre com esse treino selecionado.
+  export let focusPlanId = null;
 
-  let tab = focusExerciseId ? 'desempenho' : 'perimetricas'; // perimetricas | desempenho | consistencia
+  let tab = 'desempenho'; // desempenho | perimetricas | consistencia
+
+  // ---------- Desempenho (por treino, agrupado por mês) ----------
+  // Antes isso era um dropdown achatado com TODO exercício de TODO
+  // plano, e o link contextual tinha que "adivinhar" qual exercício
+  // abrir (bug: sempre abria o primeiro da lista, então "Supino Reto"
+  // podia aparecer vazio se não fosse o primeiro exercício do treino).
+  // Agora escolhe-se o TREINO, e a tela mostra todos os exercícios dele
+  // de uma vez — sem adivinhação nenhuma.
+  const plans = liveQuery(() => db.workoutPlans.toArray());
+  const allLinks = liveQuery(() => db.workoutPlanExercises.toArray());
+  const catalog = liveQuery(() => db.exercises.toArray());
+  const allSessionSets = liveQuery(() => db.sessionSets.toArray());
+
+  let selectedPlan = focusPlanId;
+
+  $: if (selectedPlan == null && $plans && $plans.length > 0) selectedPlan = $plans[0].id;
+
+  $: planExercises = ($allLinks ?? [])
+    .filter((l) => l.workoutPlanId === selectedPlan)
+    .sort((a, b) => a.order - b.order)
+    .map((link) => ({
+      ...link,
+      exercise: ($catalog ?? []).find((e) => e.id === link.exerciseId) ?? { name: '(exercício removido)' },
+      chart: $allSessionSets
+        ? maxWeightByMonth($allSessionSets.filter((s) => s.exerciseId === link.exerciseId))
+        : { labels: [], data: [] }
+    }));
 
   // ---------- Perimétricas ----------
+  // O gráfico de radar das circunferências saiu daqui: apontaram que não
+  // era intuitivo. Ficam só os números da última medição e a evolução de
+  // peso (um gráfico de linha simples, que é bem mais direto de ler).
   let date = new Date().toISOString().slice(0, 10);
 
   let age = '';
@@ -35,25 +63,6 @@
 
   $: latestMeasurement = $measurements && $measurements.length > 0 ? $measurements[$measurements.length - 1] : null;
 
-  $: radarData = latestMeasurement
-    ? {
-        labels: ['Ombro', 'Tórax', 'Abdômen', 'Coxa', 'Panturrilha', 'Braço E', 'Braço D', 'Antebraço'],
-        data: [
-          latestMeasurement.shoulder ?? 0,
-          latestMeasurement.chest ?? 0,
-          latestMeasurement.abdomen ?? 0,
-          latestMeasurement.thigh ?? 0,
-          latestMeasurement.calf ?? 0,
-          latestMeasurement.armLeft ?? 0,
-          latestMeasurement.armRight ?? 0,
-          latestMeasurement.forearm ?? 0
-        ]
-      }
-    : null;
-
-  // Peso ao longo do tempo — já tínhamos o histórico completo em
-  // bodyMeasurements, só não existia nenhum gráfico usando ele (só o
-  // "retrato" mais recente aparecia, no radar).
   $: weightTrend = $measurements
     ? {
         labels: $measurements.filter((m) => m.weight != null).map((m) => m.date.slice(5).split('-').reverse().join('/')),
@@ -84,34 +93,6 @@
     age = weight = height = shoulder = chest = abdomen = thigh = calf = armLeft = armRight = forearm = '';
   }
 
-  // ---------- Desempenho (carga por exercício) ----------
-  // Antes isso vinha de workoutPlanExercises, o que fazia o histórico
-  // sumir do dropdown se o plano fosse apagado. Agora vem do catálogo
-  // `exercises`, que é estável — e sessionSets guarda exerciseId direto
-  // (ver migração v5 em db.js), então o dado não depende do plano.
-  const catalog = liveQuery(() => db.exercises.toArray());
-  const allSessionSets = liveQuery(() => db.sessionSets.toArray());
-
-  let selectedExercise = focusExerciseId ?? null;
-
-  // Exercícios com histórico de sessão aparecem primeiro — assim a
-  // pessoa não precisa abrir 4 exercícios vazios até achar um com dado.
-  $: exerciseOptions = ($catalog ?? [])
-    .map((e) => ({
-      ...e,
-      hasData: ($allSessionSets ?? []).some((s) => s.exerciseId === e.id)
-    }))
-    .sort((a, b) => Number(b.hasData) - Number(a.hasData) || a.name.localeCompare(b.name));
-
-  $: if (selectedExercise == null && exerciseOptions.length > 0) selectedExercise = exerciseOptions[0].id;
-
-  $: performanceData =
-    selectedExercise != null && $allSessionSets
-      ? maxWeightByDay($allSessionSets.filter((s) => s.exerciseId === selectedExercise))
-      : { labels: [], data: [] };
-
-  $: selectedExerciseName = exerciseOptions.find((e) => e.id === selectedExercise)?.name ?? '';
-
   // ---------- Consistência ----------
   const sessions = liveQuery(() => db.workoutSessions.toArray());
   $: calendarColumns = $sessions ? weeklyCalendar($sessions, 9) : [];
@@ -124,7 +105,7 @@
   <h1 class="text-2xl font-bold text-primary mb-4">Métricas</h1>
 
   <div class="flex bg-surface rounded-xl p-1 mb-6 text-xs">
-    {#each [['perimetricas', 'Perimétricas'], ['desempenho', 'Desempenho'], ['consistencia', 'Consistência']] as [value, label]}
+    {#each [['desempenho', 'Desempenho'], ['perimetricas', 'Perimétricas'], ['consistencia', 'Consistência']] as [value, label]}
       <button
         class="flex-1 py-2 rounded-lg transition-colors {tab === value ? 'bg-primary text-white' : 'text-white/40'}"
         on:click={() => (tab = value)}
@@ -134,7 +115,39 @@
     {/each}
   </div>
 
-  {#if tab === 'perimetricas'}
+  {#if tab === 'desempenho'}
+    <section>
+      {#if $plans === undefined || $plans.length === 0}
+        <p class="text-sm text-white/40">Crie um treino em Treinos para ver a evolução de carga aqui.</p>
+      {:else}
+        <select class="w-full bg-surface border border-white/10 rounded-lg px-3 py-2 text-sm mb-4" bind:value={selectedPlan}>
+          {#each $plans as plan}
+            <option value={plan.id}>{plan.name}</option>
+          {/each}
+        </select>
+
+        {#if planExercises.length === 0}
+          <p class="text-sm text-white/40">Esse treino ainda não tem exercícios cadastrados.</p>
+        {:else}
+          <div class="flex flex-col gap-4">
+            {#each planExercises as pe (pe.id)}
+              <div class="bg-surface rounded-xl p-4">
+                <p class="text-sm font-semibold mb-2">{pe.exercise.name}</p>
+                {#if pe.chart.data.every((v) => v == null)}
+                  <p class="text-xs text-white/40">
+                    Ainda sem sessões registradas para esse exercício. O gráfico se preenche quando você
+                    treinar e registrar peso/reps.
+                  </p>
+                {:else}
+                  <BarChart labels={pe.chart.labels} data={pe.chart.data} label="{pe.exercise.name} (kg/mês)" />
+                {/if}
+              </div>
+            {/each}
+          </div>
+        {/if}
+      {/if}
+    </section>
+  {:else if tab === 'perimetricas'}
     <section>
       {#if latestMeasurement}
         <div class="bg-surface rounded-xl p-4 mb-3 flex justify-around text-center">
@@ -154,18 +167,10 @@
       {/if}
 
       {#if weightTrend.labels.length >= 2}
-        <div class="bg-surface rounded-xl p-4 mb-3">
+        <div class="bg-surface rounded-xl p-4 mb-4">
           <p class="text-xs text-white/40 mb-2">Peso ao longo do tempo</p>
           <LineChart labels={weightTrend.labels} data={weightTrend.data} label="Peso (kg)" />
         </div>
-      {/if}
-
-      {#if radarData}
-        <div class="bg-surface rounded-xl p-4 mb-4">
-          <RadarChart labels={radarData.labels} data={radarData.data} label="cm (última medição)" />
-        </div>
-      {:else}
-        <p class="text-sm text-white/40 mb-4">Registre sua primeira medição abaixo para ver o gráfico.</p>
       {/if}
 
       <form on:submit|preventDefault={addMeasurement} class="bg-surface rounded-xl p-4 flex flex-col gap-3">
@@ -194,31 +199,15 @@
           </div>
         </div>
 
+        {#if latestMeasurement}
+          <p class="text-[11px] text-white/30">
+            Última medição ({latestMeasurement.date}): ombro {latestMeasurement.shoulder ?? '-'}cm · tórax {latestMeasurement.chest ?? '-'}cm ·
+            abdômen {latestMeasurement.abdomen ?? '-'}cm · coxa {latestMeasurement.thigh ?? '-'}cm
+          </p>
+        {/if}
+
         <button type="submit" class="bg-primary text-white rounded-lg py-3 font-medium text-sm">Registrar medição</button>
       </form>
-    </section>
-  {:else if tab === 'desempenho'}
-    <section>
-      {#if exerciseOptions.length === 0}
-        <p class="text-sm text-white/40">Cadastre exercícios em um treino para ver a evolução de carga aqui.</p>
-      {:else}
-        <select class="w-full bg-surface border border-white/10 rounded-lg px-3 py-2 text-sm mb-3" bind:value={selectedExercise}>
-          {#each exerciseOptions as ex}
-            <option value={ex.id}>{ex.name}{ex.hasData ? '' : ' (sem dados ainda)'}</option>
-          {/each}
-        </select>
-
-        <div class="bg-surface rounded-xl p-4">
-          {#if performanceData.labels.length === 0}
-            <p class="text-sm text-white/40">
-              Ainda sem sessões registradas para "{selectedExerciseName}". Esse gráfico se preenche quando você
-              começar a executar os treinos e registrar peso/reps.
-            </p>
-          {:else}
-            <BarChart labels={performanceData.labels} data={performanceData.data} label="{selectedExerciseName} (kg)" />
-          {/if}
-        </div>
-      {/if}
     </section>
   {:else}
     <section>

@@ -117,6 +117,86 @@ export function sessionsPerWeek(sessions, weeksBack = 8) {
 }
 
 /**
+ * Intervalo de datas (YYYY-MM-DD) pro resumo da Dashboard, no estilo dos
+ * filtros do MyFitnessPal (semana / mês / trimestre), sempre terminando
+ * hoje.
+ */
+export function periodRange(period) {
+  const end = new Date();
+  const start = new Date();
+
+  if (period === 'semana') start.setDate(end.getDate() - 6);
+  else if (period === 'mes') start.setDate(end.getDate() - 29);
+  else start.setDate(end.getDate() - 89); // trimestre ~ 90 dias
+
+  return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
+}
+
+/** Quantos treinos foram concluídos dentro do intervalo. */
+export function workoutsInRange(sessions, range) {
+  return sessions.filter((s) => s.finishedAt && s.finishedAt.slice(0, 10) >= range.start && s.finishedAt.slice(0, 10) <= range.end)
+    .length;
+}
+
+/**
+ * Taxa de conclusão de hábitos diários dentro do intervalo — mesma ideia
+ * de successRate() em lib/habits.js, mas pro período escolhido no filtro
+ * em vez de fixo em 7 dias. Ignora dias anteriores à criação do hábito,
+ * pra não punir um hábito novo por dias em que ele nem existia ainda.
+ */
+export function habitsCompletionRateInRange(habits, completions, range) {
+  const dailyHabits = habits.filter((h) => h.cadence === 'daily' && !h.archivedAt);
+  if (dailyHabits.length === 0) return null;
+
+  let total = 0;
+  let hit = 0;
+  const cursor = new Date(range.start);
+  const endDate = new Date(range.end);
+
+  while (cursor <= endDate) {
+    const iso = cursor.toISOString().slice(0, 10);
+    for (const habit of dailyHabits) {
+      if (habit.createdAt && habit.createdAt.slice(0, 10) > iso) continue;
+      total += 1;
+      if (completions.some((c) => c.habitId === habit.id && c.date === iso)) hit += 1;
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return total === 0 ? null : Math.round((hit / total) * 100);
+}
+
+/**
+ * Variação de peso dentro do intervalo, a partir do histórico real de
+ * bodyMeasurements (nunca um número solto) — junto com os pontos pra
+ * desenhar a mini linha de tendência.
+ */
+export function weightDeltaInRange(measurements, range) {
+  const inRange = measurements
+    .filter((m) => m.weight != null && m.date >= range.start && m.date <= range.end)
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  if (inRange.length < 2) return null;
+
+  const first = inRange[0].weight;
+  const last = inRange[inRange.length - 1].weight;
+
+  return {
+    first,
+    last,
+    delta: Math.round((last - first) * 10) / 10,
+    labels: inRange.map((m) => m.date.slice(5).split('-').reverse().join('/')),
+    data: inRange.map((m) => m.weight)
+  };
+}
+
+/** Quantas metas foram alcançadas dentro do intervalo. */
+export function goalsAchievedInRange(goals, range) {
+  return goals.filter((g) => g.achievedAt && g.achievedAt.slice(0, 10) >= range.start && g.achievedAt.slice(0, 10) <= range.end)
+    .length;
+}
+
+/**
  * Maior peso registrado por dia, pra um conjunto de sessionSets de um
  * único exercício — vira a linha de progressão de carga no gráfico.
  */
@@ -137,5 +217,33 @@ export function maxWeightByDay(sessionSets) {
       return `${day}/${m}`;
     }),
     data: days.map((d) => byDay[d])
+  };
+}
+
+/**
+ * Igual a maxWeightByDay, mas agrupado por mês — melhor pra ver a
+ * evolução de carga ao longo de várias semanas sem um gráfico lotado de
+ * barras diárias. Mostra os últimos `monthsBack` meses, incluindo o atual.
+ */
+export function maxWeightByMonth(sessionSets, monthsBack = 6) {
+  const monthNames = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  const today = new Date();
+
+  const months = [];
+  for (let i = monthsBack - 1; i >= 0; i--) {
+    const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+    months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+  }
+
+  const byMonth = {};
+  for (const set of sessionSets) {
+    if (set.weightKg == null) continue;
+    const month = set.completedAt.slice(0, 7);
+    byMonth[month] = Math.max(byMonth[month] ?? 0, set.weightKg);
+  }
+
+  return {
+    labels: months.map((m) => monthNames[Number(m.slice(5, 7)) - 1]),
+    data: months.map((m) => byMonth[m] ?? null)
   };
 }

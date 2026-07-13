@@ -1,3 +1,9 @@
+#!/usr/bin/env bash
+set -e
+# Rode a partir da raiz do repo lifequest (onde fica a pasta frontend/).
+
+mkdir -p "frontend/src/routes"
+cat > "frontend/src/routes/WorkoutPlanDetail.svelte" << 'LIFEQUEST_EOF'
 <script>
   import { liveQuery } from 'dexie';
   import { db } from '../db/db.js';
@@ -328,3 +334,5 @@
     {/if}
   {/if}
 </main>
+LIFEQUEST_EOF
+echo "Pronto. Rode: cd frontend && npm install && npm run dev"

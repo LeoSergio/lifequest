@@ -24,3 +24,13 @@ export const WEEKDAYS = [
   { value: 'sab', label: 'Sábado' },
   { value: 'dom', label: 'Domingo' }
 ];
+
+// Objetivo escolhido no onboarding — usado pra colorir o resumo semanal
+// da Dashboard (ex: perder peso e o peso caiu = progresso; ganhar peso e
+// o peso caiu = alerta), não pra travar nenhuma funcionalidade.
+export const GOALS = [
+  { value: 'lose_weight', label: 'Perder peso' },
+  { value: 'gain_weight', label: 'Ganhar peso' },
+  { value: 'gain_muscle', label: 'Ganhar massa muscular' },
+  { value: 'maintain', label: 'Manter o peso' }
+];

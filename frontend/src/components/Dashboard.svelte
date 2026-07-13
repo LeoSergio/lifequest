@@ -8,12 +8,15 @@
   import { navigate } from '../lib/nav.js';
   import StatsBar from '../components/StatsBar.svelte';
   import StreakCalendar from '../components/StreakCalendar.svelte';
+  import PeriodSummary from '../components/PeriodSummary.svelte';
 
   const player = liveQuery(() => db.player.toCollection().first());
   const habits = liveQuery(() => db.habits.where('archivedAt').equals(null).toArray());
   const completions = liveQuery(() => db.habitCompletions.toArray());
   const sessions = liveQuery(() => db.workoutSessions.toArray());
   const plans = liveQuery(() => db.workoutPlans.toArray());
+  const measurements = liveQuery(() => db.bodyMeasurements.toArray());
+  const goals = liveQuery(() => db.goals.toArray());
 
   // Streak sempre derivado do histórico de sessões — nunca lido de um
   // campo "streak" guardado solto (ver comentário em lib/metrics.js).
@@ -73,6 +76,15 @@
   {/if}
 
   <StreakCalendar days={weekActivity} {streak} />
+
+  <PeriodSummary
+    sessions={$sessions ?? []}
+    habits={$habits ?? []}
+    completions={$completions ?? []}
+    measurements={$measurements ?? []}
+    goals={$goals ?? []}
+    playerGoal={$player?.goal}
+  />
 
   <!-- Próximas ações: une o próximo treino agendado e os hábitos do dia
        ainda pendentes num único carrossel horizontal, em vez de dois

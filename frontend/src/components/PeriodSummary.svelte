@@ -31,13 +31,13 @@
   const toneClass = { good: 'text-xp', bad: 'text-danger', neutral: 'text-white/70' };
 </script>
 
-<div class="bg-surface rounded-xl p-4">
-  <div class="flex justify-between items-center mb-3">
-    <h2 class="text-sm uppercase text-white/40">Resumo</h2>
-    <div class="flex bg-bg rounded-lg p-0.5 text-[11px]">
+<div class="bg-surface/80 border border-white/5 rounded-2xl p-4">
+  <div class="flex justify-between items-center mb-4">
+    <h2 class="text-sm font-bold text-white">Resumo</h2>
+    <div class="flex bg-bg rounded-lg p-0.5 text-[10px]">
       {#each [['semana', 'Semana'], ['mes', 'Mês'], ['trimestre', 'Trimestre']] as [value, label]}
         <button
-          class="px-2.5 py-1 rounded-md transition-colors {period === value ? 'bg-primary text-white' : 'text-white/40'}"
+          class="px-3 py-1.5 rounded-lg transition-colors {period === value ? 'bg-primary/20 text-primary font-semibold' : 'text-white/40 hover:text-white/70'}"
           on:click={() => (period = value)}
         >
           {label}
@@ -46,36 +46,33 @@
     </div>
   </div>
 
-  {#if weightTrend}
-    <div class="mb-3">
-      <div class="flex items-baseline gap-2 mb-1">
-        <span class="text-lg font-bold {toneClass[weightTone]}">
-          {weightTrend.delta > 0 ? '+' : ''}{weightTrend.delta}kg
-        </span>
-        <span class="text-xs text-white/40">no período · agora {weightTrend.last}kg</span>
-      </div>
-      <LineChart labels={weightTrend.labels} data={weightTrend.data} label="Peso (kg)" />
-    </div>
-  {/if}
-
   <div class="grid grid-cols-3 gap-2">
-    <div class="bg-bg rounded-lg p-2 text-center">
-      <p class="text-base font-bold">{workouts}</p>
-      <p class="text-[10px] text-white/40">treinos</p>
+    <div class="bg-bg border border-white/5 rounded-xl p-3 flex flex-col items-center justify-center text-center">
+      <span class="text-primary text-xl mb-1 drop-shadow-[0_0_5px_rgba(124,92,255,0.4)]">💪</span>
+      <p class="text-2xl font-bold text-white mb-1">{workouts}</p>
+      <p class="text-[9px] text-white/50 leading-tight">treinos<br>concluídos</p>
     </div>
-    <div class="bg-bg rounded-lg p-2 text-center">
-      <p class="text-base font-bold">{habitRate != null ? `${habitRate}%` : '-'}</p>
-      <p class="text-[10px] text-white/40">hábitos</p>
+    <div class="bg-bg border border-white/5 rounded-xl p-3 flex flex-col items-center justify-center text-center">
+      <span class="text-green-500 text-xl mb-1 drop-shadow-[0_0_5px_rgba(34,197,94,0.4)]">✅</span>
+      <p class="text-2xl font-bold text-white mb-1">{habitRate != null ? `${habitRate}` : '-'}</p>
+      <p class="text-[9px] text-white/50 leading-tight">hábitos<br>concluídos</p>
     </div>
-    <div class="bg-bg rounded-lg p-2 text-center">
-      <p class="text-base font-bold">{goalsAchieved}</p>
-      <p class="text-[10px] text-white/40">metas batidas</p>
+    <div class="bg-bg border border-white/5 rounded-xl p-3 flex flex-col items-center justify-center text-center">
+      <span class="text-xp text-xl mb-1 drop-shadow-[0_0_5px_rgba(255,177,0,0.4)]">🎯</span>
+      <p class="text-2xl font-bold text-white mb-1">{goalsAchieved}</p>
+      <p class="text-[9px] text-white/50 leading-tight">metas<br>batidas</p>
     </div>
   </div>
 
-  {#if !weightTrend}
-    <p class="text-[11px] text-white/30 mt-3">
-      Registre pelo menos 2 medições de peso no período (em Treino → Métricas) pra ver a tendência aqui.
+  <div class="flex items-center gap-3 mt-4 px-1 cursor-pointer group">
+    <span class="text-primary text-xl group-hover:-translate-y-0.5 transition-transform">📈</span>
+    <p class="text-[10px] text-white/40 flex-1 leading-relaxed">
+      {#if weightTrend}
+        Sua variação de peso no período foi de {weightTrend.delta > 0 ? '+' : ''}{weightTrend.delta}kg. Toque para detalhes.
+      {:else}
+        Registre pelo menos 2 medições de peso no período (em Treino → Métricas) para ver sua tendência aqui.
+      {/if}
     </p>
-  {/if}
+    <span class="text-white/30 text-xs font-bold">›</span>
+  </div>
 </div>

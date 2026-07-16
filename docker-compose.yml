@@ -1,12 +1,27 @@
 services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: lifequest_user
+      POSTGRES_PASSWORD: lifequest_password
+      POSTGRES_DB: lifequest_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
   backend:
     build: ./backend
     ports:
       - "8000:8000"
     env_file:
       - ./backend/.env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://lifequest_user:lifequest_password@db:5432/lifequest_db
     volumes:
       - ./backend/app:/app/app
+    depends_on:
+      - db
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
   guildas:
@@ -21,3 +36,6 @@ services:
 
 # O frontend NÃO entra aqui: é um PWA local-first, roda direto com `npm run dev`
 # na máquina do dev (não precisa de container, e recarrega mais rápido assim).
+
+volumes:
+  postgres_data:

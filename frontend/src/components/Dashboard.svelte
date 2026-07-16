@@ -65,11 +65,22 @@
   }
 </script>
 
-<main class="min-h-screen p-6 pb-24 flex flex-col gap-6 max-w-md mx-auto">
+<main class="min-h-screen p-4 pb-24 flex flex-col gap-4 max-w-md mx-auto">
   {#if $player}
-    <div>
-      <p class="text-sm text-white/50">Olá{$player.name ? `, ${$player.name}` : ''} 👋</p>
-      <h1 class="text-2xl font-bold text-primary">Início</h1>
+    <div class="flex justify-between items-center px-2 mb-2">
+      <div>
+        <p class="text-sm text-white/70">Olá{$player.name ? `, ${$player.name}` : ''} 👋</p>
+        <h1 class="text-3xl font-bold text-white mt-0.5 tracking-tight">Início</h1>
+        <p class="text-xs text-white/50 mt-1">Foco hoje, resultado sempre.</p>
+      </div>
+      <div class="flex gap-2">
+        <button class="w-10 h-10 rounded-full bg-surface/80 border border-white/5 flex items-center justify-center text-white/70 hover:bg-white/5 transition-colors">
+          🔔
+        </button>
+        <button class="w-10 h-10 rounded-full bg-surface/80 border border-white/5 flex items-center justify-center text-white/70 hover:bg-white/5 transition-colors">
+          👤
+        </button>
+      </div>
     </div>
 
     <StatsBar level={$player.level} xp={$player.xp} {streak} />
@@ -86,39 +97,38 @@
     playerGoal={$player?.goal}
   />
 
-  <!-- Próximas ações: une o próximo treino agendado e os hábitos do dia
-       ainda pendentes num único carrossel horizontal, em vez de dois
-       cards competindo pela mesma atenção. -->
-  {#if nextWorkout || pendingHabits.length > 0}
-    <div>
-      <h2 class="text-sm uppercase text-white/40 mb-3">Próximas ações</h2>
-      <div class="flex gap-3 overflow-x-auto pb-1">
-        {#if nextWorkout}
-          <button
-            class="shrink-0 w-44 bg-surface rounded-xl p-4 text-left"
-            on:click={() => navigate('workout-plan-detail', { planId: nextWorkout.plan.id })}
-          >
-            <span class="text-xl block mb-2">💪</span>
-            <p class="text-sm font-semibold truncate">{nextWorkout.plan.name}</p>
-            <p class="text-xs text-white/40 mt-1">
-              {nextWorkout.inDays === 0 ? 'Hoje' : weekdayLabel(nextWorkout.plan.weekday)}
-              {#if nextWorkout.plan.estimatedDuration}· ~{nextWorkout.plan.estimatedDuration} min{/if}
-            </p>
-          </button>
-        {/if}
+  <!-- Ações rápidas -->
+  <div class="px-1 mt-1">
+    <h2 class="text-sm font-bold text-white mb-3">Ações rápidas</h2>
+    <div class="grid grid-cols-4 gap-2">
+      <button class="bg-surface/80 border border-white/5 rounded-2xl p-3 flex flex-col items-center justify-center gap-2 hover:bg-white/5 transition-colors aspect-square" on:click={() => navigate('training')}>
+        <span class="text-primary text-2xl drop-shadow-[0_0_5px_rgba(124,92,255,0.4)]">💪</span>
+        <span class="text-[9px] text-white/60 text-center leading-tight">Iniciar<br>treino</span>
+      </button>
+      <button class="bg-surface/80 border border-white/5 rounded-2xl p-3 flex flex-col items-center justify-center gap-2 hover:bg-white/5 transition-colors aspect-square" on:click={() => navigate('pantry')}>
+        <span class="text-xp text-2xl drop-shadow-[0_0_5px_rgba(255,177,0,0.4)]">🍎</span>
+        <span class="text-[9px] text-white/60 text-center leading-tight">Registrar<br>refeição</span>
+      </button>
+      <button class="bg-surface/80 border border-white/5 rounded-2xl p-3 flex flex-col items-center justify-center gap-2 hover:bg-white/5 transition-colors aspect-square" on:click={() => navigate('training')}>
+        <span class="text-cyan-500 text-2xl drop-shadow-[0_0_5px_rgba(6,182,212,0.4)]">⚖️</span>
+        <span class="text-[9px] text-white/60 text-center leading-tight">Registrar<br>peso</span>
+      </button>
+      <button class="bg-surface/80 border border-white/5 rounded-2xl p-3 flex flex-col items-center justify-center gap-2 hover:bg-white/5 transition-colors aspect-square" on:click={() => navigate('habits')}>
+        <span class="text-green-500 text-2xl drop-shadow-[0_0_5px_rgba(34,197,94,0.4)]">✅</span>
+        <span class="text-[9px] text-white/60 text-center leading-tight">Ver<br>hábitos</span>
+      </button>
+    </div>
+  </div>
 
-        {#each pendingHabits as habit (habit.id)}
-          <button class="shrink-0 w-44 bg-surface rounded-xl p-4 text-left" on:click={() => completeHabit(habit)}>
-            <span class="text-xl block mb-2">{habit.icon ?? '🔥'}</span>
-            <p class="text-sm font-semibold truncate">{habit.title}</p>
-            <p class="text-xs text-xp mt-1">+{habit.xpReward ?? 10} XP · toque p/ concluir</p>
-          </button>
-        {/each}
+  <!-- Bottom Banner -->
+  <div class="bg-gradient-to-r from-bg to-[#2a1b54] border border-primary/20 rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:border-primary/40 transition-colors mt-2 mb-4">
+    <div class="flex items-center gap-4">
+      <div class="text-4xl filter drop-shadow-[0_0_10px_rgba(124,92,255,0.5)]">🏆</div>
+      <div>
+        <h3 class="text-[11px] font-bold text-white leading-tight">Pequenas atitudes, grandes conquistas.</h3>
+        <p class="text-[10px] text-white/50 mt-1">Você no controle da sua evolução!</p>
       </div>
     </div>
-  {/if}
-
-  <button class="text-xs text-white/40 text-left -mt-3" on:click={() => navigate('habits')}>
-    Ver todos os hábitos →
-  </button>
+    <span class="text-white/40 text-lg font-light">›</span>
+  </div>
 </main>

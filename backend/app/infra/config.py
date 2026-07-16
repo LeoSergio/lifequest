@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:5173"]
 
     environment: str = "development"
+    database_url: str = "postgresql+asyncpg://lifequest_user:lifequest_password@localhost:5432/lifequest_db"
 
 
 settings = Settings()

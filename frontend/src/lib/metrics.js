@@ -14,7 +14,9 @@ function startOfWeek(date) {
  * risco de ele dessincronizar da realidade (ex: se uma sessão for apagada).
  */
 export function currentStreak(sessions) {
-  const trainedDays = new Set(sessions.filter((s) => s.finishedAt).map((s) => s.finishedAt.slice(0, 10)));
+  const trainedDays = new Set(
+    sessions.filter((s) => s.finishedAt).map((s) => s.finishedAt.slice(0, 10)),
+  );
 
   let streak = 0;
   const cursor = new Date();
@@ -35,8 +37,10 @@ export function currentStreak(sessions) {
 
 /** Últimos 7 dias, marcando quais tiveram treino concluído — pro calendário estilo Duolingo. */
 export function last7DaysActivity(sessions) {
-  const trainedDays = new Set(sessions.filter((s) => s.finishedAt).map((s) => s.finishedAt.slice(0, 10)));
-  const dayLabels = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+  const trainedDays = new Set(
+    sessions.filter((s) => s.finishedAt).map((s) => s.finishedAt.slice(0, 10)),
+  );
+  const dayLabels = ["D", "S", "T", "Q", "Q", "S", "S"];
   const today = new Date();
   const days = [];
 
@@ -48,7 +52,7 @@ export function last7DaysActivity(sessions) {
       date: iso,
       label: dayLabels[d.getDay()],
       trained: trainedDays.has(iso),
-      isToday: i === 0
+      isToday: i === 0,
     });
   }
 
@@ -61,8 +65,23 @@ export function last7DaysActivity(sessions) {
  * semana começa na segunda-feira, igual ao resto do app (ver startOfWeek).
  */
 export function weeklyCalendar(sessions, weeks = 9) {
-  const trainedDays = new Set(sessions.filter((s) => s.finishedAt).map((s) => s.finishedAt.slice(0, 10)));
-  const monthLabels = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  const trainedDays = new Set(
+    sessions.filter((s) => s.finishedAt).map((s) => s.finishedAt.slice(0, 10)),
+  );
+  const monthLabels = [
+    "jan",
+    "fev",
+    "mar",
+    "abr",
+    "mai",
+    "jun",
+    "jul",
+    "ago",
+    "set",
+    "out",
+    "nov",
+    "dez",
+  ];
 
   const currentWeekStart = new Date(startOfWeek(new Date()));
   const gridStart = new Date(currentWeekStart);
@@ -77,9 +96,17 @@ export function weeklyCalendar(sessions, weeks = 9) {
       const date = new Date(gridStart);
       date.setDate(date.getDate() + w * 7 + d);
       const iso = date.toISOString().slice(0, 10);
-      days.push({ date: iso, trained: trainedDays.has(iso), isToday: iso === today, isFuture: iso > today });
+      days.push({
+        date: iso,
+        trained: trainedDays.has(iso),
+        isToday: iso === today,
+        isFuture: iso > today,
+      });
     }
-    columns.push({ days, monthLabel: monthLabels[new Date(days[0].date).getMonth()] });
+    columns.push({
+      days,
+      monthLabel: monthLabels[new Date(days[0].date).getMonth()],
+    });
   }
 
   return columns;
@@ -109,91 +136,11 @@ export function sessionsPerWeek(sessions, weeksBack = 8) {
 
   return {
     labels: weeks.map((w) => {
-      const [, m, d] = w.split('-');
+      const [, m, d] = w.split("-");
       return `${d}/${m}`;
     }),
-    data: weeks.map((w) => counts[w])
+    data: weeks.map((w) => counts[w]),
   };
-}
-
-/**
- * Intervalo de datas (YYYY-MM-DD) pro resumo da Dashboard, no estilo dos
- * filtros do MyFitnessPal (semana / mês / trimestre), sempre terminando
- * hoje.
- */
-export function periodRange(period) {
-  const end = new Date();
-  const start = new Date();
-
-  if (period === 'semana') start.setDate(end.getDate() - 6);
-  else if (period === 'mes') start.setDate(end.getDate() - 29);
-  else start.setDate(end.getDate() - 89); // trimestre ~ 90 dias
-
-  return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
-}
-
-/** Quantos treinos foram concluídos dentro do intervalo. */
-export function workoutsInRange(sessions, range) {
-  return sessions.filter((s) => s.finishedAt && s.finishedAt.slice(0, 10) >= range.start && s.finishedAt.slice(0, 10) <= range.end)
-    .length;
-}
-
-/**
- * Taxa de conclusão de hábitos diários dentro do intervalo — mesma ideia
- * de successRate() em lib/habits.js, mas pro período escolhido no filtro
- * em vez de fixo em 7 dias. Ignora dias anteriores à criação do hábito,
- * pra não punir um hábito novo por dias em que ele nem existia ainda.
- */
-export function habitsCompletionRateInRange(habits, completions, range) {
-  const dailyHabits = habits.filter((h) => h.cadence === 'daily' && !h.archivedAt);
-  if (dailyHabits.length === 0) return null;
-
-  let total = 0;
-  let hit = 0;
-  const cursor = new Date(range.start);
-  const endDate = new Date(range.end);
-
-  while (cursor <= endDate) {
-    const iso = cursor.toISOString().slice(0, 10);
-    for (const habit of dailyHabits) {
-      if (habit.createdAt && habit.createdAt.slice(0, 10) > iso) continue;
-      total += 1;
-      if (completions.some((c) => c.habitId === habit.id && c.date === iso)) hit += 1;
-    }
-    cursor.setDate(cursor.getDate() + 1);
-  }
-
-  return total === 0 ? null : Math.round((hit / total) * 100);
-}
-
-/**
- * Variação de peso dentro do intervalo, a partir do histórico real de
- * bodyMeasurements (nunca um número solto) — junto com os pontos pra
- * desenhar a mini linha de tendência.
- */
-export function weightDeltaInRange(measurements, range) {
-  const inRange = measurements
-    .filter((m) => m.weight != null && m.date >= range.start && m.date <= range.end)
-    .sort((a, b) => a.date.localeCompare(b.date));
-
-  if (inRange.length < 2) return null;
-
-  const first = inRange[0].weight;
-  const last = inRange[inRange.length - 1].weight;
-
-  return {
-    first,
-    last,
-    delta: Math.round((last - first) * 10) / 10,
-    labels: inRange.map((m) => m.date.slice(5).split('-').reverse().join('/')),
-    data: inRange.map((m) => m.weight)
-  };
-}
-
-/** Quantas metas foram alcançadas dentro do intervalo. */
-export function goalsAchievedInRange(goals, range) {
-  return goals.filter((g) => g.achievedAt && g.achievedAt.slice(0, 10) >= range.start && g.achievedAt.slice(0, 10) <= range.end)
-    .length;
 }
 
 /**
@@ -213,37 +160,286 @@ export function maxWeightByDay(sessionSets) {
 
   return {
     labels: days.map((d) => {
-      const [, m, day] = d.split('-');
+      const [, m, day] = d.split("-");
       return `${day}/${m}`;
     }),
-    data: days.map((d) => byDay[d])
+    data: days.map((d) => byDay[d]),
   };
 }
 
+const MONTH_LABELS = [
+  "jan",
+  "fev",
+  "mar",
+  "abr",
+  "mai",
+  "jun",
+  "jul",
+  "ago",
+  "set",
+  "out",
+  "nov",
+  "dez",
+];
+
 /**
- * Igual a maxWeightByDay, mas agrupado por mês — melhor pra ver a
- * evolução de carga ao longo de várias semanas sem um gráfico lotado de
- * barras diárias. Mostra os últimos `monthsBack` meses, incluindo o atual.
+ * Monta os "baldes" de tempo usados no dashboard de Desempenho (Carga /
+ * Volume / Repetições / PRs), de acordo com o período escolhido:
+ *   - 7 dias  → 1 balde por dia (7 pontos)
+ *   - 30 dias → 1 balde por semana (~5 pontos)
+ *   - 60 dias → 1 balde por semana (~9 pontos)
+ *   - Tudo    → 1 balde por mês, desde o registro mais antigo
+ * `days` é 7, 30, 60 ou null (Tudo). `sessionSets` só é usado quando
+ * days é null, pra saber a partir de quando gerar os baldes mensais.
  */
-export function maxWeightByMonth(sessionSets, monthsBack = 6) {
-  const monthNames = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+export function buildPeriodBuckets(sessionSets, days) {
   const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const buckets = [];
 
-  const months = [];
-  for (let i = monthsBack - 1; i >= 0; i--) {
-    const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-    months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+  if (days === 7) {
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const start = d.toISOString().slice(0, 10);
+      const end = new Date(d);
+      end.setDate(end.getDate() + 1);
+      buckets.push({
+        start,
+        end: end.toISOString().slice(0, 10),
+        label: `${start.slice(8, 10)}/${start.slice(5, 7)}`,
+      });
+    }
+    return buckets;
   }
 
-  const byMonth = {};
+  if (days === 30 || days === 60) {
+    const weeks = Math.ceil(days / 7);
+    const currentWeekStart = new Date(startOfWeek(today));
+    const gridStart = new Date(currentWeekStart);
+    gridStart.setDate(gridStart.getDate() - (weeks - 1) * 7);
+
+    for (let w = 0; w < weeks; w++) {
+      const start = new Date(gridStart);
+      start.setDate(start.getDate() + w * 7);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 7);
+      const startIso = start.toISOString().slice(0, 10);
+      buckets.push({
+        start: startIso,
+        end: end.toISOString().slice(0, 10),
+        label: `${startIso.slice(8, 10)}/${startIso.slice(5, 7)}`,
+      });
+    }
+    return buckets;
+  }
+
+  // Tudo: um balde por mês, desde o registro mais antigo até hoje.
+  const dated = sessionSets.filter((s) => s.completedAt);
+  if (dated.length === 0) return [];
+
+  const earliest = dated.reduce(
+    (min, s) => (s.completedAt < min ? s.completedAt : min),
+    dated[0].completedAt,
+  );
+  const cursor = new Date(earliest.slice(0, 7) + "-01");
+  const end = new Date(today.toISOString().slice(0, 7) + "-01");
+
+  while (cursor <= end) {
+    const startIso = cursor.toISOString().slice(0, 10);
+    const next = new Date(cursor);
+    next.setMonth(next.getMonth() + 1);
+    buckets.push({
+      start: startIso,
+      end: next.toISOString().slice(0, 10),
+      label: `${MONTH_LABELS[cursor.getMonth()]}/${String(cursor.getFullYear()).slice(2)}`,
+    });
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+  return buckets;
+}
+
+/** Soma de weightKg × repsDone — "tonelagem" total levantada num conjunto de séries. */
+export function totalTonnage(sets) {
+  return sets.reduce(
+    (sum, s) =>
+      s.weightKg != null && s.repsDone != null
+        ? sum + s.weightKg * s.repsDone
+        : sum,
+    0,
+  );
+}
+
+/** Quantidade de séries registradas (com reps preenchidas). */
+export function totalSetCount(sets) {
+  return sets.filter((s) => s.repsDone != null).length;
+}
+
+/** Soma de repetições feitas. */
+export function totalReps(sets) {
+  return sets.reduce(
+    (sum, s) => (s.repsDone != null ? sum + s.repsDone : sum),
+    0,
+  );
+}
+
+/**
+ * Marca cada série que representa um recorde pessoal (PR): o maior peso
+ * já levantado até ali para aquele exercício específico. Precisa rodar
+ * sobre o HISTÓRICO COMPLETO (não só o período filtrado), porque saber
+ * se algo é recorde depende do que veio antes.
+ */
+export function computePRs(allSessionSets) {
+  const bestByExercise = {};
+  const sorted = [...allSessionSets]
+    .filter((s) => s.weightKg != null && s.completedAt)
+    .sort((a, b) => a.completedAt.localeCompare(b.completedAt));
+
+  const prs = [];
+  for (const set of sorted) {
+    const best = bestByExercise[set.exerciseId] ?? -Infinity;
+    if (set.weightKg > best) {
+      bestByExercise[set.exerciseId] = set.weightKg;
+      prs.push(set);
+    }
+  }
+  return prs;
+}
+
+/**
+ * Agrupa um conjunto de baldes de tempo + sessionSets numa série
+ * {labels, data}, aplicando `valueFn` a cada balde.
+ */
+export function bucketSeries(sessionSets, buckets, valueFn) {
+  return {
+    labels: buckets.map((b) => b.label),
+    data: buckets.map((b) =>
+      valueFn(
+        sessionSets.filter(
+          (s) => s.completedAt >= b.start && s.completedAt < b.end,
+        ),
+      ),
+    ),
+  };
+}
+
+/** Variação percentual entre dois totais — usada no "vs período anterior". */
+export function percentDelta(current, previous) {
+  if (previous === 0) return current > 0 ? null : 0; // sem base de comparação
+  return Math.round(((current - previous) / previous) * 1000) / 10;
+}
+
+/**
+ * Tonelagem total levantada por grupo muscular, cruzando sessionSets (que
+ * guardam exerciseId) com o catálogo de exercícios (que guarda
+ * muscleGroup) — usado na seção "Grupos musculares" do dashboard.
+ */
+export function tonnageByMuscleGroup(sessionSets, catalog) {
+  const groupByExercise = new Map(
+    catalog.map((e) => [e.id, e.muscleGroup ?? "Outro"]),
+  );
+  const totals = {};
+
   for (const set of sessionSets) {
-    if (set.weightKg == null) continue;
-    const month = set.completedAt.slice(0, 7);
-    byMonth[month] = Math.max(byMonth[month] ?? 0, set.weightKg);
+    if (set.weightKg == null || set.repsDone == null) continue;
+    const group = groupByExercise.get(set.exerciseId) ?? "Outro";
+    totals[group] = (totals[group] ?? 0) + set.weightKg * set.repsDone;
   }
+
+  return Object.entries(totals)
+    .map(([group, kg]) => ({ group, kg }))
+    .sort((a, b) => b.kg - a.kg);
+}
+
+/**
+ * Intervalo de datas [start, end] (YYYY-MM-DD, inclusive) pro seletor
+ * semana/mês/trimestre do card "Resumo" do Dashboard (PeriodSummary).
+ */
+export function periodRange(period) {
+  const end = new Date();
+  end.setHours(0, 0, 0, 0);
+  const start = new Date(end);
+  const daysBack = period === "semana" ? 6 : period === "mes" ? 29 : 89; // trimestre ~ 90 dias
+  start.setDate(start.getDate() - daysBack);
 
   return {
-    labels: months.map((m) => monthNames[Number(m.slice(5, 7)) - 1]),
-    data: months.map((m) => byMonth[m] ?? null)
+    start: start.toISOString().slice(0, 10),
+    end: end.toISOString().slice(0, 10),
   };
+}
+
+/** Quantas sessões de treino foram concluídas dentro do período. */
+export function workoutsInRange(sessions, range) {
+  return sessions.filter(
+    (s) =>
+      s.finishedAt &&
+      s.finishedAt.slice(0, 10) >= range.start &&
+      s.finishedAt.slice(0, 10) <= range.end,
+  ).length;
+}
+
+/**
+ * Taxa de sucesso dos hábitos diários dentro do período — mesma lógica de
+ * lib/habits.js:successRate, só que parametrizada pelo intervalo em vez de
+ * fixa em 7 dias. Hábitos semanais ficam de fora, igual ao successRate
+ * (eles têm sua própria barra de progresso em outro lugar da UI).
+ */
+export function habitsCompletionRateInRange(habits, completions, range) {
+  const dailyHabits = habits.filter(
+    (h) => h.cadence === "daily" && !h.archivedAt,
+  );
+  if (dailyHabits.length === 0) return null;
+
+  let total = 0;
+  let hit = 0;
+
+  for (
+    const d = new Date(range.start);
+    d.toISOString().slice(0, 10) <= range.end;
+    d.setDate(d.getDate() + 1)
+  ) {
+    const iso = d.toISOString().slice(0, 10);
+    for (const habit of dailyHabits) {
+      total += 1;
+      if (completions.some((c) => c.habitId === habit.id && c.date === iso))
+        hit += 1;
+    }
+  }
+
+  return total === 0 ? null : Math.round((hit / total) * 100);
+}
+
+/**
+ * Variação de peso dentro do período (última medição − primeira medição
+ * com peso preenchido). Retorna null se houver menos de 2 medições no
+ * período — não dá pra falar em "tendência" com um ponto só.
+ */
+export function weightDeltaInRange(measurements, range) {
+  const filtered = measurements
+    .filter(
+      (m) => m.weight != null && m.date >= range.start && m.date <= range.end,
+    )
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  if (filtered.length < 2) return null;
+
+  const first = filtered[0].weight;
+  const last = filtered[filtered.length - 1].weight;
+
+  return {
+    delta: Math.round((last - first) * 10) / 10,
+    last,
+    labels: filtered.map((m) => m.date.slice(5).split("-").reverse().join("/")),
+    data: filtered.map((m) => m.weight),
+  };
+}
+
+/** Quantas metas foram batidas (achievedAt preenchido) dentro do período. */
+export function goalsAchievedInRange(goals, range) {
+  return goals.filter(
+    (g) =>
+      g.achievedAt &&
+      g.achievedAt.slice(0, 10) >= range.start &&
+      g.achievedAt.slice(0, 10) <= range.end,
+  ).length;
 }

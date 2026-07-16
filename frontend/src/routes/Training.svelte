@@ -1,10 +1,10 @@
 <script>
-  import { liveQuery } from 'dexie';
-  import { db } from '../db/db.js';
   import { navigate } from '../lib/nav.js';
   import { WEEKDAYS } from '../lib/constants.js';
+  import { workoutPlansQuery } from '../repositories/workoutRepository.js';
+  import { removePlan } from '../services/workoutService.js';
 
-  const plans = liveQuery(() => db.workoutPlans.toArray());
+  const plans = workoutPlansQuery();
 
   let openMenuId = null;
 
@@ -16,16 +16,10 @@
     openMenuId = openMenuId === id ? null : id;
   }
 
-  async function removePlan(id) {
+  async function handleRemovePlan(id) {
     openMenuId = null;
     if (!confirm('Remover este treino e todos os exercícios dele?')) return;
-
-    // Remove o plano e os exercícios ligados a ele (limpeza em cascata manual,
-    // já que o Dexie não faz isso sozinho como um banco relacional faria).
-    await db.transaction('rw', db.workoutPlans, db.workoutPlanExercises, async () => {
-      await db.workoutPlans.delete(id);
-      await db.workoutPlanExercises.where('workoutPlanId').equals(id).delete();
-    });
+    await removePlan(id);
   }
 </script>
 
@@ -85,7 +79,7 @@
             <div class="absolute right-3 top-14 bg-bg border border-white/10 rounded-lg shadow-lg py-1 z-10 w-32">
               <button
                 class="w-full text-left px-3 py-2 text-sm text-danger hover:bg-white/5"
-                on:click|stopPropagation={() => removePlan(plan.id)}
+                on:click|stopPropagation={() => handleRemovePlan(plan.id)}
               >
                 Remover
               </button>

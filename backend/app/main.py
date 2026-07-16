@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import settings
-from app.routers import ai
+from app.infra.config import settings
+from app.adapters.http.ai_router import router as ai_router
 
 app = FastAPI(
     title="LifeQuest Backend",
@@ -17,7 +17,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(ai.router)
+app.include_router(ai_router)
 
 
 @app.get("/health")

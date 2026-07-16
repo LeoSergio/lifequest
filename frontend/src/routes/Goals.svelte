@@ -1,11 +1,10 @@
 <script>
-  import { liveQuery } from 'dexie';
-  import { db } from '../db/db.js';
-  import { applyXp } from '../lib/gamification.js';
   import { isGoalAchieved } from '../lib/goals.js';
+  import { allGoalsQuery } from '../repositories/goalRepository.js';
+  import { addGoal, addProgress } from '../services/goalService.js';
   import GoalCard from '../components/GoalCard.svelte';
 
-  const allGoals = liveQuery(() => db.goals.orderBy('createdAt').reverse().toArray());
+  const allGoals = allGoalsQuery();
 
   let tab = 'ativas'; // ativas | alcancadas
   let showForm = false;
@@ -25,19 +24,7 @@
 
   async function createGoal() {
     if (!title.trim() || !targetValue) return;
-
-    await db.goals.add({
-      title: title.trim(),
-      targetValue: Number(targetValue),
-      currentValue: 0,
-      unit: unit.trim() || null,
-      reward: reward.trim() || null,
-      xpReward: Number(xpReward) || 0,
-      deadline: deadline || null,
-      achievedAt: null,
-      createdAt: new Date().toISOString()
-    });
-
+    await addGoal({ title, targetValue, unit, reward, xpReward, deadline });
     title = '';
     targetValue = 5;
     unit = '';
@@ -47,31 +34,13 @@
     showForm = false;
   }
 
-  async function addProgress(event) {
+  async function handleProgress(event) {
     const { goal, amount } = event.detail;
-    if (!amount) return;
+    const result = await addProgress(goal, amount);
+    if (!result) return;
 
-    const newValue = Math.min(goal.targetValue, goal.currentValue + amount);
-    const wasAchieved = isGoalAchieved(goal);
-    const nowAchieved = newValue >= goal.targetValue;
-
-    const updates = { currentValue: newValue };
-    if (!wasAchieved && nowAchieved) updates.achievedAt = new Date().toISOString();
-
-    await db.goals.update(goal.id, updates);
-
-    // XP extra da meta só é concedido uma vez, no momento exato em que
-    // ela vira "alcançada" — nunca de novo, mesmo que o registro seja
-    // reaberto/editado depois.
-    if (!wasAchieved && nowAchieved) {
-      const player = await db.player.toCollection().first();
-      if (player) {
-        const { level, xp, leveledUp } = applyXp(player.level, player.xp, goal.xpReward);
-        await db.player.update(player.id, { level, xp });
-        if (leveledUp) alert(`Level up! Agora você é nível ${level} 🎉`);
-      }
-      celebrating = { ...goal, ...updates };
-    }
+    if (result.leveledUp) alert(`Level up! Agora você é nível ${result.level} 🎉`);
+    if (result.achieved) celebrating = result.updatedGoal;
   }
 
   function newSimilarGoal() {
@@ -164,7 +133,7 @@
   {:else}
     <div class="flex flex-col gap-3">
       {#each filtered as goal (goal.id)}
-        <GoalCard {goal} on:progress={addProgress} />
+        <GoalCard {goal} on:progress={handleProgress} />
       {/each}
     </div>
   {/if}

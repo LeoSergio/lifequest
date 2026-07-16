@@ -1,12 +1,11 @@
 <script>
-  import { liveQuery } from 'dexie';
-  import { db } from '../db/db.js';
-  import { applyXp } from '../lib/gamification.js';
-  import { successRate, todayIso, weeklyCount, completedToday } from '../lib/habits.js';
+  import { successRate, habitStreak } from '../lib/habits.js';
+  import { allHabitsQuery, allCompletionsQuery } from '../repositories/habitRepository.js';
+  import { completeHabit, addHabit, archiveHabit } from '../services/habitService.js';
   import HabitCard from '../components/HabitCard.svelte';
 
-  const allHabits = liveQuery(() => db.habits.toArray());
-  const completions = liveQuery(() => db.habitCompletions.toArray());
+  const allHabits = allHabitsQuery();
+  const completions = allCompletionsQuery();
 
   let tab = 'ativos'; // ativos | todos | concluidos
   let showForm = false;
@@ -35,48 +34,20 @@
     let best = 0;
     for (const h of activeHabits) {
       if (h.cadence !== 'daily') continue;
-      const days = new Set($completions.filter((c) => c.habitId === h.id).map((c) => c.date));
-      let streak = 0;
-      const cursor = new Date();
-      if (!days.has(cursor.toISOString().slice(0, 10))) cursor.setDate(cursor.getDate() - 1);
-      while (days.has(cursor.toISOString().slice(0, 10))) {
-        streak += 1;
-        cursor.setDate(cursor.getDate() - 1);
-      }
-      best = Math.max(best, streak);
+      best = Math.max(best, habitStreak(h.id, $completions));
     }
     return best;
   })();
 
-  async function completeHabit(event) {
+  async function handleComplete(event) {
     const habit = event.detail;
-
-    if (habit.cadence === 'daily' && completedToday(habit.id, $completions ?? [])) return;
-    if (habit.cadence === 'weekly' && weeklyCount(habit.id, $completions ?? []) >= habit.weeklyTarget) return;
-
-    await db.habitCompletions.add({ habitId: habit.id, date: todayIso() });
-
-    const player = await db.player.toCollection().first();
-    if (player) {
-      const { level, xp, leveledUp } = applyXp(player.level, player.xp, habit.xpReward ?? 10);
-      await db.player.update(player.id, { level, xp });
-      if (leveledUp) alert(`Level up! Agora você é nível ${level} 🎉`);
-    }
+    const result = await completeHabit(habit, $completions ?? []);
+    if (result?.leveledUp) alert(`Level up! Agora você é nível ${result.level} 🎉`);
   }
 
   async function createHabit() {
     if (!title.trim()) return;
-
-    await db.habits.add({
-      title: title.trim(),
-      icon: icon.trim() || '🔥',
-      cadence,
-      weeklyTarget: cadence === 'weekly' ? Number(weeklyTarget) || 3 : null,
-      xpReward: 10,
-      archivedAt: null,
-      createdAt: new Date().toISOString()
-    });
-
+    await addHabit({ title, icon, cadence, weeklyTarget });
     title = '';
     icon = '🔥';
     cadence = 'daily';
@@ -84,8 +55,8 @@
     showForm = false;
   }
 
-  async function archiveHabit(id) {
-    await db.habits.update(id, { archivedAt: new Date().toISOString() });
+  async function handleArchive(id) {
+    await archiveHabit(id);
   }
 </script>
 
@@ -158,9 +129,9 @@
     <div class="flex flex-col gap-3 mb-6">
       {#each filtered as habit (habit.id)}
         <div>
-          <HabitCard {habit} completions={$completions ?? []} on:complete={completeHabit} />
+          <HabitCard {habit} completions={$completions ?? []} on:complete={handleComplete} />
           {#if !habit.archivedAt}
-            <button class="text-[10px] text-white/30 mt-1 ml-1" on:click={() => archiveHabit(habit.id)}>
+            <button class="text-[10px] text-white/30 mt-1 ml-1" on:click={() => handleArchive(habit.id)}>
               marcar hábito como concluído (arquivar)
             </button>
           {/if}

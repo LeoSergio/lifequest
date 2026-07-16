@@ -1,20 +1,14 @@
 <script>
-  import { liveQuery } from 'dexie';
-  import Tesseract from 'tesseract.js';
-  import { db } from '../db/db.js';
   import { PANTRY_CATEGORIES } from '../lib/constants.js';
   import { extractItemCandidates } from '../lib/receiptParser.js';
+  import { pantryItemsQuery, addPantryItem, bulkAddPantryItems, removePantryItem } from '../repositories/pantryRepository.js';
+  import Tesseract from 'tesseract.js';
 
-  // bind:value liga o input DIRETO a essas variáveis — sempre que o
-  // usuário digita, a variável muda sozinha (é bidirecional, diferente
-  // do onChange manual do React). Por isso não precisamos de handler
-  // pra atualizar `name`, `category` ou `quantity`.
   let name = '';
   let category = PANTRY_CATEGORIES[0];
   let quantity = '';
 
-  // Estado do scanner de nota fiscal, agora embutido aqui (antes era a
-  // rota separada /scan). 'idle' | 'processing' | 'review'.
+  // Estado do scanner de nota fiscal. 'idle' | 'processing' | 'review'.
   let scanStatus = 'idle';
   let scanProgress = 0;
   let candidates = []; // [{ name, category, checked }]
@@ -23,11 +17,8 @@
   let cameraInput;
   let galleryInput;
 
-  const items = liveQuery(() => db.pantryItems.toArray());
+  const items = pantryItemsQuery();
 
-  // Deriva os itens agrupados por categoria sempre que `items` muda.
-  // $: é uma "reactive statement" do Svelte: roda de novo toda vez que
-  // qualquer variável usada dentro dela muda.
   $: grouped = groupByCategory($items ?? []);
 
   function groupByCategory(list) {
@@ -39,22 +30,15 @@
     return map;
   }
 
-  async function addItem() {
+  async function handleAddItem() {
     if (!name.trim()) return;
-
-    await db.pantryItems.add({
-      name: name.trim(),
-      category,
-      quantity: quantity.trim() || null,
-      updatedAt: new Date().toISOString()
-    });
-
+    await addPantryItem({ name, category, quantity });
     name = '';
     quantity = '';
   }
 
-  async function removeItem(id) {
-    await db.pantryItems.delete(id);
+  async function handleRemoveItem(id) {
+    await removePantryItem(id);
   }
 
   async function handleScanFile(event) {
@@ -66,9 +50,6 @@
     scanError = null;
 
     try {
-      // 'por' = pacote de idioma português. Na primeira vez, o Tesseract
-      // baixa esse pacote de treino (alguns MB) de uma CDN e guarda em
-      // cache no navegador — por isso a primeira leitura é mais lenta.
       const { data } = await Tesseract.recognize(file, 'por', {
         logger: (m) => {
           if (m.status === 'recognizing text') {
@@ -80,7 +61,7 @@
       const found = extractItemCandidates(data.text);
       candidates = found.map((n) => ({
         name: n,
-        category: PANTRY_CATEGORIES[PANTRY_CATEGORIES.length - 1], // 'Outros' por padrão
+        category: PANTRY_CATEGORIES[PANTRY_CATEGORIES.length - 1],
         checked: true
       }));
       scanStatus = 'review';
@@ -89,23 +70,13 @@
       scanError = 'Não consegui ler essa imagem. Tenta uma foto mais nítida e com boa luz.';
       scanStatus = 'idle';
     } finally {
-      // Limpa o input pra permitir escanear o mesmo arquivo de novo, se precisar.
       event.target.value = '';
     }
   }
 
   async function confirmScan() {
     const toAdd = candidates.filter((c) => c.checked && c.name.trim());
-
-    await db.pantryItems.bulkAdd(
-      toAdd.map((c) => ({
-        name: c.name.trim(),
-        category: c.category,
-        quantity: null,
-        updatedAt: new Date().toISOString()
-      }))
-    );
-
+    await bulkAddPantryItems(toAdd);
     resetScan();
   }
 
@@ -121,8 +92,6 @@
   <h1 class="text-2xl font-bold text-primary mb-1">Despensa</h1>
   <p class="text-sm text-white/60 mb-6">O que você tem em casa agora.</p>
 
-  <!-- Scan de nota fiscal: antes era uma aba própria, agora vive aqui
-       dentro, já que o resultado dele é sempre "itens da despensa". -->
   {#if scanStatus === 'idle'}
     <div class="bg-surface rounded-xl p-4 mb-6">
       <div class="flex items-center gap-2 mb-3">
@@ -150,16 +119,7 @@
         </button>
       </div>
 
-      <!-- capture="environment" força a abertura direta da câmera traseira. -->
-      <input
-        bind:this={cameraInput}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        class="hidden"
-        on:change={handleScanFile}
-      />
-      <!-- Sem o atributo capture, o navegador abre o seletor normal (galeria/arquivos). -->
+      <input bind:this={cameraInput} type="file" accept="image/*" capture="environment" class="hidden" on:change={handleScanFile} />
       <input bind:this={galleryInput} type="file" accept="image/*" class="hidden" on:change={handleScanFile} />
 
       {#if scanError}
@@ -213,7 +173,7 @@
     </div>
   {/if}
 
-  <form on:submit|preventDefault={addItem} class="bg-surface rounded-xl p-4 mb-6 flex flex-col gap-3">
+  <form on:submit|preventDefault={handleAddItem} class="bg-surface rounded-xl p-4 mb-6 flex flex-col gap-3">
     <input
       class="bg-bg border border-white/10 rounded-lg px-3 py-3 text-sm"
       placeholder="Nome do item (ex: ovos)"
@@ -255,7 +215,7 @@
                     <span class="text-xs text-white/40 ml-2">{item.quantity}</span>
                   {/if}
                 </div>
-                <button class="text-white/40 text-sm" on:click={() => removeItem(item.id)}>
+                <button class="text-white/40 text-sm" on:click={() => handleRemoveItem(item.id)}>
                   remover
                 </button>
               </div>

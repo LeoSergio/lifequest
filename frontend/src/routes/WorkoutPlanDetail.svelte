@@ -1,9 +1,20 @@
 <script>
-  import { liveQuery } from 'dexie';
-  import { db } from '../db/db.js';
   import { navigate } from '../lib/nav.js';
   import { MUSCLE_GROUPS, EQUIPMENT_TYPES } from '../lib/constants.js';
-  import { applyXp } from '../lib/gamification.js';
+  import {
+    workoutPlansQuery,
+    exerciseCatalogQuery,
+    planSessionsQuery,
+    planExerciseLinksQuery,
+    allSessionSetsQuery
+  } from '../repositories/workoutRepository.js';
+  import {
+    addExerciseToPlan,
+    removeExerciseLink,
+    startWorkout,
+    persistSet,
+    finishWorkout
+  } from '../services/workoutService.js';
 
   export let planId; // recebido via navigate('workout-plan-detail', { planId })
 
@@ -20,31 +31,21 @@
   // Só existe em memória até o usuário tocar em "salvar" naquela série.
   let setInputs = {};
 
-  const plan = liveQuery(() => db.workoutPlans.get(planId));
+  const plan = workoutPlansQuery();
+  const links = planExerciseLinksQuery(planId);
+  const catalog = exerciseCatalogQuery();
+  const planSessions = planSessionsQuery(planId);
+  const allSessionSets = allSessionSetsQuery();
 
-  // workoutPlanExercises guarda só o "vínculo" (quantas séries, reps,
-  // descanso, ordem) — o nome/grupo muscular/equipamento vivem no
-  // catálogo `exercises`, que é compartilhado entre todos os planos.
-  // Isso é o que faz o histórico de carga sobreviver mesmo se esse
-  // plano for apagado depois (ver comentário na migração v5 em db.js).
-  const links = liveQuery(() =>
-    db.workoutPlanExercises.where('workoutPlanId').equals(planId).sortBy('order')
-  );
-  const catalog = liveQuery(() => db.exercises.toArray());
+  $: currentPlan = ($plan ?? []).find((p) => p.id === planId);
 
   $: exercises = ($links ?? []).map((link) => ({
     ...link,
     exercise: ($catalog ?? []).find((e) => e.id === link.exerciseId) ?? { name: '(exercício removido)' }
   }));
 
-  const planSessions = liveQuery(() => db.workoutSessions.where('workoutPlanId').equals(planId).toArray());
-  const allSessionSets = liveQuery(() => db.sessionSets.toArray());
-
   const today = new Date().toISOString().slice(0, 10);
 
-  // Sessão em andamento (iniciada, ainda sem finishedAt) — é aqui que a
-  // tela de registro de séries aparece. Sessão finalizada hoje é outro
-  // estado, só pra travar um segundo treino no mesmo dia.
   $: activeSession = ($planSessions ?? []).find((s) => !s.finishedAt) ?? null;
   $: todaysFinishedSession = ($planSessions ?? []).find((s) => s.finishedAt?.slice(0, 10) === today);
 
@@ -56,128 +57,48 @@
     return activeSets.find((s) => s.workoutPlanExerciseId === linkId && s.setNumber === setNumber);
   }
 
-  // Acha um exercício já existente no catálogo pelo nome (sem diferenciar
-  // maiúsculas/minúsculas, pra "Supino Reto" e "supino reto" não virarem
-  // duas linhas de histórico separadas) ou cria um novo. Se já existir,
-  // atualiza o grupo muscular/equipamento pro que foi escolhido agora —
-  // o catálogo reflete sempre a classificação mais recente.
-  async function findOrCreateExercise(name, mg, eq) {
-    const trimmed = name.trim();
-    const existing = ($catalog ?? []).find((e) => e.name.toLowerCase() === trimmed.toLowerCase());
-
-    if (existing) {
-      await db.exercises.update(existing.id, { muscleGroup: mg, equipment: eq });
-      return existing.id;
-    }
-
-    return db.exercises.add({ name: trimmed, muscleGroup: mg, equipment: eq });
-  }
-
-  async function addExercise() {
+  async function handleAddExercise() {
     if (!exerciseName.trim()) return;
-
-    const exerciseId = await findOrCreateExercise(exerciseName, muscleGroup, equipment);
-    const count = await db.workoutPlanExercises.where('workoutPlanId').equals(planId).count();
-
-    await db.workoutPlanExercises.add({
-      workoutPlanId: planId,
-      exerciseId,
-      order: count,
-      targetSets: Number(targetSets),
+    await addExerciseToPlan({
+      planId,
+      catalog: $catalog ?? [],
+      exerciseName,
+      muscleGroup,
+      equipment,
+      targetSets,
       targetReps,
-      restSeconds: Number(restSeconds)
+      restSeconds
     });
-
     exerciseName = '';
     targetSets = 3;
     targetReps = '8-12';
     restSeconds = 90;
   }
 
-  async function removeExercise(linkId) {
-    // Remove só o vínculo desse plano com o exercício — o exercício em
-    // si continua no catálogo, então o histórico de carga dele em
-    // Métricas não é afetado.
-    await db.workoutPlanExercises.delete(linkId);
-  }
-
-  async function startWorkout() {
+  async function handleStartWorkout() {
     starting = true;
     try {
-      await db.workoutSessions.add({
-        workoutPlanId: planId,
-        startedAt: new Date().toISOString(),
-        finishedAt: null
-      });
+      await startWorkout(planId);
     } finally {
       starting = false;
     }
   }
 
-  // Grava (ou atualiza, se o usuário corrigir um valor) uma série
-  // específica — é isso que alimenta o gráfico de Desempenho em
-  // TrainingMetrics.svelte. Guardamos exerciseId direto aqui (além do
-  // workoutPlanExerciseId) pra esse histórico não depender do vínculo
-  // com o plano continuar existindo.
-  async function saveSet(link, setNumber) {
+  async function handleSaveSet(link, setNumber) {
     const key = `${link.id}-${setNumber}`;
-    const input = setInputs[key] ?? {};
-    const weightKg = input.weight === '' || input.weight == null ? null : Number(input.weight);
-    const repsDone = input.reps === '' || input.reps == null ? null : Number(input.reps);
-
-    const existing = savedSet(link.id, setNumber);
-
-    // Evita criar um registro vazio se o campo só perdeu o foco (blur)
-    // sem nada ter sido digitado — só grava se já existe algo salvo pra
-    // atualizar, ou se pelo menos um valor novo foi preenchido.
-    if (!existing && weightKg == null && repsDone == null) return;
-
-    if (existing) {
-      await db.sessionSets.update(existing.id, { weightKg, repsDone, completedAt: new Date().toISOString() });
-    } else {
-      await db.sessionSets.add({
-        workoutSessionId: activeSession.id,
-        workoutPlanExerciseId: link.id,
-        exerciseId: link.exerciseId,
-        setNumber,
-        weightKg,
-        repsDone,
-        completedAt: new Date().toISOString()
-      });
-    }
+    await persistSet({ activeSession, activeSets, link, setNumber, input: setInputs[key] });
   }
 
-  async function finishWorkout() {
+  async function handleFinishWorkout() {
     if (!activeSession) return;
     completing = true;
     try {
-      // Rede de segurança: qualquer série que o usuário preencheu mas
-      // esqueceu de tocar em 💾 é salva agora — antes disso, digitar o
-      // peso sem apertar salvar em cada linha fazia o dado se perder
-      // silenciosamente, e o gráfico de Desempenho ficava vazio mesmo
-      // depois de um treino "concluído".
-      for (const link of exercises) {
-        for (let setNumber = 1; setNumber <= link.targetSets; setNumber++) {
-          const key = `${link.id}-${setNumber}`;
-          const input = setInputs[key];
-          const alreadySaved = savedSet(link.id, setNumber);
-          if (input && !alreadySaved && (input.weight !== '' || input.reps !== '')) {
-            await saveSet(link, setNumber);
-          }
-        }
-      }
-
-      await db.workoutSessions.update(activeSession.id, { finishedAt: new Date().toISOString() });
-
-      // XP proporcional ao tamanho do treino, com um piso — treinos
-      // maiores rendem mais, mas nenhum treino concluído vale "pouco".
-      const exerciseCount = exercises.length;
-      const xpReward = Math.max(30, exerciseCount * 15);
-
-      const currentPlayer = await db.player.toCollection().first();
-      const { level, xp, leveledUp } = applyXp(currentPlayer.level, currentPlayer.xp, xpReward);
-      await db.player.update(currentPlayer.id, { level, xp });
-
+      const { xpReward, leveledUp, level } = await finishWorkout({
+        activeSession,
+        exercises,
+        activeSets,
+        setInputs
+      });
       if (leveledUp) {
         alert(`Treino concluído! +${xpReward} XP — Level up! Agora você é nível ${level} 🎉`);
       } else {
@@ -192,11 +113,11 @@
 <main class="min-h-screen p-6 pb-24 max-w-md mx-auto">
   <button class="text-sm text-white/40 mb-4" on:click={() => navigate('training')}>← Treinos</button>
 
-  {#if $plan}
-    <h1 class="text-2xl font-bold text-primary mb-6">{$plan.name}</h1>
+  {#if currentPlan}
+    <h1 class="text-2xl font-bold text-primary mb-6">{currentPlan.name}</h1>
   {/if}
 
-  <form on:submit|preventDefault={addExercise} class="bg-surface rounded-xl p-4 mb-6 flex flex-col gap-3">
+  <form on:submit|preventDefault={handleAddExercise} class="bg-surface rounded-xl p-4 mb-6 flex flex-col gap-3">
     <input
       class="bg-bg border border-white/10 rounded-lg px-3 py-3 text-sm"
       placeholder="Nome do exercício (ex: Supino reto)"
@@ -249,7 +170,7 @@
             </p>
           </div>
           {#if !activeSession}
-            <button class="text-white/40 text-sm shrink-0" on:click={() => removeExercise(link.id)}>remover</button>
+            <button class="text-white/40 text-sm shrink-0" on:click={() => removeExerciseLink(link.id)}>remover</button>
           {/if}
         </div>
       {/each}
@@ -285,7 +206,7 @@
                       placeholder="kg"
                       value={saved ? saved.weightKg : (setInputs[key]?.weight ?? '')}
                       on:input={(e) => (setInputs[key] = { ...setInputs[key], weight: e.target.value })}
-                      on:blur={() => saveSet(link, setNumber)}
+                      on:blur={() => handleSaveSet(link, setNumber)}
                     />
                     <input
                       type="number"
@@ -293,11 +214,11 @@
                       placeholder="reps"
                       value={saved ? saved.repsDone : (setInputs[key]?.reps ?? '')}
                       on:input={(e) => (setInputs[key] = { ...setInputs[key], reps: e.target.value })}
-                      on:blur={() => saveSet(link, setNumber)}
+                      on:blur={() => handleSaveSet(link, setNumber)}
                     />
                     <button
                       class="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center text-sm {saved ? 'bg-xp text-bg' : 'bg-primary text-white'}"
-                      on:click={() => saveSet(link, setNumber)}
+                      on:click={() => handleSaveSet(link, setNumber)}
                       aria-label="Salvar série {setNumber} de {link.exercise.name}"
                     >
                       {saved ? '✓' : '💾'}
@@ -313,7 +234,7 @@
       <button
         class="w-full bg-xp text-bg rounded-xl py-4 font-semibold disabled:opacity-50"
         disabled={completing}
-        on:click={finishWorkout}
+        on:click={handleFinishWorkout}
       >
         {completing ? 'Registrando...' : '✅ Finalizar treino'}
       </button>
@@ -321,7 +242,7 @@
       <button
         class="w-full bg-primary text-white rounded-xl py-4 font-semibold disabled:opacity-50"
         disabled={starting}
-        on:click={startWorkout}
+        on:click={handleStartWorkout}
       >
         {starting ? 'Iniciando...' : '▶ Iniciar treino'}
       </button>

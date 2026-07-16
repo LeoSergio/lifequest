@@ -1,0 +1,16 @@
+dominio/
+  ├── entidades/
+  │   └── user_entity.py        # Modelo de dados puro (UserModel original deve ser migrado aqui)
+  ├── use_cases/
+  │   ├── criar_usuario_use_case.py
+  │   └── ... outras classes ...
+  └── repositories/            # Interfaces devem estar aqui, não implementações concretas!
+      ├── repository_interface.py
+
+infra/
+  ├── config/database.py        // Configuração de conexão (deve depender do dominio)
+  └── repositórios_concretos/   // Implementações não expostas externamente
+      └── user_repository_sqlalchemy.py
+
+adapters/
+  ├── http/controllers.py       // Deve chamar os use cases via dependency injection

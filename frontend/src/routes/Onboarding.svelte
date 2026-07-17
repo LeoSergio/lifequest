@@ -12,7 +12,11 @@
   let name = '';
   let email = '';
   let password = '';
-  let saveToCloud = true;
+  let authMode = 'login';
+  let showPassword = false;
+  let rememberMe = true;
+  let errorMessage = '';
+  let isLoading = false;
   let goal = null;
 
   let age = '';
@@ -27,8 +31,75 @@
     { title: 'Treinar', icon: '💪', cadence: 'weekly', weeklyTarget: 4, xpReward: 20 }
   ];
 
-  function next() {
-    if (step === 1 && !name.trim()) return;
+  async function next() {
+    errorMessage = '';
+
+    if (step === 1) {
+      if (authMode === 'register' && (!name.trim() || !email.trim() || !password)) return;
+      if (authMode === 'login' && (!email.trim() || !password)) return;
+
+      isLoading = true;
+      try {
+        if (authMode === 'register') {
+          // Chamada para a API de Registro
+          const res = await fetch('http://localhost:8000/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: name.trim(), email: email.trim(), password })
+          });
+          
+          if (!res.ok) {
+            const errorData = await res.json();
+            errorMessage = errorData.detail || 'Erro ao criar conta.';
+            isLoading = false;
+            return;
+          }
+          
+          // Auto-login após o registro para já salvar o token
+          const loginRes = await fetch('http://localhost:8000/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email.trim(), password })
+          });
+          
+          if (loginRes.ok) {
+            const data = await loginRes.json();
+            localStorage.setItem('access_token', data.access_token);
+          }
+          
+          isLoading = false;
+          // Continua para o passo 2 (Objetivo)
+        } else if (authMode === 'login') {
+          // Chamada para a API de Login
+          const res = await fetch('http://localhost:8000/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email.trim(), password })
+          });
+          
+          if (!res.ok) {
+            errorMessage = 'E-mail ou senha incorretos.';
+            isLoading = false;
+            return;
+          }
+
+          const data = await res.json();
+          localStorage.setItem('access_token', data.access_token);
+          
+          // Como ainda não temos uma rota para buscar os dados do usuário sincronizados,
+          // simulamos a continuação localmente para o Dashboard
+          name = email.split('@')[0];
+          goal = 'health'; // Objetivo mockado provisório
+          await finish();
+          return;
+        }
+      } catch (err) {
+        errorMessage = 'Erro de conexão com o servidor. Verifique se o backend está rodando.';
+        isLoading = false;
+        return;
+      }
+    }
+
     if (step === 2 && !goal) return;
     step += 1;
   }
@@ -175,54 +246,162 @@
       </div>
 
     {:else if step === 1}
-      <div class="w-full text-center flex flex-col items-center gap-5">
-        <div class="w-14 h-14 rounded-full bg-primary/20 flex items-center justify-center text-2xl">☁️</div>
-        <div>
-          <h1 class="text-xl font-semibold mb-1">Proteja seu progresso</h1>
-          <p class="text-sm text-white/60 px-2">Crie sua conta. Seus dados serão salvos na nuvem para você nunca perder seu progresso.</p>
+      <div class="w-full flex flex-col items-center animate-fade-in mt-2">
+        <!-- Icon -->
+        <div class="w-[84px] h-[84px] rounded-full border border-primary/30 flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(124,92,255,0.25)] bg-gradient-to-b from-[#1a172c] to-bg relative overflow-hidden">
+          <div class="absolute inset-0 bg-primary/10"></div>
+          <!-- Stars/Sparkles -->
+          <div class="absolute top-4 left-5 text-[10px] text-white/60">✦</div>
+          <div class="absolute top-6 right-6 text-[8px] text-white/80">✦</div>
+          <div class="absolute bottom-5 left-7 text-[12px] text-white/50">✦</div>
+          <div class="absolute bottom-6 right-5 text-[10px] text-white/40">✦</div>
+          <!-- Cloud Icon with Arrow -->
+          <div class="relative z-10 flex flex-col items-center justify-center mt-1">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M7.5 18H16.5C18.9853 18 21 15.9853 21 13.5C21 11.2336 19.3243 9.35624 17.1352 9.04368C16.4807 5.61715 13.4314 3 9.8 3C6.04446 3 3 6.04446 3 9.8C3 10.1557 3.02737 10.505 3.07973 10.8458C1.30903 11.4429 0 13.136 0 15.15C0 17.6521 2.02944 19.6815 4.53153 19.6815H7.5" fill="white" />
+              <path d="M12 18V8M12 8L9 11M12 8L15 11" stroke="#7C5CFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
         </div>
 
-        <form on:submit|preventDefault={next} class="w-full flex flex-col gap-3 text-left">
-          <input
-            class="bg-surface border border-white/10 rounded-xl px-4 py-3.5 text-sm focus:border-primary focus:outline-none transition-colors"
-            placeholder="Seu Nome"
-            bind:value={name}
-            required
-            autofocus
-          />
+        <div class="text-center mb-7">
+          <h1 class="text-[28px] font-bold mb-2">Proteja seu <span class="text-primary">progresso</span></h1>
+          <p class="text-[14px] text-white/60 leading-relaxed px-4">Faça login para continuar acompanhando seus treinos, hábitos e conquistas.</p>
+        </div>
 
-          <label class="flex items-center gap-2 px-1 mt-1 cursor-pointer select-none">
-            <input type="checkbox" bind:checked={saveToCloud} class="accent-primary w-4 h-4 rounded" />
-            <span class="text-xs text-white/80">Salvar meu progresso na nuvem</span>
-          </label>
+        <!-- Tabs -->
+        <div class="w-full flex rounded-xl border border-white/5 bg-surface/50 p-1 mb-6">
+          <button 
+            type="button"
+            class="flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 relative transition-colors {authMode === 'login' ? 'text-primary' : 'text-white/40 hover:text-white/70'}"
+            on:click={() => authMode = 'login'}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+            Entrar
+            {#if authMode === 'login'}
+              <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-[3px] bg-primary rounded-t-full shadow-[0_-2px_10px_rgba(124,92,255,0.5)]"></div>
+            {/if}
+          </button>
+          
+          <button 
+            type="button"
+            class="flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 relative transition-colors {authMode === 'register' ? 'text-primary' : 'text-white/40 hover:text-white/70'}"
+            on:click={() => authMode = 'register'}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+            Cadastrar
+            {#if authMode === 'register'}
+              <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-[3px] bg-primary rounded-t-full shadow-[0_-2px_10px_rgba(124,92,255,0.5)]"></div>
+            {/if}
+          </button>
+        </div>
 
-          {#if saveToCloud}
-            <div class="flex flex-col gap-3 mt-1 animate-fade-in">
+        <form on:submit|preventDefault={next} class="w-full flex flex-col gap-4 text-left">
+          {#if authMode === 'register'}
+            <!-- Nome -->
+            <div class="relative animate-fade-in">
+              <div class="absolute left-4 top-1/2 -translate-y-1/2 text-primary">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              </div>
               <input
-                type="email"
-                class="bg-surface border border-white/10 rounded-xl px-4 py-3.5 text-sm"
-                placeholder="Seu E-mail"
-                bind:value={email}
-                required
-              />
-              <input
-                type="password"
-                class="bg-surface border border-white/10 rounded-xl px-4 py-3.5 text-sm"
-                placeholder="Crie uma Senha"
-                bind:value={password}
-                required
+                class="w-full bg-surface/40 border border-white/5 rounded-xl pl-11 pr-4 py-4 text-sm focus:border-primary focus:bg-surface/80 focus:outline-none transition-all placeholder:text-white/30 text-white"
+                placeholder="Seu nome"
+                bind:value={name}
+                required={authMode === 'register'}
               />
             </div>
           {/if}
 
+          <!-- E-mail -->
+          <div class="relative animate-fade-in">
+            <div class="absolute left-4 top-1/2 -translate-y-1/2 text-primary">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </div>
+            <input
+              type="email"
+              class="w-full bg-surface/40 border border-white/5 rounded-xl pl-11 pr-4 py-4 text-sm focus:border-primary focus:bg-surface/80 focus:outline-none transition-all placeholder:text-white/30 text-white"
+              placeholder="Seu e-mail"
+              bind:value={email}
+              required
+            />
+          </div>
+
+          <!-- Senha -->
+          <div class="relative animate-fade-in">
+            <div class="absolute left-4 top-1/2 -translate-y-1/2 text-primary">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
+            <input
+              type={showPassword ? "text" : "password"}
+              class="w-full bg-surface/40 border border-white/5 rounded-xl pl-11 pr-11 py-4 text-sm focus:border-primary focus:bg-surface/80 focus:outline-none transition-all placeholder:text-white/30 text-white"
+              placeholder="Sua senha"
+              value={password}
+              on:input={(e) => password = e.currentTarget.value}
+              required
+            />
+            <button 
+              type="button"
+              class="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
+              on:click={() => showPassword = !showPassword}
+            >
+              {#if showPassword}
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              {:else}
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              {/if}
+            </button>
+          </div>
+
+          <!-- Lembrar de mim e Esqueci a senha -->
+          {#if authMode === 'login'}
+            <div class="flex justify-between items-center mt-1 animate-fade-in">
+              <label class="flex items-center gap-2.5 cursor-pointer group select-none">
+                <div class="w-[18px] h-[18px] rounded-[5px] border flex items-center justify-center transition-colors {rememberMe ? 'bg-primary border-primary' : 'border-white/20 group-hover:border-white/40'}">
+                  {#if rememberMe}
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  {/if}
+                </div>
+                <input type="checkbox" bind:checked={rememberMe} class="hidden" />
+                <span class="text-[14px] text-white/60 group-hover:text-white/90 transition-colors">Lembrar de mim</span>
+              </label>
+
+              <button type="button" class="text-[14px] text-primary hover:text-primary/80 transition-colors">
+                Esqueci minha senha
+              </button>
+            </div>
+          {/if}
+
+          <!-- Mensagem de Erro -->
+          {#if errorMessage}
+            <div class="text-red-400 text-xs text-center mt-1 mb-1 animate-fade-in bg-red-500/10 py-2.5 rounded-xl border border-red-500/20">
+              {errorMessage}
+            </div>
+          {/if}
+
+          <!-- Submit Button -->
           <button 
             type="submit" 
-            class="bg-primary text-white rounded-xl py-3.5 font-medium disabled:opacity-40 mt-2 transition-all" 
-            disabled={!name.trim() || (saveToCloud && (!email.trim() || !password))}
+            class="w-full bg-primary flex items-center justify-center gap-2 text-white rounded-xl py-4 font-bold shadow-[0_4px_20px_rgba(124,92,255,0.4)] transition-transform active:scale-95 mt-3 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={(authMode === 'register' && !name.trim()) || !email.trim() || !password || isLoading}
           >
-            Continuar
+            <span class="text-base">{isLoading ? 'Aguarde...' : (authMode === 'login' ? 'Entrar' : 'Cadastrar')}</span>
+            {#if authMode === 'login' && !isLoading}
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            {/if}
           </button>
         </form>
+
+        <!-- Trust Card -->
+        <div class="w-full bg-surface/40 border border-white/5 rounded-xl p-4 mt-6 flex items-center gap-4 animate-fade-in">
+          <div class="w-[42px] h-[42px] rounded-xl border border-primary/30 bg-primary/10 flex items-center justify-center text-primary shrink-0">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><rect x="9" y="10" width="6" height="6" rx="1.5" ry="1.5"/><path d="M12 10v2"/></svg>
+          </div>
+          <div class="text-left">
+            <h4 class="text-[14px] font-semibold text-white mb-0.5">Seus dados estão seguros</h4>
+            <p class="text-[13px] text-white/50">Privacidade e segurança são nossa prioridade.</p>
+          </div>
+        </div>
+
       </div>
     {:else if step === 2}
       <div class="w-full text-center flex flex-col items-center gap-5">

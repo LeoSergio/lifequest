@@ -16,3 +16,4 @@ __pycache__/
 
 # PWA build artifacts
 sw.js.map
+frontend/.env.local

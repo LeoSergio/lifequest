@@ -1,6 +1,7 @@
 <script>
   import { db } from '../db/db.js';
   import { GOALS } from '../lib/constants.js';
+  import { api } from '../lib/api.js';
 
   // Onboarding em 3 passos curtos: nome, objetivo, métricas básicas.
   // Nada de quiz nem chamada de IA — o app funciona 100% offline desde o
@@ -44,31 +45,12 @@
       try {
         if (authMode === 'register') {
           // Chamada para a API de Registro
-          const res = await fetch('http://localhost:8000/auth/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: name.trim(), email: email.trim(), password })
-          });
-          
-          if (!res.ok) {
-            const errorData = await res.json();
-            errorMessage = errorData.detail || 'Erro ao criar conta.';
-            isLoading = false;
-            return;
-          }
-          
+          await api.register({ name: name.trim(), email: email.trim(), password });
+
           // Auto-login após o registro para já salvar o token
-          const loginRes = await fetch('http://localhost:8000/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: email.trim(), password })
-          });
-          
-          if (loginRes.ok) {
-            const data = await loginRes.json();
-            localStorage.setItem('access_token', data.access_token);
-          }
-          
+          const loginData = await api.login({ email: email.trim(), password });
+          localStorage.setItem('access_token', loginData.access_token);
+
           isLoading = false;
           successMessage = 'Cadastrado com sucesso!';
           setTimeout(() => {
@@ -78,19 +60,7 @@
           return;
         } else if (authMode === 'login') {
           // Chamada para a API de Login
-          const res = await fetch('http://localhost:8000/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: email.trim(), password })
-          });
-          
-          if (!res.ok) {
-            errorMessage = 'E-mail ou senha incorretos.';
-            isLoading = false;
-            return;
-          }
-
-          const data = await res.json();
+          const data = await api.login({ email: email.trim(), password });
           localStorage.setItem('access_token', data.access_token);
           
           // Como ainda não temos uma rota para buscar os dados do usuário sincronizados,

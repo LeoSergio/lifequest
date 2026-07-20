@@ -16,6 +16,7 @@
   let showPassword = false;
   let rememberMe = true;
   let errorMessage = '';
+  let successMessage = '';
   let isLoading = false;
   let goal = null;
 
@@ -33,6 +34,7 @@
 
   async function next() {
     errorMessage = '';
+    successMessage = '';
 
     if (step === 1) {
       if (authMode === 'register' && (!name.trim() || !email.trim() || !password)) return;
@@ -68,7 +70,12 @@
           }
           
           isLoading = false;
-          // Continua para o passo 2 (Objetivo)
+          successMessage = 'Cadastrado com sucesso!';
+          setTimeout(() => {
+            successMessage = '';
+            step += 1;
+          }, 1500);
+          return;
         } else if (authMode === 'login') {
           // Chamada para a API de Login
           const res = await fetch('http://localhost:8000/auth/login', {
@@ -88,7 +95,8 @@
           
           // Como ainda não temos uma rota para buscar os dados do usuário sincronizados,
           // simulamos a continuação localmente para o Dashboard
-          name = email.split('@')[0];
+          const rawName = data.name || email.split('@')[0];
+          name = rawName.charAt(0).toUpperCase() + rawName.slice(1);
           goal = 'health'; // Objetivo mockado provisório
           await finish();
           return;
@@ -375,6 +383,13 @@
           {#if errorMessage}
             <div class="text-red-400 text-xs text-center mt-1 mb-1 animate-fade-in bg-red-500/10 py-2.5 rounded-xl border border-red-500/20">
               {errorMessage}
+            </div>
+          {/if}
+
+          <!-- Mensagem de Sucesso -->
+          {#if successMessage}
+            <div class="text-green-400 text-xs text-center mt-1 mb-1 animate-fade-in bg-green-500/10 py-2.5 rounded-xl border border-green-500/20">
+              {successMessage}
             </div>
           {/if}
 

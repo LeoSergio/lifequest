@@ -68,4 +68,4 @@ async def login(user_credentials: UserLogin, db: AsyncSession = Depends(get_db_s
     
     # Gera JWT
     access_token = create_access_token(data={"sub": str(user.id)})
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {"access_token": access_token, "token_type": "bearer", "name": user.username}

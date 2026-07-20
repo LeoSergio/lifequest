@@ -69,3 +69,27 @@ class WorkoutCalibrationResponseSchema(BaseModel):
     suggested_reps: str
     suggested_weight_kg: float | None = None
     rationale: str
+
+
+# ── Meal Suggestions ───────────────────────────────────────────────────────────
+
+class MealSuggestionRequestSchema(BaseModel):
+    pantry_items: list[PantryItemSchema]
+    meal_type: str          # cafe_manha | almoco | janta | lanche
+    goal: str               # hipertrofia | emagrecimento | manutencao | ganho_peso
+    calorie_target: int | None = None
+    todays_workout: str | None = None   # ex: "Peito e Tríceps", "Cardio 30min"
+
+
+class MealSuggestionItemSchema(BaseModel):
+    title: str
+    description: str
+    ingredients_used: list[str]
+    ingredients_to_buy: list[str]
+    estimated_calories: int
+    protein_g: int
+    prep_time_min: int
+
+
+class MealSuggestionResponseSchema(BaseModel):
+    suggestions: list[MealSuggestionItemSchema]

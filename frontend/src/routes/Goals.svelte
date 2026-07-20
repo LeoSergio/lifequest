@@ -13,8 +13,35 @@
   let targetValue = 5;
   let unit = '';
   let reward = '';
-  let xpReward = 50;
+  let difficulty = 'medium';
   let deadline = '';
+
+  const XP_MAP = {
+    easy: 50,
+    medium: 250,
+    hard: 1000,
+    epic: 5000
+  };
+
+  $: xpReward = XP_MAP[difficulty];
+
+  const TEMPLATES = [
+    { title: 'Treinar 4x/semana', targetValue: 16, unit: 'treinos', difficulty: 'medium', deadlineOffsetDays: 30, emoji: '💪' },
+    { title: 'Secando (Reduzir)', targetValue: 2, unit: 'kg', difficulty: 'medium', deadlineOffsetDays: 30, emoji: '⚖️' },
+    { title: 'Foco Hidratação', targetValue: 7, unit: 'dias', difficulty: 'easy', deadlineOffsetDays: 7, emoji: '💧' },
+    { title: 'Aumentar Supino', targetValue: 10, unit: 'kg', difficulty: 'hard', deadlineOffsetDays: 60, emoji: '🏋️' }
+  ];
+
+  function applyTemplate(t) {
+    title = t.title;
+    targetValue = t.targetValue;
+    unit = t.unit;
+    difficulty = t.difficulty;
+    const d = new Date();
+    d.setDate(d.getDate() + t.deadlineOffsetDays);
+    deadline = d.toISOString().slice(0, 10);
+    showForm = true;
+  }
 
   // Estado da tela de celebração — não é uma rota própria, é só um
   // overlay que aparece por cima da lista quando uma meta é batida.
@@ -29,7 +56,7 @@
     targetValue = 5;
     unit = '';
     reward = '';
-    xpReward = 50;
+    difficulty = 'medium';
     deadline = '';
     showForm = false;
   }
@@ -48,7 +75,8 @@
     targetValue = celebrating.targetValue;
     unit = celebrating.unit ?? '';
     reward = celebrating.reward ?? '';
-    xpReward = celebrating.xpReward;
+    // Tenta deduzir a dificuldade pelo XP original
+    difficulty = Object.keys(XP_MAP).find(k => XP_MAP[k] === celebrating.xpReward) || 'medium';
     deadline = '';
     celebrating = null;
     showForm = true;
@@ -69,49 +97,103 @@
     </button>
   </div>
 
-  {#if showForm}
-    <form on:submit|preventDefault={createGoal} class="bg-surface rounded-xl p-4 my-4 flex flex-col gap-3">
-      <input
-        class="bg-bg border border-white/10 rounded-lg px-3 py-3 text-sm"
-        placeholder="Título da meta (ex: correr 5km sem parar)"
-        bind:value={title}
-      />
-
-      <div class="flex gap-2">
-        <input
-          type="number"
-          min="1"
-          class="flex-1 bg-bg border border-white/10 rounded-lg px-3 py-3 text-sm"
-          placeholder="Valor alvo"
-          bind:value={targetValue}
-        />
-        <input
-          class="w-20 bg-bg border border-white/10 rounded-lg px-3 py-3 text-sm"
-          placeholder="Unid."
-          bind:value={unit}
-        />
+  <!-- Metas Sugeridas (Templates) -->
+  {#if !showForm}
+    <div class="mt-6 mb-8">
+      <h2 class="text-xs uppercase font-bold text-white/40 mb-3 tracking-wider">Inspirações</h2>
+      <div class="flex overflow-x-auto gap-3 pb-2 -mx-6 px-6 snap-x [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {#each TEMPLATES as t}
+          <button class="shrink-0 w-36 bg-surface border border-white/5 rounded-2xl p-4 text-left snap-center hover:bg-white/5 transition-colors shadow-sm" on:click={() => applyTemplate(t)}>
+            <div class="text-3xl mb-3 filter drop-shadow-[0_0_5px_rgba(255,255,255,0.2)]">{t.emoji}</div>
+            <h3 class="font-bold text-sm text-white mb-1 leading-tight">{t.title}</h3>
+            <p class="text-xs text-xp font-bold drop-shadow-[0_0_2px_rgba(255,177,0,0.5)]">+{XP_MAP[t.difficulty]} XP</p>
+          </button>
+        {/each}
       </div>
-
-      <input
-        class="bg-bg border border-white/10 rounded-lg px-3 py-3 text-sm"
-        placeholder="Recompensa ao concluir (opcional)"
-        bind:value={reward}
-      />
-
-      <div class="flex gap-2">
-        <input
-          type="number"
-          min="0"
-          class="flex-1 bg-bg border border-white/10 rounded-lg px-3 py-3 text-sm"
-          placeholder="XP extra"
-          bind:value={xpReward}
-        />
-        <input type="date" class="flex-1 bg-bg border border-white/10 rounded-lg px-3 py-3 text-sm" bind:value={deadline} />
-      </div>
-
-      <button type="submit" class="bg-primary text-white rounded-lg py-3 font-medium">Criar meta</button>
-    </form>
+    </div>
   {/if}
+
+  {#if showForm}
+    <div class="fixed inset-0 bg-bg/95 z-20 flex flex-col p-6 overflow-y-auto">
+      <div class="flex justify-between items-center mb-6 mt-4">
+        <h2 class="text-xl font-bold text-white">Nova Meta</h2>
+        <button class="w-8 h-8 rounded-full bg-surface flex items-center justify-center text-white/50" on:click={() => showForm = false}>✕</button>
+      </div>
+
+      <form on:submit|preventDefault={createGoal} class="flex flex-col gap-4">
+        <div>
+          <label class="text-xs text-white/40 mb-1 block">Título da meta</label>
+          <input
+            class="w-full bg-surface border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-primary outline-none transition-colors"
+            placeholder="ex: Correr 5km sem parar"
+            bind:value={title}
+          />
+        </div>
+
+        <div class="flex gap-2">
+          <div class="flex-1">
+            <label class="text-xs text-white/40 mb-1 block">Alvo Numérico</label>
+            <input
+              type="number"
+              min="1"
+              class="w-full bg-surface border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-primary outline-none transition-colors"
+              placeholder="Ex: 5"
+              bind:value={targetValue}
+            />
+          </div>
+          <div class="w-24">
+            <label class="text-xs text-white/40 mb-1 block">Unidade</label>
+            <input
+              class="w-full bg-surface border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-primary outline-none transition-colors"
+              placeholder="kg, km..."
+              bind:value={unit}
+            />
+          </div>
+        </div>
+
+        <div>
+          <label class="text-xs text-white/40 mb-1 block">Recompensa pessoal (Opcional)</label>
+          <input
+            class="w-full bg-surface border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-primary outline-none transition-colors"
+            placeholder="O que você vai se dar de presente?"
+            bind:value={reward}
+          />
+        </div>
+
+        <div>
+          <label class="text-xs text-white/40 mb-1 block">Dificuldade (Gera o XP automaticamente)</label>
+          <div class="grid grid-cols-4 gap-2">
+            {#each [
+              { id: 'easy', label: 'Fácil', xp: '50' },
+              { id: 'medium', label: 'Médio', xp: '250' },
+              { id: 'hard', label: 'Difícil', xp: '1k' },
+              { id: 'epic', label: 'Épico', xp: '5k' }
+            ] as diff}
+              <button
+                type="button"
+                class="py-3 rounded-xl border transition-all flex flex-col items-center gap-1 {difficulty === diff.id ? 'bg-primary/20 border-primary text-primary shadow-[0_0_15px_rgba(124,92,255,0.3)]' : 'bg-surface border-white/5 text-white/40 hover:bg-white/5'}"
+                on:click={() => difficulty = diff.id}
+              >
+                <span class="text-xs font-bold">{diff.label}</span>
+                <span class="text-[10px] opacity-70">{diff.xp} XP</span>
+              </button>
+            {/each}
+          </div>
+        </div>
+
+        <div>
+          <label class="text-xs text-white/40 mb-1 block">Data Limite (Opcional)</label>
+          <input type="date" class="w-full bg-surface border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-primary outline-none transition-colors text-white" bind:value={deadline} />
+        </div>
+
+        <button type="submit" class="w-full bg-primary text-white rounded-xl py-4 font-bold mt-2 hover:bg-primary/90 transition-colors">
+          Criar meta (+{xpReward} XP)
+        </button>
+      </form>
+    </div>
+  {/if}
+
+  <h2 class="text-xs uppercase font-bold text-white/40 mb-3 tracking-wider mt-2">Suas Metas</h2>
 
   <div class="flex bg-surface rounded-xl p-1 my-4 text-sm">
     {#each [['ativas', 'Ativas'], ['alcancadas', 'Alcançadas']] as [value, label]}

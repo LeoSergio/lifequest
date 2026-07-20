@@ -21,6 +21,7 @@ from app.domain.use_cases import (
     generate_archetype,
     generate_mission,
     generate_recipe,
+    suggest_meals,
 )
 from app.infra.ai_client import ai_provider
 from app.adapters.http.schemas import (
@@ -31,6 +32,8 @@ from app.adapters.http.schemas import (
     RecipeResponseSchema,
     WorkoutCalibrationRequestSchema,
     WorkoutCalibrationResponseSchema,
+    MealSuggestionRequestSchema,
+    MealSuggestionResponseSchema,
 )
 
 router = APIRouter(prefix="/ai", tags=["ai"])
@@ -73,3 +76,18 @@ async def calibrate_workout_endpoint(payload: WorkoutCalibrationRequest):
         ai_provider=ai_provider,
     )
     return result
+
+
+@router.post("/meals/suggest", response_model=MealSuggestionResponseSchema)
+async def suggest_meals_endpoint(payload: MealSuggestionRequestSchema):
+    """Retorna até 3 sugestões de refeição personalizadas com base na dispensa e treino do dia."""
+    items = [PantryItemEntity(**item.model_dump()) for item in payload.pantry_items]
+    data = await suggest_meals.suggest_meals(
+        pantry_items=items,
+        meal_type=payload.meal_type,
+        calorie_target=payload.calorie_target,
+        todays_workout=payload.todays_workout,
+        goal=payload.goal,
+        ai_provider=ai_provider,
+    )
+    return MealSuggestionResponseSchema(**data)

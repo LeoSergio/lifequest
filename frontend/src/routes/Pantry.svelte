@@ -1,7 +1,11 @@
 <script>
+  import { onMount } from 'svelte';
   import { PANTRY_CATEGORIES } from '../lib/constants.js';
   import { extractItemCandidates } from '../lib/receiptParser.js';
   import { pantryItemsQuery, addPantryItem, bulkAddPantryItems, removePantryItem } from '../repositories/pantryRepository.js';
+  import { getPlayer } from '../repositories/playerRepository.js';
+  import { suggestMeals } from '../services/mealAiService.js';
+  import { db } from '../db/db.js';
   import Tesseract from 'tesseract.js';
 
   let name = '';
@@ -11,15 +15,43 @@
   // Estado do scanner de nota fiscal. 'idle' | 'processing' | 'review'.
   let scanStatus = 'idle';
   let scanProgress = 0;
-  let candidates = []; // [{ name, category, checked }]
+  let candidates = [];
   let scanError = null;
 
   let cameraInput;
   let galleryInput;
 
+  // ─── IA de Refeições ──────────────────────────────────────────────────────
+  const MEAL_TYPES = [
+    { id: 'cafe_manha', label: 'Café da manhã', emoji: '🌅' },
+    { id: 'almoco',     label: 'Almoço',        emoji: '🍽️' },
+    { id: 'lanche',     label: 'Lanche',         emoji: '🥪' },
+    { id: 'janta',      label: 'Janta',          emoji: '🌙' }
+  ];
+
+  let selectedMealType = null;
+  let aiStatus = 'idle'; // 'idle' | 'loading' | 'done' | 'error'
+  let aiSuggestions = [];
+  let aiError = null;
+  let todaysWorkoutName = null;
+  let playerGoal = 'manutencao';
+
   const items = pantryItemsQuery();
 
   $: grouped = groupByCategory($items ?? []);
+
+  onMount(async () => {
+    const player = await getPlayer();
+    if (player?.goal) playerGoal = player.goal;
+
+    const today = new Date().toISOString().slice(0, 10);
+    const sessions = await db.workoutSessions.toArray();
+    const todaySession = sessions.find(s => s.finishedAt?.slice(0, 10) === today);
+    if (todaySession) {
+      const plan = await db.workoutPlans.get(todaySession.workoutPlanId);
+      todaysWorkoutName = plan?.name ?? null;
+    }
+  });
 
   function groupByCategory(list) {
     const map = {};
@@ -44,20 +76,15 @@
   async function handleScanFile(event) {
     const file = event.target.files?.[0];
     if (!file) return;
-
     scanStatus = 'processing';
     scanProgress = 0;
     scanError = null;
-
     try {
       const { data } = await Tesseract.recognize(file, 'por', {
         logger: (m) => {
-          if (m.status === 'recognizing text') {
-            scanProgress = Math.round(m.progress * 100);
-          }
+          if (m.status === 'recognizing text') scanProgress = Math.round(m.progress * 100);
         }
       });
-
       const found = extractItemCandidates(data.text);
       candidates = found.map((n) => ({
         name: n,
@@ -86,12 +113,136 @@
     scanProgress = 0;
     scanError = null;
   }
+
+  async function handleAskAI(mealTypeId) {
+    selectedMealType = mealTypeId;
+    aiStatus = 'loading';
+    aiSuggestions = [];
+    aiError = null;
+    try {
+      const result = await suggestMeals({
+        pantryItems: $items ?? [],
+        mealType: mealTypeId,
+        goal: playerGoal,
+        calorieTarget: null,
+        todaysWorkout: todaysWorkoutName
+      });
+      aiSuggestions = result.suggestions ?? [];
+      aiStatus = 'done';
+    } catch (e) {
+      console.error(e);
+      aiError = 'Não foi possível conectar ao assistente. Verifique sua conexão.';
+      aiStatus = 'error';
+    }
+  }
 </script>
 
 <main class="min-h-screen p-6 pb-24 max-w-md mx-auto">
   <h1 class="text-2xl font-bold text-primary mb-1">Despensa</h1>
   <p class="text-sm text-white/60 mb-6">O que você tem em casa agora.</p>
 
+  <!-- ─── Bloco de IA ──────────────────────────────────────────────────────── -->
+  <div class="bg-surface rounded-2xl p-4 mb-6 border border-white/5 relative overflow-hidden">
+    <div class="absolute top-0 right-0 w-40 h-40 bg-primary/10 blur-3xl rounded-full pointer-events-none"></div>
+
+    <div class="flex items-center gap-2 mb-3">
+      <span class="text-xl">🤖</span>
+      <div>
+        <h2 class="text-sm font-bold text-white">Sugestão de Refeição por IA</h2>
+        <p class="text-[11px] text-white/40">
+          Baseada na sua dispensa{todaysWorkoutName ? ` e no treino de hoje (${todaysWorkoutName})` : ''}.
+        </p>
+      </div>
+    </div>
+
+    <!-- Seletor de tipo de refeição -->
+    <div class="grid grid-cols-4 gap-2 mb-4">
+      {#each MEAL_TYPES as mt}
+        <button
+          class="py-3 rounded-xl border flex flex-col items-center gap-1 transition-all {selectedMealType === mt.id && aiStatus !== 'idle' ? 'bg-primary/20 border-primary text-primary' : 'bg-bg border-white/5 text-white/50 hover:bg-white/5'}"
+          on:click={() => handleAskAI(mt.id)}
+          disabled={aiStatus === 'loading'}
+        >
+          <span class="text-lg">{mt.emoji}</span>
+          <span class="text-[10px] font-semibold leading-tight text-center">{mt.label}</span>
+        </button>
+      {/each}
+    </div>
+
+    <!-- Estados da IA -->
+    {#if aiStatus === 'loading'}
+      <div class="flex flex-col items-center gap-3 py-6">
+        <div class="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>
+        <p class="text-sm text-white/50">Consultando o assistente...</p>
+      </div>
+
+    {:else if aiStatus === 'error'}
+      <p class="text-sm text-red-400 py-2">{aiError}</p>
+
+    {:else if aiStatus === 'done' && aiSuggestions.length > 0}
+      <div class="flex flex-col gap-3">
+        {#each aiSuggestions as suggestion, i}
+          <div class="bg-bg rounded-xl p-4 border border-white/5">
+            <div class="flex justify-between items-start mb-2">
+              <h3 class="font-bold text-sm text-white leading-tight pr-2">{suggestion.title}</h3>
+              <span class="shrink-0 text-[10px] font-bold text-xp bg-xp/10 px-2 py-1 rounded-lg">#{i+1}</span>
+            </div>
+            <p class="text-xs text-white/50 mb-3">{suggestion.description}</p>
+
+            <!-- Stats rápidas -->
+            <div class="flex gap-3 mb-3">
+              <div class="text-center">
+                <p class="text-xs font-bold text-primary">{suggestion.estimated_calories}</p>
+                <p class="text-[9px] text-white/40">kcal</p>
+              </div>
+              <div class="w-px bg-white/5"></div>
+              <div class="text-center">
+                <p class="text-xs font-bold text-primary">{suggestion.protein_g}g</p>
+                <p class="text-[9px] text-white/40">proteína</p>
+              </div>
+              <div class="w-px bg-white/5"></div>
+              <div class="text-center">
+                <p class="text-xs font-bold text-primary">{suggestion.prep_time_min}min</p>
+                <p class="text-[9px] text-white/40">preparo</p>
+              </div>
+            </div>
+
+            {#if suggestion.ingredients_used?.length > 0}
+              <div class="mb-2">
+                <p class="text-[10px] text-white/40 mb-1 uppercase font-bold tracking-wider">Da sua dispensa</p>
+                <div class="flex flex-wrap gap-1">
+                  {#each suggestion.ingredients_used as ing}
+                    <span class="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full">{ing}</span>
+                  {/each}
+                </div>
+              </div>
+            {/if}
+
+            {#if suggestion.ingredients_to_buy?.length > 0}
+              <div>
+                <p class="text-[10px] text-white/40 mb-1 uppercase font-bold tracking-wider">Comprar (opcional)</p>
+                <div class="flex flex-wrap gap-1">
+                  {#each suggestion.ingredients_to_buy as ing}
+                    <span class="text-[10px] bg-white/5 text-white/40 px-2 py-0.5 rounded-full">{ing}</span>
+                  {/each}
+                </div>
+              </div>
+            {/if}
+          </div>
+        {/each}
+      </div>
+    {/if}
+
+    <!-- Aviso de Nutricionista — sempre visível -->
+    <div class="mt-4 flex items-start gap-2 bg-yellow-500/5 border border-yellow-500/20 rounded-xl p-3">
+      <span class="text-lg shrink-0">⚠️</span>
+      <p class="text-[11px] text-yellow-400/80 leading-relaxed">
+        Estas sugestões são geradas por IA e têm caráter apenas informativo. Para uma dieta personalizada e segura, consulte um <strong>nutricionista</strong>.
+      </p>
+    </div>
+  </div>
+
+  <!-- ─── Scanner de Nota Fiscal ─────────────────────────────────────────── -->
   {#if scanStatus === 'idle'}
     <div class="bg-surface rounded-xl p-4 mb-6">
       <div class="flex items-center gap-2 mb-3">
@@ -173,6 +324,7 @@
     </div>
   {/if}
 
+  <!-- ─── Formulário Manual ──────────────────────────────────────────────── -->
   <form on:submit|preventDefault={handleAddItem} class="bg-surface rounded-xl p-4 mb-6 flex flex-col gap-3">
     <input
       class="bg-bg border border-white/10 rounded-lg px-3 py-3 text-sm"
@@ -199,6 +351,7 @@
     </button>
   </form>
 
+  <!-- ─── Lista da Despensa ──────────────────────────────────────────────── -->
   {#if $items === undefined}
     <p class="text-sm text-white/40">Carregando despensa...</p>
   {:else}

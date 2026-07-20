@@ -89,5 +89,6 @@ async def suggest_meals_endpoint(payload: MealSuggestionRequestSchema):
         todays_workout=payload.todays_workout,
         goal=payload.goal,
         ai_provider=ai_provider,
+        user_request=payload.user_request,
     )
     return MealSuggestionResponseSchema(**data)

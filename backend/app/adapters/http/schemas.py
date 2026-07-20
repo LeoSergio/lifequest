@@ -78,7 +78,8 @@ class MealSuggestionRequestSchema(BaseModel):
     meal_type: str          # cafe_manha | almoco | janta | lanche
     goal: str               # hipertrofia | emagrecimento | manutencao | ganho_peso
     calorie_target: int | None = None
-    todays_workout: str | None = None   # ex: "Peito e Tríceps", "Cardio 30min"
+    todays_workout: str | None = None
+    user_request: str | None = None    # Pedido livre do usuário, ex: "quero algo com carne"
 
 
 class MealSuggestionItemSchema(BaseModel):

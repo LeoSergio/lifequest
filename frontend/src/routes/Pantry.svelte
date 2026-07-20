@@ -35,6 +35,8 @@
   let aiError = null;
   let todaysWorkoutName = null;
   let playerGoal = 'manutencao';
+  let showCustomRequest = false;
+  let userRequest = '';
 
   const items = pantryItemsQuery();
 
@@ -71,6 +73,11 @@
 
   async function handleRemoveItem(id) {
     await removePantryItem(id);
+  }
+
+  async function handleClearPantry() {
+    if (!confirm('Tem certeza que quer limpar toda a dispensa?')) return;
+    await db.pantryItems.clear();
   }
 
   async function handleScanFile(event) {
@@ -114,18 +121,20 @@
     scanError = null;
   }
 
-  async function handleAskAI(mealTypeId) {
+  async function handleAskAI(mealTypeId, customRequest = null) {
     selectedMealType = mealTypeId;
     aiStatus = 'loading';
     aiSuggestions = [];
     aiError = null;
+    showCustomRequest = false;
     try {
       const result = await suggestMeals({
         pantryItems: $items ?? [],
-        mealType: mealTypeId,
+        mealType: mealTypeId ?? 'geral',
         goal: playerGoal,
         calorieTarget: null,
-        todaysWorkout: todaysWorkoutName
+        todaysWorkout: todaysWorkoutName,
+        userRequest: customRequest
       });
       aiSuggestions = result.suggestions ?? [];
       aiStatus = 'done';
@@ -134,6 +143,12 @@
       aiError = 'Não foi possível conectar ao assistente. Verifique sua conexão.';
       aiStatus = 'error';
     }
+  }
+
+  async function handleCustomRequest() {
+    if (!userRequest.trim()) return;
+    await handleAskAI(selectedMealType ?? 'geral', userRequest.trim());
+    userRequest = '';
   }
 </script>
 
@@ -230,6 +245,46 @@
             {/if}
           </div>
         {/each}
+      </div>
+    {/if}
+
+    <!-- Botão "Recomendar outras" + campo livre -->
+    {#if aiStatus === 'done' || aiStatus === 'error'}
+      <div class="mt-4 pt-4 border-t border-white/5">
+        {#if !showCustomRequest}
+          <button
+            class="w-full bg-bg border border-white/10 text-white/60 rounded-xl py-3 text-sm font-semibold hover:bg-white/5 hover:text-white transition-colors"
+            on:click={() => showCustomRequest = true}
+          >
+            💬 Recomendar outras refeições...
+          </button>
+        {:else}
+          <div class="flex flex-col gap-2">
+            <label class="text-xs text-white/40">O que você gostaria de comer?</label>
+            <textarea
+              class="w-full bg-bg border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-primary outline-none resize-none transition-colors placeholder:text-white/30"
+              rows="2"
+              placeholder="Ex: algo com carne e depois uma sobremesa saudável..."
+              bind:value={userRequest}
+              on:keydown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleCustomRequest())}
+            ></textarea>
+            <div class="flex gap-2">
+              <button
+                class="flex-1 bg-surface border border-white/10 text-white/50 rounded-xl py-3 text-sm hover:bg-white/5"
+                on:click={() => { showCustomRequest = false; userRequest = ''; }}
+              >
+                Cancelar
+              </button>
+              <button
+                class="flex-1 bg-primary text-white rounded-xl py-3 text-sm font-semibold disabled:opacity-40 hover:bg-primary/90 transition-colors"
+                disabled={!userRequest.trim() || aiStatus === 'loading'}
+                on:click={handleCustomRequest}
+              >
+                Analisar
+              </button>
+            </div>
+          </div>
+        {/if}
       </div>
     {/if}
 
@@ -355,6 +410,17 @@
   {#if $items === undefined}
     <p class="text-sm text-white/40">Carregando despensa...</p>
   {:else}
+    <div class="flex justify-between items-center mb-2">
+      <h2 class="text-xs uppercase text-white/40 font-bold tracking-wider">Minha Dispensa</h2>
+      {#if ($items ?? []).length > 0}
+        <button
+          class="text-xs text-red-400/70 hover:text-red-400 transition-colors"
+          on:click={handleClearPantry}
+        >
+          🗑 Limpar tudo
+        </button>
+      {/if}
+    </div>
     {#each PANTRY_CATEGORIES as category}
       {#if grouped[category]?.length > 0}
         <div class="mb-5">

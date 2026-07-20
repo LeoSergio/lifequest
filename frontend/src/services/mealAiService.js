@@ -14,7 +14,7 @@ const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
  * @param {string|null} params.todaysWorkout - Ex: "Peito e Tríceps"
  * @returns {Promise<{suggestions: Array}>}
  */
-export async function suggestMeals({ pantryItems, mealType, goal, calorieTarget, todaysWorkout }) {
+export async function suggestMeals({ pantryItems, mealType, goal, calorieTarget, todaysWorkout, userRequest }) {
   const res = await fetch(`${API_BASE}/ai/meals/suggest`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -27,7 +27,8 @@ export async function suggestMeals({ pantryItems, mealType, goal, calorieTarget,
       meal_type: mealType,
       goal: goal ?? 'manutencao',
       calorie_target: calorieTarget ?? null,
-      todays_workout: todaysWorkout ?? null
+      todays_workout: todaysWorkout ?? null,
+      user_request: userRequest ?? null
     })
   });
 

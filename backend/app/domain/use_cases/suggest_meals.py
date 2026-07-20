@@ -49,6 +49,7 @@ async def suggest_meals(
     todays_workout: str | None,
     goal: str,
     ai_provider: AIProviderInterface,
+    user_request: str | None = None,
 ) -> dict:
     system_prompt = _SYSTEM_PROMPT.format(goal_hint=_GOAL_HINTS.get(goal, ""))
 
@@ -62,6 +63,13 @@ async def suggest_meals(
         f"Itens disponíveis na dispensa: {pantry_str}.",
         f"Objetivo do usuário: {goal}.",
     ]
+    if user_request:
+        parts.append(
+            f"PEDIDO ESPECÍFICO DO USKUÁRIO: '{user_request}'. "
+            "Analise se o que ele quer comer é compatível com seu objetivo e a dispensa. "
+            "Se não houver ingredientes na dispensa para o pedido, indique o que precisará comprar. "
+            "Priorize atender ao pedido do usuário sem abandonar os critérios de saúde."
+        )
     if calorie_target:
         parts.append(f"Meta calórica aproximada para ESTA refeição: {calorie_target} kcal.")
     if todays_workout:

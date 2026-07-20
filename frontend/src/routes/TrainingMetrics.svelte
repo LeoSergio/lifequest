@@ -26,6 +26,8 @@
   // mudou desde a medição anterior (com seta/cor), depois o gráfico, só
   // então o formulário. A aba de fotos foi propositalmente deixada de fora.
   const measurements = liveQuery(() => db.bodyMeasurements.orderBy('date').toArray());
+  const players = liveQuery(() => db.player.toArray());
+  $: player = $players?.[0] || null;
 
   $: latestMeasurement = $measurements && $measurements.length > 0 ? $measurements[$measurements.length - 1] : null;
   $: previousMeasurement = $measurements && $measurements.length > 1 ? $measurements[$measurements.length - 2] : null;
@@ -92,8 +94,52 @@
   let bodyFatPercent = '';
 
   function toNumberOrNull(value) {
-    return value === '' ? null : Number(value);
+    return value === '' || value == null ? null : Number(value);
   }
+
+  // Preenche os campos do formulário com os dados da última medição para facilitar
+  $: if (latestMeasurement) {
+    if (age === '' && latestMeasurement.age != null) age = latestMeasurement.age;
+    if (weight === '' && latestMeasurement.weight != null) weight = latestMeasurement.weight;
+    if (height === '' && latestMeasurement.height != null) height = latestMeasurement.height;
+    if (shoulder === '' && latestMeasurement.shoulder != null) shoulder = latestMeasurement.shoulder;
+    if (chest === '' && latestMeasurement.chest != null) chest = latestMeasurement.chest;
+    if (abdomen === '' && latestMeasurement.abdomen != null) abdomen = latestMeasurement.abdomen;
+    if (thigh === '' && latestMeasurement.thigh != null) thigh = latestMeasurement.thigh;
+    if (calf === '' && latestMeasurement.calf != null) calf = latestMeasurement.calf;
+    if (armLeft === '' && latestMeasurement.armLeft != null) armLeft = latestMeasurement.armLeft;
+    if (armRight === '' && latestMeasurement.armRight != null) armRight = latestMeasurement.armRight;
+    if (forearm === '' && latestMeasurement.forearm != null) forearm = latestMeasurement.forearm;
+    if (bodyFatPercent === '' && latestMeasurement.bodyFatPercent != null) bodyFatPercent = latestMeasurement.bodyFatPercent;
+  }
+
+  // ---------- Calculadora de Calorias ----------
+  let calcGender = 'M';
+  let calcActivity = 1.375; // Levemente ativo
+  let calcGoal = 'maintain';
+  let goalSynced = false;
+
+  $: if (player && !goalSynced) {
+    if (player.goal === 'weight_loss') calcGoal = 'lose';
+    else if (player.goal === 'hypertrophy') calcGoal = 'gain';
+    else calcGoal = 'maintain';
+    goalSynced = true;
+  }
+
+  $: targetCalories = (() => {
+    const w = toNumberOrNull(weight);
+    const h = toNumberOrNull(height);
+    const a = toNumberOrNull(age);
+    if (!w || !h || !a) return null;
+    
+    let bmr = (10 * w) + (6.25 * h) - (5 * a);
+    bmr += calcGender === 'M' ? 5 : -161;
+    
+    let tdee = bmr * calcActivity;
+    if (calcGoal === 'lose') return Math.round(tdee - 500);
+    if (calcGoal === 'gain') return Math.round(tdee + 500);
+    return Math.round(tdee);
+  })();
 
   async function addMeasurement() {
     await db.bodyMeasurements.add({
@@ -237,6 +283,52 @@
           <LineChart labels={weightTrend30d.labels} data={weightTrend30d.data} label="Peso (kg)" />
         {:else}
           <p class="text-sm text-white/40">Registre pelo menos duas medições de peso pra ver a evolução aqui.</p>
+        {/if}
+      </div>
+
+      <!-- Calculadora de Calorias -->
+      <div class="bg-surface rounded-xl p-4 mb-6 shadow-sm border border-white/5">
+        <div class="flex justify-between items-center mb-3">
+          <p class="text-sm font-semibold">Cálculo de Calorias Diárias</p>
+          <span class="text-xl">🔥</span>
+        </div>
+        
+        <p class="text-[11px] text-white/50 mb-4 leading-relaxed">
+          Baseado na sua idade, peso e altura (pode alterar no formulário abaixo). Ajuste para seu perfil e objetivo.
+        </p>
+
+        <div class="flex flex-col gap-3 mb-4">
+          <div class="flex gap-2">
+            <button class="flex-1 py-2 text-xs rounded-lg border transition-colors {calcGender === 'M' ? 'bg-primary border-primary text-white' : 'bg-bg border-white/10 text-white/50 hover:bg-white/5'}" on:click={() => calcGender = 'M'}>Masculino</button>
+            <button class="flex-1 py-2 text-xs rounded-lg border transition-colors {calcGender === 'F' ? 'bg-primary border-primary text-white' : 'bg-bg border-white/10 text-white/50 hover:bg-white/5'}" on:click={() => calcGender = 'F'}>Feminino</button>
+          </div>
+          
+          <select class="bg-bg border border-white/10 rounded-lg px-3 py-2.5 text-xs text-white/80 outline-none focus:border-primary transition-colors" bind:value={calcActivity}>
+            <option value={1.2}>Sedentário (pouco ou nenhum exercício)</option>
+            <option value={1.375}>Levemente ativo (exercício leve 1-3 dias/sem)</option>
+            <option value={1.55}>Moderadamente ativo (esporte 3-5 dias/sem)</option>
+            <option value={1.725}>Muito ativo (exercício intenso 6-7 dias/sem)</option>
+          </select>
+          
+          <div class="flex gap-2">
+            <button class="flex-1 py-2 text-[10px] sm:text-[11px] font-medium rounded-lg border transition-colors {calcGoal === 'lose' ? 'bg-primary border-primary text-white' : 'bg-bg border-white/10 text-white/50 hover:bg-white/5'}" on:click={() => calcGoal = 'lose'}>Perder</button>
+            <button class="flex-1 py-2 text-[10px] sm:text-[11px] font-medium rounded-lg border transition-colors {calcGoal === 'maintain' ? 'bg-primary border-primary text-white' : 'bg-bg border-white/10 text-white/50 hover:bg-white/5'}" on:click={() => calcGoal = 'maintain'}>Manter</button>
+            <button class="flex-1 py-2 text-[10px] sm:text-[11px] font-medium rounded-lg border transition-colors {calcGoal === 'gain' ? 'bg-primary border-primary text-white' : 'bg-bg border-white/10 text-white/50 hover:bg-white/5'}" on:click={() => calcGoal = 'gain'}>Ganhar</button>
+          </div>
+        </div>
+
+        {#if targetCalories}
+          <div class="flex items-center justify-between bg-bg rounded-lg p-3 border border-primary/20 shadow-[0_0_15px_rgba(124,92,255,0.1)]">
+            <span class="text-xs font-medium text-white/80">Sua meta diária:</span>
+            <div class="flex items-baseline gap-1">
+              <span class="text-2xl font-bold text-xp tracking-tight">{targetCalories}</span>
+              <span class="text-[10px] text-white/40 uppercase font-semibold tracking-wider">kcal</span>
+            </div>
+          </div>
+        {:else}
+          <div class="text-[11px] text-white/40 text-center bg-bg/50 rounded-lg p-3 border border-white/5">
+            Preencha idade, peso e altura no formulário abaixo para gerar o cálculo.
+          </div>
         {/if}
       </div>
 

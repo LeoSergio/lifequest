@@ -31,6 +31,30 @@
   // Só existe em memória até o usuário tocar em "salvar" naquela série.
   let setInputs = {};
 
+  let completedExercises = {};
+  let activeRestLinkId = null;
+  let restTimeLeft = 0;
+  let restInterval;
+
+  function startRest(linkId, seconds) {
+    if (restInterval) clearInterval(restInterval);
+    activeRestLinkId = linkId;
+    restTimeLeft = seconds;
+    restInterval = setInterval(() => {
+      restTimeLeft -= 1;
+      if (restTimeLeft <= 0) {
+        clearInterval(restInterval);
+        activeRestLinkId = null;
+      }
+    }, 1000);
+  }
+
+  function stopRest() {
+    if (restInterval) clearInterval(restInterval);
+    activeRestLinkId = null;
+    restTimeLeft = 0;
+  }
+
   const plan = workoutPlansQuery();
   const links = planExerciseLinksQuery(planId);
   const catalog = exerciseCatalogQuery();
@@ -86,7 +110,21 @@
 
   async function handleSaveSet(link, setNumber) {
     const key = `${link.id}-${setNumber}`;
-    await persistSet({ activeSession, activeSets, link, setNumber, input: setInputs[key] });
+    const saved = savedSet(link.id, setNumber);
+    const currentInput = setInputs[key] || {};
+    
+    // Se o usuário não digitou nada novo (setInputs vazio), mantém o valor que já estava salvo (se existir)
+    // para não sobrescrever com null acidentalmente caso ele clique no botão novamente.
+    let weight = currentInput.weight !== undefined ? currentInput.weight : (saved?.weightKg ?? '');
+    let reps = currentInput.reps !== undefined ? currentInput.reps : (saved?.repsDone ?? '');
+
+    await persistSet({ 
+      activeSession, 
+      activeSets, 
+      link, 
+      setNumber, 
+      input: { weight, reps } 
+    });
   }
 
   async function handleFinishWorkout() {
@@ -188,56 +226,119 @@
       </button>
     {:else if activeSession}
       <div class="mb-4">
-        <h2 class="text-sm uppercase text-white/40 mb-3">Sessão de hoje — registre suas séries</h2>
-        <div class="flex flex-col gap-4">
+        <h2 class="text-sm uppercase font-bold text-white/40 mb-4 text-center tracking-wider">Sessão em andamento</h2>
+        <div class="flex flex-col gap-5">
           {#each exercises as link (link.id)}
-            <div class="bg-surface rounded-xl p-4">
-              <h3 class="text-sm font-semibold mb-3">{link.exercise.name}</h3>
-              <div class="flex flex-col gap-2">
-                {#each Array(link.targetSets) as _, i}
-                  {@const setNumber = i + 1}
-                  {@const saved = savedSet(link.id, setNumber)}
-                  {@const key = `${link.id}-${setNumber}`}
-                  <div class="flex items-center gap-2">
-                    <span class="text-xs text-white/40 w-14 shrink-0">Série {setNumber}</span>
-                    <input
-                      type="number"
-                      class="flex-1 bg-bg border border-white/10 rounded-lg px-2 py-2 text-sm"
-                      placeholder="kg"
-                      value={saved ? saved.weightKg : (setInputs[key]?.weight ?? '')}
-                      on:input={(e) => (setInputs[key] = { ...setInputs[key], weight: e.target.value })}
-                      on:blur={() => handleSaveSet(link, setNumber)}
-                    />
-                    <input
-                      type="number"
-                      class="flex-1 bg-bg border border-white/10 rounded-lg px-2 py-2 text-sm"
-                      placeholder="reps"
-                      value={saved ? saved.repsDone : (setInputs[key]?.reps ?? '')}
-                      on:input={(e) => (setInputs[key] = { ...setInputs[key], reps: e.target.value })}
-                      on:blur={() => handleSaveSet(link, setNumber)}
-                    />
-                    <button
-                      class="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center text-sm {saved ? 'bg-xp text-bg' : 'bg-primary text-white'}"
-                      on:click={() => handleSaveSet(link, setNumber)}
-                      aria-label="Salvar série {setNumber} de {link.exercise.name}"
-                    >
-                      {saved ? '✓' : '💾'}
+            <div class="bg-surface rounded-2xl p-4 shadow-sm border border-white/5">
+              <div class="flex justify-between items-center mb-4">
+                <h3 class="text-base font-semibold {completedExercises[link.id] ? 'text-primary' : ''}">{link.exercise.name}</h3>
+                <span class="text-[10px] uppercase font-bold text-white/40 tracking-wider bg-bg px-2 py-1 rounded-lg border border-white/5">
+                  Alvo: {link.targetSets}x{link.targetReps}
+                </span>
+              </div>
+              
+              {#if !completedExercises[link.id]}
+                <!-- Tabela de Séries -->
+                <div class="flex flex-col gap-2">
+                  <!-- Cabeçalho -->
+                  <div class="flex items-center text-[10px] uppercase font-bold text-white/40 mb-1 px-1">
+                    <div class="w-10 text-center">Série</div>
+                    <div class="flex-1 text-center">Carga (kg)</div>
+                    <div class="flex-1 text-center">Reps</div>
+                    <div class="w-11 text-center"></div>
+                  </div>
+
+                  {#each Array(link.targetSets) as _, i}
+                    {@const setNumber = i + 1}
+                    {@const saved = savedSet(link.id, setNumber)}
+                    {@const key = `${link.id}-${setNumber}`}
+                    <div class="flex items-center gap-1.5 p-1.5 rounded-xl transition-all {saved ? 'bg-primary/10 border border-primary/20' : 'bg-bg/50 border border-white/5'}">
+                      <!-- Set Number -->
+                      <div class="w-10 text-center font-bold text-sm {saved ? 'text-primary' : 'text-white/60'}">
+                        {setNumber}
+                      </div>
+                      
+                      <!-- Weight Input -->
+                      <div class="flex-1 relative">
+                        <input
+                          type="number"
+                          class="w-full bg-surface border border-white/5 rounded-lg px-1 py-2.5 text-center font-semibold focus:border-primary outline-none transition-colors {saved ? 'text-primary/90' : 'text-white'}"
+                          placeholder="-"
+                          value={setInputs[key]?.weight ?? (saved?.weightKg ?? '')}
+                          on:input={(e) => (setInputs[key] = { ...setInputs[key], weight: e.target.value })}
+                        />
+                      </div>
+
+                      <!-- Reps Input -->
+                      <div class="flex-1 relative">
+                        <input
+                          type="number"
+                          class="w-full bg-surface border border-white/5 rounded-lg px-1 py-2.5 text-center font-semibold focus:border-primary outline-none transition-colors {saved ? 'text-primary/90' : 'text-white'}"
+                          placeholder={link.targetReps}
+                          value={setInputs[key]?.reps ?? (saved?.repsDone ?? '')}
+                          on:input={(e) => (setInputs[key] = { ...setInputs[key], reps: e.target.value })}
+                        />
+                      </div>
+
+                      <!-- Check Button -->
+                      <button
+                        class="shrink-0 w-11 h-10 rounded-lg flex items-center justify-center text-lg transition-all {saved ? 'bg-primary text-white shadow-[0_0_15px_rgba(124,92,255,0.4)]' : 'bg-surface border border-white/10 text-white/40 hover:text-white hover:border-primary hover:bg-white/5'}"
+                        on:click={() => handleSaveSet(link, setNumber)}
+                        aria-label="Salvar série {setNumber} de {link.exercise.name}"
+                      >
+                        {saved ? '✓' : '＋'}
+                      </button>
+                    </div>
+                  {/each}
+                </div>
+
+                <div class="mt-4 pt-4 border-t border-white/5 flex flex-col gap-2">
+                  <button class="w-full bg-surface border border-white/10 text-white/70 rounded-xl py-3 text-sm font-semibold hover:bg-white/5 transition-colors" on:click={() => completedExercises[link.id] = true}>
+                    Concluir Exercício
+                  </button>
+                  <button class="w-full text-xs text-xp/70 underline py-2" on:click={handleFinishWorkout}>
+                    ✅ Encerrar sessão completa
+                  </button>
+                </div>
+              {:else}
+                <div class="flex flex-col gap-2">
+                  {#if activeRestLinkId === link.id}
+                    <div class="flex items-center justify-between bg-primary/10 border border-primary/20 rounded-xl p-3">
+                      <div class="flex items-center gap-3">
+                        <span class="text-2xl">⏳</span>
+                        <div>
+                          <p class="text-[10px] text-white/50 uppercase font-bold tracking-wider">Descanso</p>
+                          <p class="text-2xl font-mono font-bold text-primary leading-none">
+                            {Math.floor(restTimeLeft / 60).toString().padStart(2, '0')}:{(restTimeLeft % 60).toString().padStart(2, '0')}
+                          </p>
+                        </div>
+                      </div>
+                      <button class="bg-surface border border-white/10 text-white/50 px-4 py-2 rounded-lg text-sm font-semibold hover:text-white" on:click={stopRest}>
+                        Pular
+                      </button>
+                    </div>
+                  {:else}
+                    <button class="w-full bg-primary/20 border border-primary/30 text-primary rounded-xl py-3 text-sm font-semibold hover:bg-primary/30 transition-colors" on:click={() => startRest(link.id, link.restSeconds)}>
+                      ⏳ Iniciar Descanso ({link.restSeconds}s)
+                    </button>
+                  {/if}
+                  
+                  <div class="flex justify-between items-center mt-2">
+                    <button class="text-xs text-white/40 underline text-center px-2 py-1" on:click={() => completedExercises[link.id] = false}>
+                      Reabrir exercício
+                    </button>
+                    <button class="text-xs text-xp/70 underline text-center px-2 py-1" on:click={handleFinishWorkout}>
+                      Encerrar sessão completa
                     </button>
                   </div>
-                {/each}
-              </div>
+                </div>
+              {/if}
             </div>
           {/each}
         </div>
       </div>
 
-      <button
-        class="w-full bg-xp text-bg rounded-xl py-4 font-semibold disabled:opacity-50"
-        disabled={completing}
-        on:click={handleFinishWorkout}
-      >
-        {completing ? 'Registrando...' : '✅ Finalizar treino'}
-      </button>
+
     {:else}
       <button
         class="w-full bg-primary text-white rounded-xl py-4 font-semibold disabled:opacity-50"

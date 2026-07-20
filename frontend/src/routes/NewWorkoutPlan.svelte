@@ -4,16 +4,26 @@
   import { WEEKDAYS } from '../lib/constants.js';
 
   let name = '';
-  let weekday = null;
-  let estimatedDuration = '';
+  let weekdays = [];
+  let focus = '';
+
+  const activeDays = WEEKDAYS.filter(w => w.value !== null);
+
+  function toggleDay(val) {
+    if (weekdays.includes(val)) {
+      weekdays = weekdays.filter(d => d !== val);
+    } else {
+      weekdays = [...weekdays, val];
+    }
+  }
 
   async function createPlan() {
     if (!name.trim()) return;
 
     const id = await db.workoutPlans.add({
       name: name.trim(),
-      weekday,
-      estimatedDuration: estimatedDuration ? Number(estimatedDuration) : null
+      weekdays,
+      focus: focus.trim() || null
     });
 
     navigate('workout-plan-detail', { planId: id });
@@ -35,24 +45,35 @@
       />
     </div>
 
-    <div class="flex gap-3">
-      <div class="flex-1">
-        <label class="text-xs text-white/40 mb-1 block">Dia da semana</label>
-        <select class="w-full bg-surface border border-white/10 rounded-lg px-3 py-3 text-sm" bind:value={weekday}>
-          {#each WEEKDAYS as w}
-            <option value={w.value}>{w.label}</option>
-          {/each}
-        </select>
+    <div>
+      <label class="text-xs text-white/40 mb-2 block">Dias da semana (selecione um ou mais)</label>
+      <div class="flex flex-wrap gap-2">
+        {#each activeDays as day}
+          <button
+            type="button"
+            class="px-3 py-2 text-xs rounded-lg border transition-colors {weekdays.includes(day.value) ? 'bg-primary border-primary text-white' : 'bg-surface border-white/10 text-white/60'}"
+            on:click={() => toggleDay(day.value)}
+          >
+            {day.label}
+          </button>
+        {/each}
+        <button
+          type="button"
+          class="px-3 py-2 text-xs rounded-lg border transition-colors {weekdays.length === 0 ? 'bg-primary border-primary text-white' : 'bg-surface border-white/10 text-white/60'}"
+          on:click={() => weekdays = []}
+        >
+          Livre
+        </button>
       </div>
-      <div class="w-28">
-        <label class="text-xs text-white/40 mb-1 block">Duração (min)</label>
-        <input
-          type="number"
-          class="w-full bg-surface border border-white/10 rounded-lg px-3 py-3 text-sm"
-          placeholder="60"
-          bind:value={estimatedDuration}
-        />
-      </div>
+    </div>
+
+    <div>
+      <label class="text-xs text-white/40 mb-1 block">Foco do treino (ex: Hipertrofia, Força, Peito)</label>
+      <input
+        class="w-full bg-surface border border-white/10 rounded-lg px-3 py-3 text-sm"
+        placeholder="Opcional"
+        bind:value={focus}
+      />
     </div>
 
     <button

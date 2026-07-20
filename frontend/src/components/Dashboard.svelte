@@ -34,13 +34,13 @@
   const dayCodes = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
 
   $: nextWorkout = (() => {
-    const scheduled = ($plans ?? []).filter((p) => p.weekday);
+    const scheduled = ($plans ?? []).filter((p) => p.weekday || (p.weekdays && p.weekdays.length > 0));
     if (scheduled.length === 0) return null;
 
     const todayIdx = new Date().getDay();
     for (let i = 0; i < 7; i++) {
       const code = dayCodes[(todayIdx + i) % 7];
-      const match = scheduled.find((p) => p.weekday === code);
+      const match = scheduled.find((p) => p.weekday === code || (p.weekdays && p.weekdays.includes(code)));
       if (match) return { plan: match, inDays: i };
     }
     return null;

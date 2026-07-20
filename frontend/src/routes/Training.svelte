@@ -8,8 +8,20 @@
 
   let openMenuId = null;
 
-  function weekdayLabel(value) {
-    return WEEKDAYS.find((w) => w.value === value)?.label ?? 'Livre';
+  function weekdayLabel(plan) {
+    if (plan.weekdays && plan.weekdays.length > 0) {
+      // Sort weekdays according to WEEKDAYS order
+      const sorted = [...plan.weekdays].sort((a, b) => {
+        const iA = WEEKDAYS.findIndex(w => w.value === a);
+        const iB = WEEKDAYS.findIndex(w => w.value === b);
+        return iA - iB;
+      });
+      return sorted.map(w => WEEKDAYS.find(x => x.value === w)?.label).join(', ');
+    }
+    if (plan.weekday) {
+      return WEEKDAYS.find((w) => w.value === plan.weekday)?.label ?? 'Livre';
+    }
+    return 'Livre';
   }
 
   function toggleMenu(id) {
@@ -62,8 +74,8 @@
             <div class="min-w-0">
               <h3 class="font-semibold truncate">{plan.name}</h3>
               <p class="text-xs text-white/40">
-                {weekdayLabel(plan.weekday)}
-                {#if plan.estimatedDuration}· ~{plan.estimatedDuration} min{/if}
+                {weekdayLabel(plan)}
+                {#if plan.focus}· {plan.focus}{/if}
               </p>
             </div>
           </button>

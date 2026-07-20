@@ -1,0 +1,49 @@
+=============================================================
+PLANO DE NEGÓCIOS E MONETIZAÇÃO - LIFEQUEST (VERSÃO PWA)
+=============================================================
+Estratégia: Venda direta via Instagram com Pagamento Recorrente e Códigos Únicos (Bypassing App Stores)
+
+--- 1. VISÃO GERAL ---
+O aplicativo funcionará como um PWA (Progressive Web App). Os usuários instalam o app direto do navegador para a tela inicial do celular, sem passar pela Play Store ou App Store. Isso permite usar métodos de pagamentos externos e reter 100% dos lucros (menos taxas da maquininha).
+
+--- 2. COBRANÇA RECORRENTE AUTOMÁTICA ---
+Ferramentas: Stripe, Kiwify ou Mercado Pago.
+- O usuário não paga via "Pix avulso" se o objetivo for mensalidade. Ele assina um "Plano de Assinatura".
+- A plataforma guarda o cartão de crédito e cobra R$ 5,00 automaticamente todo mês.
+- Se o usuário parar de pagar, a plataforma avisa o nosso sistema e bloqueamos a conta.
+
+--- 3. FLUXO DE VENDAS NO INSTAGRAM (AUTOMATIZADO) ---
+Ferramentas: Instagram + ManyChat + Make.com (ou Zapier) + Backend (FastAPI).
+
+Passo a Passo da Venda:
+1. GATILHO: Você posta um Reels e diz: "Comente EU QUERO".
+2. CHECKOUT: O robô (ManyChat) vê o comentário e manda uma DM instantânea com o link de pagamento da Assinatura (Stripe/Kiwify).
+3. COMPRA: O cliente coloca o cartão e assina.
+4. WEBHOOK: A plataforma de pagamento (Stripe) avisa o Make.com que o pagamento foi aprovado.
+5. GERAÇÃO DE CÓDIGO: O Make.com faz uma requisição HTTP secreta para o nosso Backend (FastAPI). O FastAPI cria um código (ex: LIFEQ-XYZ9), salva no banco de dados com o status "usado = Falso" e devolve pro Make.com.
+6. ENTREGA: O Make.com manda um comando pro ManyChat avisando o cliente lá na DM do Instagram: "Seu pagamento foi aprovado! Baixe o app no site e use o código de acesso: LIFEQ-XYZ9 para criar sua conta."
+
+--- 4. PROTEÇÃO NO APLICATIVO (ANTI-PIRATARIA) ---
+Como o backend protege o código:
+- Na tela de cadastro (Svelte), haverá um campo obrigatório: "Código de Acesso".
+- Quando o usuário tentar criar a conta, o FastAPI verifica no banco de dados se aquele código existe e se "usado == Falso".
+- Se estiver tudo certo, a conta é criada e o código passa a ser "usado = Verdadeiro".
+- Se o usuário passar o código para um amigo, o amigo receberá a mensagem: "Código inválido ou já utilizado".
+
+--- 5. PRÓXIMOS PASSOS TÉCNICOS (O QUE PROGRAMAR) ---
+
+Passo 1: Banco de Dados (Backend)
+- Criar a tabela `access_codes` no banco (id, code, is_used, created_at, used_by_user_id).
+- Gerar nova migração no Alembic.
+
+Passo 2: Endpoint de Geração de Código
+- Criar uma rota secreta (ex: `POST /admin/generate_code`) que o Make.com vai chamar para gerar o código sempre que houver uma venda. (Protegida por uma chave de API que só o Make.com conhece).
+
+Passo 3: Atualizar Rota de Registro
+- Alterar o `POST /auth/register` para exigir o campo `access_code`.
+- Adicionar lógica para validar se o código é autêntico e não foi usado, e então marcá-lo como usado.
+
+Passo 4: Interface (Frontend)
+- Adicionar o input visual de "Código de Acesso VIP" na aba de Cadastro no `Onboarding.svelte`.
+
+=============================================================

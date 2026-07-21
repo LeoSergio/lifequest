@@ -4,6 +4,7 @@
   export let level;
   export let xp;
   export let streak;
+  export let coins = 0;
 
   $: progress = xpProgressPercent(level, xp);
   $: needed = xpToNextLevel(level);
@@ -39,7 +40,10 @@
     <p class="text-[10px] text-white/50 mb-3"><span class="text-primary font-medium">{progress}%</span> até o nível {level + 1}</p>
     
     <div class="flex items-center justify-between text-xs text-white/50 pt-3 border-t border-white/5 w-full cursor-pointer hover:text-white/70 transition-colors">
-      <span class="flex items-center gap-1.5"><span class="text-orange-500">🔥</span> Streak: {streak} dia{streak === 1 ? '' : 's'}</span>
+      <div class="flex gap-4 items-center">
+        <span class="flex items-center gap-1.5"><span class="text-orange-500">🔥</span> Streak: {streak} dia{streak === 1 ? '' : 's'}</span>
+        <span class="flex items-center gap-1.5 font-bold text-yellow-500/90 bg-yellow-500/10 px-2 py-0.5 rounded-full"><span class="text-yellow-500 drop-shadow-[0_0_5px_rgba(234,179,8,0.5)]">💰</span> {coins}</span>
+      </div>
       <span class="text-white/30 font-bold">›</span>
     </div>
   </div>

@@ -142,7 +142,7 @@
     {#if $player}
       <div class="mb-8">
         <h2 class="text-sm font-bold text-white mb-3">Seu Progresso de Jogo</h2>
-        <StatsBar level={$player.level} xp={$player.xp} streak={$player.streak || 0} />
+        <StatsBar level={$player.level} xp={$player.xp} streak={$player.streak || 0} coins={$player.coins || 0} />
       </div>
     {/if}
 

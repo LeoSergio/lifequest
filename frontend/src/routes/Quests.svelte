@@ -106,7 +106,28 @@
     
     const p = await db.player.toCollection().first();
     const { level, xp, leveledUp } = applyXp(p.level, p.xp, quest.xpReward);
-    await db.player.update(p.id, { level, xp });
+    let newCoins = p.coins || 0;
+    
+    const today = todayIso();
+    const allTodayQuests = await db.dailyQuests.where('date').equals(today).toArray();
+    const allCompleted = allTodayQuests.every(q => q.completed);
+    
+    let gotChest = false;
+    let coinsEarned = 0;
+    
+    if (allCompleted) {
+       coinsEarned = 15;
+       newCoins += coinsEarned;
+       gotChest = true;
+    }
+
+    await db.player.update(p.id, { level, xp, coins: newCoins });
+    
+    if (gotChest) {
+      setTimeout(() => {
+        alert(`🎁 BAÚ DIÁRIO ABERTO! Você completou as 3 missões e ganhou ${coinsEarned} LifeCoins!`);
+      }, 300);
+    }
     
     if (leveledUp) {
       alert(`🎉 Level Up! Você alcançou o nível ${level}!`);
@@ -135,9 +156,13 @@
       await db.goals.update(goal.id, { achievedAt: new Date().toISOString() });
       const p = await db.player.toCollection().first();
       const { level, xp, leveledUp } = applyXp(p.level, p.xp, goal.xpReward);
-      await db.player.update(p.id, { level, xp });
       
-      alert(`🎉 CHEFÃO DERROTADO! Você ganhou ${goal.xpReward} XP!`);
+      const bossCoins = Math.floor(goal.xpReward / 5);
+      const newCoins = (p.coins || 0) + bossCoins;
+      
+      await db.player.update(p.id, { level, xp, coins: newCoins });
+      
+      alert(`🎉 CHEFÃO DERROTADO! Você ganhou ${goal.xpReward} XP e 💰 ${bossCoins} LifeCoins!`);
       if (leveledUp) alert(`Level Up! Nível ${level} alcançado!`);
     } else {
       alert(`💥 Pow! Você causou ${damage} de dano!`);
@@ -179,6 +204,25 @@
   <!-- Missões Diárias -->
   {#if currentTab === 'diarias'}
     {#if $dailyQuests && $dailyQuests.length > 0}
+      {@const completedCount = $dailyQuests.filter(q => q.completed).length}
+      {@const totalCount = $dailyQuests.length}
+      {@const chestProgress = (completedCount / totalCount) * 100}
+      
+      <!-- Progress Bar para o Baú -->
+      <div class="bg-surface/80 border border-white/5 rounded-2xl p-4 mb-4 flex flex-col gap-2 relative overflow-hidden">
+        <div class="flex justify-between items-end">
+          <span class="text-[11px] font-bold text-white/60 uppercase tracking-wider">Baú Diário</span>
+          <span class="text-[10px] font-bold text-yellow-500 bg-yellow-500/10 px-2 py-0.5 rounded-md">+15 💰</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="w-full bg-black/40 rounded-full h-2.5 border border-white/10 relative overflow-hidden">
+            <div class="bg-gradient-to-r from-primary to-yellow-500 h-full transition-all duration-500 shadow-[0_0_8px_rgba(234,179,8,0.5)]" style="width: {chestProgress}%"></div>
+          </div>
+          <span class="text-2xl filter transition-all duration-300 {completedCount === totalCount ? 'drop-shadow-[0_0_12px_rgba(234,179,8,0.8)] scale-110' : 'opacity-50 grayscale'}">🎁</span>
+        </div>
+        <p class="text-[9px] text-white/40 uppercase tracking-widest mt-1">{completedCount} DE {totalCount} MISSÕES CONCLUÍDAS</p>
+      </div>
+
       <div class="flex flex-col gap-3">
         {#each $dailyQuests as quest}
           <button 

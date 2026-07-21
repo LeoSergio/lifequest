@@ -116,4 +116,9 @@ db.version(6).stores({
   dailyQuests: '++id, date, pillar, title, description, xpReward, completed'
 });
 
+// Inventário para guardar os itens comprados na Loja (Temas, Avatares, Poções)
+db.version(7).stores({
+  inventory: '++id, itemId, category, name, purchasedAt'
+});
+
 export default db;

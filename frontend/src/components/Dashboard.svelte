@@ -115,7 +115,7 @@
       </div>
     </div>
 
-    <StatsBar level={$player.level} xp={$player.xp} {streak} />
+    <StatsBar level={$player.level} xp={$player.xp} {streak} coins={$player.coins || 0} />
   {/if}
 
   <StreakCalendar days={weekActivity} {streak} />
@@ -153,12 +153,12 @@
   </div>
 
   <!-- Bottom Banner -->
-  <div class="bg-gradient-to-r from-bg to-[#2a1b54] border border-primary/20 rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:border-primary/40 transition-colors mt-2 mb-4">
+  <div class="bg-gradient-to-r from-bg to-[#2a1b54] border border-primary/20 rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:border-primary/40 transition-colors mt-2 mb-4" on:click={() => navigate('shop')}>
     <div class="flex items-center gap-4">
-      <div class="text-4xl filter drop-shadow-[0_0_10px_rgba(124,92,255,0.5)]">🏆</div>
+      <div class="text-4xl filter drop-shadow-[0_0_10px_rgba(124,92,255,0.5)]">🏪</div>
       <div>
-        <h3 class="text-[11px] font-bold text-white leading-tight">Pequenas atitudes, grandes conquistas.</h3>
-        <p class="text-[10px] text-white/50 mt-1">Você no controle da sua evolução!</p>
+        <h3 class="text-[11px] font-bold text-white leading-tight">Visite a Taverna (Loja)</h3>
+        <p class="text-[10px] text-white/50 mt-1">Compre skins, avatares e poções com suas LifeCoins.</p>
       </div>
     </div>
     <span class="text-white/40 text-lg font-light">›</span>

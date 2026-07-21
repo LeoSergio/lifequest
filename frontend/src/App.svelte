@@ -5,7 +5,7 @@
   import Onboarding from './routes/Onboarding.svelte';
   import Dashboard from './components/Dashboard.svelte';
   import Pantry from './routes/Pantry.svelte';
-  import Habits from './routes/Habits.svelte';
+  import HabitsAndGoals from './routes/HabitsAndGoals.svelte';
   import Goals from './routes/Goals.svelte';
   import Training from './routes/Training.svelte';
   import NewWorkoutPlan from './routes/NewWorkoutPlan.svelte';
@@ -26,7 +26,7 @@
   {#if $nav.name === 'pantry'}
     <Pantry />
   {:else if $nav.name === 'habits'}
-    <Habits />
+    <HabitsAndGoals />
   {:else if $nav.name === 'goals'}
     <Goals />
   {:else if $nav.name === 'training'}

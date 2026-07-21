@@ -8,6 +8,18 @@
   let isLoadingQuests = false;
   let isLoadingEpic = false;
 
+  let showRoulette = false;
+  let roulettePrize = null;
+  let isSpinning = false;
+  let currentRouletteIndex = 0;
+  let rouletteItems = [
+    { name: '10 LifeCoins', value: 10, type: 'coins', icon: '💰' },
+    { name: '20 LifeCoins', value: 20, type: 'coins', icon: '💰' },
+    { name: '50 LifeCoins', value: 50, type: 'coins', icon: '💰' },
+    { name: 'Poção de Gelo', value: 1, type: 'item', itemId: 'potion_freeze', icon: '❄️' },
+    { name: '100 XP Extra', value: 100, type: 'xp', icon: '✨' }
+  ];
+
   const player = liveQuery(() => db.player.toCollection().first());
   
   // As missões diárias de HOJE
@@ -168,6 +180,45 @@
       alert(`💥 Pow! Você causou ${damage} de dano!`);
     }
   }
+
+  async function spinRoulette() {
+    if (isSpinning) return;
+    isSpinning = true;
+    
+    let spins = 12 + Math.floor(Math.random() * 8);
+    let speed = 150;
+    
+    for (let i = 0; i < spins; i++) {
+      currentRouletteIndex = (currentRouletteIndex + 1) % rouletteItems.length;
+      await new Promise(r => setTimeout(r, speed));
+      speed += 25;
+    }
+    
+    const prize = rouletteItems[currentRouletteIndex];
+    roulettePrize = prize;
+    
+    const p = await db.player.toCollection().first();
+    if (prize.type === 'coins') {
+      await db.player.update(p.id, { coins: (p.coins || 0) + prize.value });
+    } else if (prize.type === 'xp') {
+      const { level, xp } = applyXp(p.level, p.xp, prize.value);
+      await db.player.update(p.id, { level, xp });
+    } else if (prize.type === 'item') {
+      await db.inventory.add({
+        itemId: prize.itemId,
+        category: 'consumable',
+        name: prize.name,
+        purchasedAt: new Date().toISOString()
+      });
+    }
+    
+    isSpinning = false;
+  }
+  
+  function closeRoulette() {
+    showRoulette = false;
+    roulettePrize = null;
+  }
 </script>
 
 <main class="min-h-screen p-4 pb-24 max-w-md mx-auto flex flex-col gap-5">
@@ -280,13 +331,33 @@
   <!-- Missões Semanais -->
   {#if currentTab === 'semanais'}
     <div class="flex flex-col gap-3">
-      <div class="bg-surface/80 border border-white/5 rounded-2xl p-4 opacity-70">
+      
+      <div class="bg-gradient-to-r from-yellow-500/10 to-yellow-600/10 border border-yellow-500/30 rounded-2xl p-4 flex items-start gap-3 mb-1">
+        <span class="text-3xl filter drop-shadow-[0_0_5px_rgba(234,179,8,0.5)]">🎁</span>
+        <div>
+          <h3 class="text-sm font-bold text-yellow-500 mb-1">Recompensa Semanal</h3>
+          <p class="text-[10px] text-white/60 leading-relaxed">Conclua todos os marcos de uma missão semanal para liberar um giro na Roleta da Sorte. Você pode ganhar até 50 LifeCoins ou Poções!</p>
+        </div>
+      </div>
+
+      <div class="bg-surface/80 border border-white/5 rounded-2xl p-4 relative overflow-hidden">
+        <div class="absolute inset-0 bg-primary/5 flex items-center justify-center pointer-events-none">
+          <span class="text-6xl opacity-10">✔️</span>
+        </div>
+        
         <h3 class="text-white font-bold mb-1 text-sm">Guerreiro de Ferro</h3>
         <p class="text-xs text-white/50 mb-3">Complete 4 treinos na semana.</p>
-        <div class="w-full bg-white/5 rounded-full h-1.5">
-          <div class="bg-blue-500 h-full rounded-full w-2/4"></div>
+        <div class="w-full bg-white/5 rounded-full h-1.5 mb-2">
+          <div class="bg-blue-500 h-full rounded-full w-full"></div>
         </div>
-        <p class="text-[10px] text-right mt-1 text-white/40">2 / 4 treinos</p>
+        <p class="text-[10px] text-right mt-1 text-white/40 mb-3">4 / 4 treinos</p>
+        
+        <button 
+          on:click={() => showRoulette = true}
+          class="w-full bg-gradient-to-r from-yellow-600 to-yellow-500 text-black font-black py-2 rounded-xl shadow-[0_0_15px_rgba(234,179,8,0.3)] active:scale-95 transition-all flex items-center justify-center gap-2"
+        >
+          <span>🎰</span> GIRAR ROLETA SEMANAL
+        </button>
       </div>
     </div>
   {/if}
@@ -358,3 +429,52 @@
   {/if}
 
 </main>
+
+{#if showRoulette}
+  <div class="fixed inset-0 bg-bg/90 z-[100] flex items-center justify-center p-6 backdrop-blur-sm animate-fade-in">
+    <div class="bg-surface border border-white/10 rounded-3xl p-6 w-full max-w-sm flex flex-col items-center text-center shadow-2xl relative overflow-hidden">
+      <div class="absolute inset-0 bg-gradient-to-b from-primary/10 to-transparent pointer-events-none"></div>
+      
+      <h2 class="text-2xl font-black text-white mb-2 relative z-10 flex items-center gap-2">
+        <span class="text-yellow-500">🎰</span> Roleta da Sorte
+      </h2>
+      <p class="text-xs text-white/50 mb-6 relative z-10">Você completou suas missões da semana! Gire a roleta para receber seu grande prêmio semanal.</p>
+      
+      <div class="w-full h-32 bg-bg border-y-2 border-primary/30 flex items-center justify-center relative overflow-hidden shadow-inner mb-6 rounded-lg">
+        <div class="absolute left-1/2 -translate-x-1/2 top-0 bottom-0 w-1 bg-white/5 z-0"></div>
+        
+        <div class="flex flex-col items-center justify-center relative z-10">
+          <span class="text-5xl drop-shadow-lg mb-2">{rouletteItems[currentRouletteIndex].icon}</span>
+          <span class="text-sm font-bold text-white">{rouletteItems[currentRouletteIndex].name}</span>
+        </div>
+        
+        <!-- Pointers -->
+        <div class="absolute left-1/2 -translate-x-1/2 top-0 text-primary drop-shadow-[0_0_5px_rgba(124,92,255,0.8)]">▼</div>
+        <div class="absolute left-1/2 -translate-x-1/2 bottom-0 text-primary drop-shadow-[0_0_5px_rgba(124,92,255,0.8)] rotate-180">▼</div>
+      </div>
+      
+      {#if !roulettePrize}
+        <button 
+          class="w-full bg-primary text-white font-bold py-4 rounded-xl shadow-[0_0_20px_rgba(124,92,255,0.4)] disabled:opacity-50 active:scale-95 transition-all relative z-10"
+          on:click={spinRoulette}
+          disabled={isSpinning}
+        >
+          {isSpinning ? 'GIRANDO...' : 'GIRAR ROLETA!'}
+        </button>
+      {:else}
+        <div class="w-full bg-green-500/10 border border-green-500/30 rounded-xl p-4 mb-4 relative z-10 animate-fade-in">
+          <p class="text-[10px] text-white/60 mb-1 uppercase tracking-wider font-bold">Você ganhou:</p>
+          <p class="text-xl font-bold text-green-400 flex justify-center items-center gap-2">
+            <span>{roulettePrize.icon}</span> {roulettePrize.name}!
+          </p>
+        </div>
+        <button 
+          class="w-full bg-surface border border-white/10 text-white font-bold py-3 rounded-xl hover:bg-white/5 active:scale-95 transition-all relative z-10"
+          on:click={closeRoulette}
+        >
+          Coletar Prêmio
+        </button>
+      {/if}
+    </div>
+  </div>
+{/if}

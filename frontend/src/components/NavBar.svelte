@@ -23,16 +23,12 @@
       label: 'Dispensa', 
       svg: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v2h8V3zm-2 2h12v2H6zm1 2h10v12a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2zM9 11h6M9 15h6"/></svg>' 
     },
-    { 
-      id: 'habits', 
-      label: 'Hábitos', 
-      svg: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4L12 14.01l-3-3"/></svg>' 
+    {
+      id: 'habits',
+      label: 'Rotina',
+      svg: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg>'
     },
-    { 
-      id: 'goals',
-      label: 'Métricas', 
-      svg: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>' 
-    },
+
     {
       id: 'quests',
       label: 'Missões',

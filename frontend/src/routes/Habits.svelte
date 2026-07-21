@@ -60,7 +60,7 @@
   }
 </script>
 
-<main class="min-h-screen p-6 pb-24 max-w-md mx-auto">
+<div class="relative">
   <div class="flex justify-between items-start mb-1">
     <div>
       <h1 class="text-2xl font-bold text-primary">Hábitos</h1>
@@ -155,4 +155,4 @@
       <p class="text-[11px] text-white/40">Taxa de sucesso</p>
     </div>
   </div>
-</main>
+</div>

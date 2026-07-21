@@ -16,6 +16,7 @@ class UserResponse(BaseModel):
     email: str
     level: int
     xp: int
+    streak_days: int
 
     class Config:
         from_attributes = True

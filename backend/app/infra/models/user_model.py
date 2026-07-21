@@ -25,6 +25,8 @@ class UserModel(Base):
     # Informações de Gamificação (Para o Ranking de Guildas)
     level: Mapped[int] = mapped_column(Integer, default=1)
     xp: Mapped[int] = mapped_column(Integer, default=0)
+    streak_days: Mapped[int] = mapped_column(Integer, default=0)
+    last_active_date: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     
     # Metadados
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

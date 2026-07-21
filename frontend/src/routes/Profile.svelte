@@ -1,4 +1,10 @@
 <script>
+  import { liveQuery } from 'dexie';
+  import { db } from '../db/db.js';
+  import StatsBar from '../components/StatsBar.svelte';
+
+  const player = liveQuery(() => db.player.toCollection().first());
+
   let mode = 'login'; // 'login' | 'register'
   
   let username = '';
@@ -123,15 +129,22 @@
 
   {:else}
     <!-- TELA QUANDO LOGADO (Sincronização) -->
-    <div class="flex justify-between items-start mb-8 mt-4">
+    <div class="flex justify-between items-start mb-6 mt-4">
       <div>
         <h1 class="text-2xl font-bold text-primary">Perfil</h1>
         <p class="text-sm text-white/60">Seus dados estão protegidos.</p>
       </div>
       <div class="w-12 h-12 bg-primary/20 text-primary rounded-full flex items-center justify-center font-bold text-xl">
-        {email[0].toUpperCase()}
+        {email[0]?.toUpperCase() || '👤'}
       </div>
     </div>
+
+    {#if $player}
+      <div class="mb-8">
+        <h2 class="text-sm font-bold text-white mb-3">Seu Progresso de Jogo</h2>
+        <StatsBar level={$player.level} xp={$player.xp} streak={$player.streak || 0} />
+      </div>
+    {/if}
 
     <div class="bg-surface rounded-xl p-5 mb-4 border border-white/5 relative overflow-hidden">
       <!-- Brilho sutil de fundo -->

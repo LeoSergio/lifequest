@@ -18,10 +18,42 @@
   const measurements = liveQuery(() => db.bodyMeasurements.toArray());
   const goals = liveQuery(() => db.goals.toArray());
 
-  // Streak sempre derivado do histórico de sessões — nunca lido de um
-  // campo "streak" guardado solto (ver comentário em lib/metrics.js).
-  $: streak = $sessions ? currentStreak($sessions) : 0;
+  // Streak global de atividade baseado no login/abertura diária
+  // e persistido no db.player para não perder o progresso.
+  $: streak = $player?.streak || 0;
   $: weekActivity = $sessions ? last7DaysActivity($sessions) : [];
+
+  import { onMount } from 'svelte';
+
+  onMount(async () => {
+    // Atualizar o Streak Global (Dias Consecutivos usando o App)
+    const p = await db.player.toCollection().first();
+    if (p) {
+      const today = todayIso();
+      const yesterdayDate = new Date();
+      yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+      const yesterday = yesterdayDate.toISOString().slice(0, 10);
+
+      let newStreak = p.streak || 0;
+      let lastActive = p.lastActiveAt;
+
+      if (lastActive !== today) {
+        if (lastActive === yesterday) {
+          // Entrou ontem e hoje, continua a ofensiva!
+          newStreak += 1;
+        } else {
+          // Perdeu a ofensiva (ficou 1 ou mais dias sem abrir)
+          newStreak = 1;
+        }
+        
+        // Persiste no banco de dados local
+        await db.player.update(p.id, {
+          streak: newStreak,
+          lastActiveAt: today
+        });
+      }
+    }
+  });
 
   // Hábitos diários ainda não marcados hoje — o que sobrou de "Missões de
   // hoje" na prática, só que agora vindo do sistema de Hábitos.

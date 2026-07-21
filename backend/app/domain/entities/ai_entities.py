@@ -56,6 +56,36 @@ class MissionEntity(BaseModel):
     xp_reward: int
 
 
+class DailyQuestEntity(BaseModel):
+    id: str  # Ex: q_saude, q_foco, q_lar
+    pillar: str
+    title: str
+    description: str
+    xp_reward: int
+
+
+class DailyQuestsRequest(BaseModel):
+    player_level: int
+    focus_areas: list[str] = []
+
+
+class DailyQuestsResponseEntity(BaseModel):
+    quests: list[DailyQuestEntity]
+
+
+class EpicQuestRequest(BaseModel):
+    player_level: int
+
+
+class EpicQuestEntity(BaseModel):
+    title: str
+    description: str
+    target_value: int
+    unit: str
+    xp_reward: int
+    deadline_days: int
+
+
 # ---------- Calibração de Treino ----------
 
 class WorkoutCalibrationRequest(BaseModel):

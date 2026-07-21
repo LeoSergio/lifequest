@@ -11,6 +11,7 @@
   import NewWorkoutPlan from './routes/NewWorkoutPlan.svelte';
   import TrainingMetrics from './routes/TrainingMetrics.svelte';
   import WorkoutPlanDetail from './routes/WorkoutPlanDetail.svelte';
+  import Quests from './routes/Quests.svelte';
   import NavBar from './components/NavBar.svelte';
 
   const hasPlayer = liveQuery(async () => (await db.player.count()) > 0);
@@ -35,6 +36,8 @@
     <TrainingMetrics focusPlanId={$nav.params.focusPlanId} />
   {:else if $nav.name === 'workout-plan-detail'}
     <WorkoutPlanDetail planId={$nav.params.planId} />
+  {:else if $nav.name === 'quests'}
+    <Quests />
   {:else}
     <Dashboard />
   {/if}

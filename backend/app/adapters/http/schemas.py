@@ -56,6 +56,36 @@ class MissionResponseSchema(BaseModel):
     xp_reward: int
 
 
+class DailyQuestsRequestSchema(BaseModel):
+    player_level: int
+    focus_areas: list[str] = []
+
+
+class DailyQuestItemSchema(BaseModel):
+    id: str
+    pillar: str
+    title: str
+    description: str
+    xp_reward: int
+
+
+class DailyQuestsResponseSchema(BaseModel):
+    quests: list[DailyQuestItemSchema]
+
+
+class EpicQuestRequestSchema(BaseModel):
+    player_level: int
+
+
+class EpicQuestResponseSchema(BaseModel):
+    title: str
+    description: str
+    target_value: int
+    unit: str
+    xp_reward: int
+    deadline_days: int
+
+
 class WorkoutCalibrationRequestSchema(BaseModel):
     exercise_name: str
     last_feedback: str  # facil | ideal | muito_dificil

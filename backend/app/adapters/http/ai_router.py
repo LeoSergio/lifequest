@@ -15,6 +15,8 @@ from app.domain.entities.ai_entities import (
     OnboardingAnswers,
     PantryItemEntity,
     WorkoutCalibrationRequest,
+    DailyQuestsRequest,
+    EpicQuestRequest,
 )
 from app.domain.use_cases import (
     calibrate_workout,
@@ -22,6 +24,8 @@ from app.domain.use_cases import (
     generate_mission,
     generate_recipe,
     suggest_meals,
+    generate_daily_quests,
+    generate_epic_quest,
 )
 from app.infra.ai_client import ai_provider
 from app.adapters.http.schemas import (
@@ -34,6 +38,10 @@ from app.adapters.http.schemas import (
     WorkoutCalibrationResponseSchema,
     MealSuggestionRequestSchema,
     MealSuggestionResponseSchema,
+    DailyQuestsRequestSchema,
+    DailyQuestsResponseSchema,
+    EpicQuestRequestSchema,
+    EpicQuestResponseSchema,
 )
 
 router = APIRouter(prefix="/ai", tags=["ai"])
@@ -64,6 +72,26 @@ async def generate_archetype_endpoint(payload: OnboardingRequestSchema):
 async def generate_mission_endpoint(payload: MissionRequest):
     result = await generate_mission.generate_mission(
         request=payload,
+        ai_provider=ai_provider,
+    )
+    return result
+
+
+@router.post("/quests/daily", response_model=DailyQuestsResponseSchema)
+async def generate_daily_quests_endpoint(payload: DailyQuestsRequestSchema):
+    request_entity = DailyQuestsRequest(**payload.model_dump())
+    result = await generate_daily_quests.generate_daily_quests(
+        request=request_entity,
+        ai_provider=ai_provider,
+    )
+    return result
+
+
+@router.post("/quests/epic", response_model=EpicQuestResponseSchema)
+async def generate_epic_quest_endpoint(payload: EpicQuestRequestSchema):
+    request_entity = EpicQuestRequest(**payload.model_dump())
+    result = await generate_epic_quest.generate_epic_quest(
+        request=request_entity,
         ai_provider=ai_provider,
     )
     return result

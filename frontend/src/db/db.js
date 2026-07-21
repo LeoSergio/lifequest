@@ -110,4 +110,10 @@ db.version(5)
     }
   });
 
+// Adicionando missões diárias gamificadas geradas por IA.
+// 'date' é usado para indexar e resetar as missões a cada novo dia.
+db.version(6).stores({
+  dailyQuests: '++id, date, pillar, title, description, xpReward, completed'
+});
+
 export default db;

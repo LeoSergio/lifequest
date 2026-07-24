@@ -39,7 +39,7 @@
   {:else if $nav.name === 'training-metrics'}
     <TrainingMetrics focusPlanId={$nav.params.focusPlanId} />
   {:else if $nav.name === 'workout-plan-detail'}
-    <WorkoutPlanDetail planId={$nav.params.planId} />
+    <WorkoutPlanDetail planId={$nav.params.planId} isEditing={$nav.params.edit || false} isNew={$nav.params.isNew || false} />
   {:else if $nav.name === 'quests'}
     <Quests />
   {:else if $nav.name === 'shop'}

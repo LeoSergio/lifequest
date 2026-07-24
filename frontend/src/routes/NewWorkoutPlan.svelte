@@ -25,33 +25,32 @@
       weekdays,
       focus: focus.trim() || null
     });
-
-    navigate('workout-plan-detail', { planId: id });
+    navigate('workout-plan-detail', { planId: id, isNew: true });
   }
 </script>
 
-<main class="min-h-screen p-6 pb-24 max-w-md mx-auto">
-  <button class="text-sm text-white/40 mb-4" on:click={() => navigate('training')}>← Treinos</button>
-  <h1 class="text-2xl font-bold text-primary mb-6">Novo treino</h1>
+<main class="min-h-screen p-4 pb-24 max-w-md mx-auto">
+  <button class="text-[10px] text-[#a855f7] mb-4 flex items-center gap-1 font-bold uppercase tracking-wider hover:text-white transition-colors" on:click={() => navigate('training')}>← Voltar para Treinos</button>
+  <h1 class="text-2xl font-black text-white mb-6">Novo treino</h1>
 
   <form on:submit|preventDefault={createPlan} class="flex flex-col gap-4">
-    <div>
-      <label class="text-xs text-white/40 mb-1 block">Nome do treino</label>
+    <div class="bg-[#1C1C22]/80 border border-white/5 rounded-[20px] p-5 shadow-inner">
+      <label class="text-[10px] text-[#a855f7] mb-2 block uppercase font-bold tracking-wider">Nome do treino</label>
       <input
-        class="w-full bg-surface border border-white/10 rounded-lg px-3 py-3 text-sm"
+        class="w-full bg-white/5 border border-white/10 rounded-[10px] px-3 py-3 text-[12px] font-bold text-white focus:border-[#a855f7] outline-none placeholder:text-white/30 transition-colors"
         placeholder="ex: Treino A - Peito e Tríceps"
         bind:value={name}
         autofocus
       />
     </div>
 
-    <div>
-      <label class="text-xs text-white/40 mb-2 block">Dias da semana (selecione um ou mais)</label>
+    <div class="bg-[#1C1C22]/80 border border-white/5 rounded-[20px] p-5 shadow-inner">
+      <label class="text-[10px] text-[#a855f7] mb-3 block uppercase font-bold tracking-wider">Dias da semana</label>
       <div class="flex flex-wrap gap-2">
         {#each activeDays as day}
           <button
             type="button"
-            class="px-3 py-2 text-xs rounded-lg border transition-colors {weekdays.includes(day.value) ? 'bg-primary border-primary text-white' : 'bg-surface border-white/10 text-white/60'}"
+            class="px-3 py-2 text-[10px] font-bold uppercase tracking-wider rounded-[10px] border transition-all {weekdays.includes(day.value) ? 'bg-[#9333EA] border-[#9333EA] text-white shadow-[0_0_10px_rgba(147,51,234,0.3)]' : 'bg-white/5 border-white/10 text-white/40 hover:text-white/70 hover:bg-white/10'}"
             on:click={() => toggleDay(day.value)}
           >
             {day.label}
@@ -59,7 +58,7 @@
         {/each}
         <button
           type="button"
-          class="px-3 py-2 text-xs rounded-lg border transition-colors {weekdays.length === 0 ? 'bg-primary border-primary text-white' : 'bg-surface border-white/10 text-white/60'}"
+          class="px-3 py-2 text-[10px] font-bold uppercase tracking-wider rounded-[10px] border transition-all {weekdays.length === 0 ? 'bg-white/10 border-white/20 text-white' : 'bg-white/5 border-white/10 text-white/40 hover:text-white/70 hover:bg-white/10'}"
           on:click={() => weekdays = []}
         >
           Livre
@@ -67,21 +66,22 @@
       </div>
     </div>
 
-    <div>
-      <label class="text-xs text-white/40 mb-1 block">Foco do treino (ex: Hipertrofia, Força, Peito)</label>
+    <div class="bg-[#1C1C22]/80 border border-white/5 rounded-[20px] p-5 shadow-inner">
+      <label class="text-[10px] text-[#a855f7] mb-2 block uppercase font-bold tracking-wider">Foco (Opcional)</label>
       <input
-        class="w-full bg-surface border border-white/10 rounded-lg px-3 py-3 text-sm"
-        placeholder="Opcional"
+        class="w-full bg-white/5 border border-white/10 rounded-[10px] px-3 py-3 text-[12px] font-bold text-white focus:border-[#a855f7] outline-none placeholder:text-white/30 transition-colors"
+        placeholder="ex: Hipertrofia, Força, Resistência"
         bind:value={focus}
       />
     </div>
 
     <button
       type="submit"
-      class="bg-primary text-white rounded-xl py-4 font-semibold mt-2 disabled:opacity-40"
+      class="bg-[#9333EA] text-white rounded-[16px] py-4 font-black text-[13px] mt-2 shadow-[0_0_20px_rgba(147,51,234,0.4)] hover:scale-[1.02] transition-transform disabled:opacity-40 disabled:hover:scale-100 flex items-center justify-center gap-2"
       disabled={!name.trim()}
     >
-      Criar treino
+      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+      CRIAR FICHA DE TREINO
     </button>
   </form>
 </main>

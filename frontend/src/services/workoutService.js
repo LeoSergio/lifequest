@@ -67,15 +67,13 @@ export async function persistSet({ activeSession, activeSets, link, setNumber, i
  * Retorna `{ xpReward, leveledUp, level }` para a UI exibir o alerta.
  */
 export async function finishWorkout({ activeSession, exercises, activeSets, setInputs }) {
-  // Rede de segurança: salva séries preenchidas mas não submetidas
+  // Rede de segurança: salva todas as séries preenchidas (mesmo que estivessem vazias antes ou já tivessem algum valor, atualizando-as)
   for (const link of exercises) {
     for (let setNumber = 1; setNumber <= link.targetSets; setNumber++) {
       const key = `${link.id}-${setNumber}`;
       const input = setInputs[key];
-      const alreadySaved = activeSets.find(
-        (s) => s.workoutPlanExerciseId === link.id && s.setNumber === setNumber
-      );
-      if (input && !alreadySaved && (input.weight !== '' || input.reps !== '')) {
+      // Mesmo se alreadySaved existir, se o input foi modificado e tem valor, nós o persistimos.
+      if (input && (input.weight !== '' || input.reps !== '')) {
         await persistSet({ activeSession, activeSets, link, setNumber, input });
       }
     }

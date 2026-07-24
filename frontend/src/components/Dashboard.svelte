@@ -109,8 +109,19 @@
         <button class="w-10 h-10 rounded-full bg-surface/80 border border-white/5 flex items-center justify-center text-white/70 hover:bg-white/5 transition-colors">
           🔔
         </button>
-        <button class="w-10 h-10 rounded-full bg-surface/80 border border-white/5 flex items-center justify-center text-white/70 hover:bg-white/5 transition-colors">
-          👤
+        <button 
+          class="w-10 h-10 rounded-full bg-surface/80 border border-white/5 flex items-center justify-center text-white/70 hover:bg-white/5 transition-colors overflow-hidden"
+          on:click={() => navigate('profile')}
+        >
+          {#if $player?.avatar}
+             {#if $player.avatar.startsWith('data:image')}
+               <img src={$player.avatar} alt="Avatar" class="w-full h-full object-cover" />
+             {:else}
+               <span class="text-xl">{$player.avatar}</span>
+             {/if}
+          {:else}
+             <span class="text-xl">👤</span>
+          {/if}
         </button>
       </div>
     </div>

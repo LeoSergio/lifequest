@@ -13,6 +13,7 @@
   import WorkoutPlanDetail from './routes/WorkoutPlanDetail.svelte';
   import Quests from './routes/Quests.svelte';
   import Shop from './routes/Shop.svelte';
+  import Profile from './routes/Profile.svelte';
   import NavBar from './components/NavBar.svelte';
 
   const hasPlayer = liveQuery(async () => (await db.player.count()) > 0);
@@ -41,6 +42,8 @@
     <Quests />
   {:else if $nav.name === 'shop'}
     <Shop />
+  {:else if $nav.name === 'profile'}
+    <Profile />
   {:else}
     <Dashboard />
   {/if}

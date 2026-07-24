@@ -18,11 +18,7 @@
       label: 'Treinos', 
       svg: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6v12M19 6v12M2 9v6M22 9v6M5 12h14"/></svg>' 
     },
-    { 
-      id: 'pantry', 
-      label: 'Dispensa', 
-      svg: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v2h8V3zm-2 2h12v2H6zm1 2h10v12a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2zM9 11h6M9 15h6"/></svg>' 
-    },
+    // Dispensa foi removida do NavBar inferior, pois já tem atalho na tela inicial (Ações Rápidas).
     {
       id: 'habits',
       label: 'Rotina',
@@ -35,9 +31,9 @@
       svg: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>'
     },
     {
-      id: 'shop',
-      label: 'Loja',
-      svg: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>'
+      id: 'profile',
+      label: 'Perfil',
+      svg: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
     }
   ];
 </script>

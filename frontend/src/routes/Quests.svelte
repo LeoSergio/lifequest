@@ -4,8 +4,15 @@
   import { todayIso } from '../lib/habits.js';
   import { applyXp } from '../lib/gamification.js';
   import { ACHIEVEMENTS } from '../lib/achievements.js';
+  import ShopList from '../components/ShopList.svelte';
+  import { nav } from '../lib/nav.js';
   
-  let currentTab = 'diarias'; // 'diarias', 'semanais', 'mensais', 'conquistas'
+  let currentTab = 'diarias'; // 'diarias', 'semanais', 'mensais', 'conquistas', 'loja'
+  
+  $: if ($nav.params.tab) {
+    currentTab = $nav.params.tab;
+  }
+  
   let isLoadingQuests = false;
   let isLoadingEpic = false;
 
@@ -236,30 +243,36 @@
   </div>
 
   <!-- Tabs -->
-  <div class="flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden px-2 mb-2">
+  <div class="flex flex-wrap gap-2 px-2 mb-2">
     <button
-      class="px-5 py-2.5 rounded-full font-bold text-[13px] transition-all whitespace-nowrap {currentTab === 'diarias' ? 'bg-[#9333EA] text-black shadow-[0_0_15px_rgba(147,51,234,0.3)]' : 'bg-white/5 border border-white/10 text-white/50 hover:bg-white/10 hover:text-white/80'}"
+      class="px-4 py-2 rounded-full font-bold text-[12px] transition-all {currentTab === 'diarias' ? 'bg-[#9333EA] text-black shadow-[0_0_15px_rgba(147,51,234,0.3)]' : 'bg-white/5 border border-white/10 text-white/50 hover:bg-white/10 hover:text-white/80'}"
       on:click={() => (currentTab = 'diarias')}
     >
       Diárias
     </button>
     <button
-      class="px-5 py-2.5 rounded-full font-bold text-[13px] transition-all whitespace-nowrap {currentTab === 'semanais' ? 'bg-[#9333EA] text-black shadow-[0_0_15px_rgba(147,51,234,0.3)]' : 'bg-white/5 border border-white/10 text-white/50 hover:bg-white/10 hover:text-white/80'}"
+      class="px-4 py-2 rounded-full font-bold text-[12px] transition-all {currentTab === 'semanais' ? 'bg-[#9333EA] text-black shadow-[0_0_15px_rgba(147,51,234,0.3)]' : 'bg-white/5 border border-white/10 text-white/50 hover:bg-white/10 hover:text-white/80'}"
       on:click={() => (currentTab = 'semanais')}
     >
       Semanais
     </button>
     <button
-      class="px-5 py-2.5 rounded-full font-bold text-[13px] transition-all whitespace-nowrap {currentTab === 'mensais' ? 'bg-[#9333EA] text-black shadow-[0_0_15px_rgba(147,51,234,0.3)]' : 'bg-white/5 border border-white/10 text-white/50 hover:bg-white/10 hover:text-white/80'}"
+      class="px-4 py-2 rounded-full font-bold text-[12px] transition-all {currentTab === 'mensais' ? 'bg-[#9333EA] text-black shadow-[0_0_15px_rgba(147,51,234,0.3)]' : 'bg-white/5 border border-white/10 text-white/50 hover:bg-white/10 hover:text-white/80'}"
       on:click={() => (currentTab = 'mensais')}
     >
       Épicas
     </button>
     <button
-      class="px-5 py-2.5 rounded-full font-bold text-[13px] transition-all whitespace-nowrap {currentTab === 'conquistas' ? 'bg-[#9333EA] text-black shadow-[0_0_15px_rgba(147,51,234,0.3)]' : 'bg-white/5 border border-white/10 text-white/50 hover:bg-white/10 hover:text-white/80'}"
+      class="px-4 py-2 rounded-full font-bold text-[12px] transition-all {currentTab === 'conquistas' ? 'bg-[#9333EA] text-black shadow-[0_0_15px_rgba(147,51,234,0.3)]' : 'bg-white/5 border border-white/10 text-white/50 hover:bg-white/10 hover:text-white/80'}"
       on:click={() => (currentTab = 'conquistas')}
     >
       Conquistas
+    </button>
+    <button
+      class="px-4 py-2 rounded-full font-bold text-[12px] transition-all {currentTab === 'loja' ? 'bg-[#9333EA] text-black shadow-[0_0_15px_rgba(147,51,234,0.3)]' : 'bg-white/5 border border-white/10 text-white/50 hover:bg-white/10 hover:text-white/80'}"
+      on:click={() => (currentTab = 'loja')}
+    >
+      Loja
     </button>
   </div>
 
@@ -488,6 +501,13 @@
           </div>
         {/each}
       </div>
+    </div>
+  {/if}
+
+  <!-- Loja -->
+  {#if currentTab === 'loja'}
+    <div class="mt-2">
+      <ShopList />
     </div>
   {/if}
 

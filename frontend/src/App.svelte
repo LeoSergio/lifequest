@@ -12,20 +12,19 @@
   import TrainingMetrics from './routes/TrainingMetrics.svelte';
   import WorkoutPlanDetail from './routes/WorkoutPlanDetail.svelte';
   import Quests from './routes/Quests.svelte';
-  import Shop from './routes/Shop.svelte';
   import Profile from './routes/Profile.svelte';
   import NavBar from './components/NavBar.svelte';
   import BackgroundBlobs from './components/BackgroundBlobs.svelte';
 
   const hasPlayer = liveQuery(async () => (await db.player.count()) > 0);
 </script>
+<BackgroundBlobs />
 
 {#if $hasPlayer === undefined}
   <main class="min-h-screen flex items-center justify-center">
     <p class="text-white/40 text-sm">Carregando...</p>
   </main>
 {:else if $hasPlayer}
-  <BackgroundBlobs />
   {#if $nav.name === 'pantry'}
     <Pantry />
   {:else if $nav.name === 'habits'}
@@ -42,8 +41,6 @@
     <WorkoutPlanDetail planId={$nav.params.planId} isEditing={$nav.params.edit || false} isNew={$nav.params.isNew || false} />
   {:else if $nav.name === 'quests'}
     <Quests />
-  {:else if $nav.name === 'shop'}
-    <Shop />
   {:else if $nav.name === 'profile'}
     <Profile />
   {:else}

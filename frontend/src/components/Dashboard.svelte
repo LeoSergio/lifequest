@@ -246,7 +246,7 @@
         <span class="text-white/20 text-sm group-hover:text-white/50">›</span>
      </button>
 
-     <button class="flex items-center justify-between px-5 py-3.5 group hover:bg-white/5 transition-colors border-b border-white/5" on:click={() => navigate('shop')}>
+     <button class="flex items-center justify-between px-5 py-3.5 group hover:bg-white/5 transition-colors border-b border-white/5" on:click={() => navigate('quests', { tab: 'loja' })}>
         <div class="flex items-center gap-3">
            <svg class="w-[20px] h-[20px] text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/></svg>
            <div class="text-left">

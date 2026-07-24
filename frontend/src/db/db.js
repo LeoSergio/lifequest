@@ -126,4 +126,9 @@ db.version(8).stores({
   unlockedAchievements: '++id, achievementId, unlockedAt'
 });
 
+// Fila de Sincronização Local-First para o Backend
+db.version(9).stores({
+  syncQueue: '++id, entity, entityId, action, timestamp'
+});
+
 export default db;

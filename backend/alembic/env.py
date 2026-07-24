@@ -13,6 +13,7 @@ from app.infra.database import Base
 
 # Importa os modelos para o Alembic descobrir as tabelas e gerar a migração!
 from app.infra.models.user_model import UserModel
+import app.infra.models.sync_models
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

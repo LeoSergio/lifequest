@@ -121,4 +121,9 @@ db.version(7).stores({
   inventory: '++id, itemId, category, name, purchasedAt'
 });
 
+// Medalhas e Conquistas baseadas nas ações do usuário
+db.version(8).stores({
+  unlockedAchievements: '++id, achievementId, unlockedAt'
+});
+
 export default db;

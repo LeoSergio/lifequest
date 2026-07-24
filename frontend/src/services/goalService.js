@@ -8,6 +8,7 @@ import { applyXp } from '../lib/gamification.js';
 import { isGoalAchieved } from '../lib/goals.js';
 import { addGoal, updateGoal } from '../repositories/goalRepository.js';
 import { getPlayer, updatePlayer } from '../repositories/playerRepository.js';
+import { checkAchievements } from '../lib/achievements.js';
 
 export { addGoal };
 
@@ -31,26 +32,12 @@ export async function addProgress(goal, amount) {
 
   await updateGoal(goal.id, updates);
 
-  let leveledUp = false;
-  let level = null;
-
-  // XP extra da meta só é concedido uma vez, no momento exato em que
-  // ela vira "alcançada" — nunca de novo, mesmo que o registro seja
-  // reaberto/editado depois.
   if (!wasAchieved && nowAchieved) {
-    const player = await getPlayer();
-    if (player) {
-      const result = applyXp(player.level, player.xp, goal.xpReward);
-      await updatePlayer(player.id, { level: result.level, xp: result.xp });
-      leveledUp = result.leveledUp;
-      level = result.level;
-    }
+    await checkAchievements();
   }
 
   return {
     achieved: !wasAchieved && nowAchieved,
-    leveledUp,
-    level,
     updatedGoal: { ...goal, ...updates }
   };
 }

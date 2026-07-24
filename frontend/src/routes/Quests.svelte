@@ -3,8 +3,9 @@
   import { db } from '../db/db.js';
   import { todayIso } from '../lib/habits.js';
   import { applyXp } from '../lib/gamification.js';
+  import { ACHIEVEMENTS } from '../lib/achievements.js';
   
-  let currentTab = 'diarias'; // 'diarias', 'semanais', 'mensais'
+  let currentTab = 'diarias'; // 'diarias', 'semanais', 'mensais', 'conquistas'
   let isLoadingQuests = false;
   let isLoadingEpic = false;
 
@@ -30,6 +31,12 @@
 
   // Metas (para servirem como Boss Fights Mensais/Épicas)
   const goals = liveQuery(() => db.goals.toArray());
+
+  // Conquistas Desbloqueadas
+  const unlockedAchievements = liveQuery(async () => {
+    const list = await db.unlockedAchievements.toArray();
+    return new Set(list.map(a => a.achievementId));
+  });
 
   // Função para pedir novas missões para a IA
   async function fetchDailyQuests() {
@@ -250,6 +257,12 @@
     >
       Épicas
     </button>
+    <button
+      class="flex-1 py-2 rounded-lg font-medium transition-all {currentTab === 'conquistas' ? 'bg-primary text-white shadow-lg' : 'text-white/40 hover:text-white/70'}"
+      on:click={() => (currentTab = 'conquistas')}
+    >
+      Conquistas
+    </button>
   </div>
 
   <!-- Missões Diárias -->
@@ -424,6 +437,43 @@
         >
           {isLoadingEpic ? 'Conjurando...' : '🧙‍♂️ Invocar Chefão com IA'}
         </button>
+      </div>
+    </div>
+  {/if}
+
+  <!-- Conquistas (Achievements) -->
+  {#if currentTab === 'conquistas'}
+    <div class="flex flex-col gap-4">
+      <div class="p-1">
+        <h2 class="text-sm font-bold text-yellow-500 mb-1 flex items-center gap-2">
+          <span>🏅</span> Mural de Medalhas
+        </h2>
+        <p class="text-xs text-white/50">Complete ações no app para desbloquear essas recompensas.</p>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        {#each ACHIEVEMENTS as ach}
+          {@const isUnlocked = $unlockedAchievements ? $unlockedAchievements.has(ach.id) : false}
+          <div class="bg-surface/80 border {isUnlocked ? 'border-yellow-500/30' : 'border-white/5'} rounded-2xl p-3 flex flex-col relative overflow-hidden group">
+            
+            <div class="flex justify-between items-start mb-2">
+              <div class="w-10 h-10 rounded-xl border flex items-center justify-center text-xl shrink-0 shadow-md {isUnlocked ? ach.bg : 'bg-surface border-white/10 opacity-30'}">
+                {ach.icon}
+              </div>
+              {#if isUnlocked}
+                <span class="text-[9px] font-bold text-yellow-500 bg-yellow-500/10 px-1.5 py-0.5 rounded-md uppercase">Desbloqueada</span>
+              {:else}
+                <span class="text-[9px] font-bold text-white/20 uppercase">Bloqueada</span>
+              {/if}
+            </div>
+            
+            <div class="flex-1 flex flex-col justify-start">
+              <h3 class="font-bold text-white text-xs leading-tight mb-1 {isUnlocked ? '' : 'text-white/50'}">{ach.name}</h3>
+              <p class="text-[9px] text-white/50 leading-relaxed line-clamp-2">{ach.description}</p>
+            </div>
+            
+          </div>
+        {/each}
       </div>
     </div>
   {/if}

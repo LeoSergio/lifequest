@@ -16,15 +16,6 @@
   let difficulty = 'medium';
   let deadline = '';
 
-  const XP_MAP = {
-    easy: 50,
-    medium: 250,
-    hard: 1000,
-    epic: 5000
-  };
-
-  $: xpReward = XP_MAP[difficulty];
-
   const TEMPLATES = [
     { title: 'Treinar 4x/semana', targetValue: 16, unit: 'treinos', difficulty: 'medium', deadlineOffsetDays: 30, emoji: '💪' },
     { title: 'Secando (Reduzir)', targetValue: 2, unit: 'kg', difficulty: 'medium', deadlineOffsetDays: 30, emoji: '⚖️' },
@@ -51,7 +42,7 @@
 
   async function createGoal() {
     if (!title.trim() || !targetValue) return;
-    await addGoal({ title, targetValue, unit, reward, xpReward, deadline });
+    await addGoal({ title, targetValue, unit, reward, deadline });
     title = '';
     targetValue = 5;
     unit = '';
@@ -75,8 +66,6 @@
     targetValue = celebrating.targetValue;
     unit = celebrating.unit ?? '';
     reward = celebrating.reward ?? '';
-    // Tenta deduzir a dificuldade pelo XP original
-    difficulty = Object.keys(XP_MAP).find(k => XP_MAP[k] === celebrating.xpReward) || 'medium';
     deadline = '';
     celebrating = null;
     showForm = true;
@@ -106,7 +95,7 @@
           <button class="shrink-0 w-36 bg-surface border border-white/5 rounded-2xl p-4 text-left snap-center hover:bg-white/5 transition-colors shadow-sm" on:click={() => applyTemplate(t)}>
             <div class="text-3xl mb-3 filter drop-shadow-[0_0_5px_rgba(255,255,255,0.2)]">{t.emoji}</div>
             <h3 class="font-bold text-sm text-white mb-1 leading-tight">{t.title}</h3>
-            <p class="text-xs text-xp font-bold drop-shadow-[0_0_2px_rgba(255,177,0,0.5)]">+{XP_MAP[t.difficulty]} XP</p>
+            <p class="text-[10px] text-white/40">Foco em Conquistas</p>
           </button>
         {/each}
       </div>
@@ -160,26 +149,7 @@
           />
         </div>
 
-        <div>
-          <label class="text-xs text-white/40 mb-1 block">Dificuldade (Gera o XP automaticamente)</label>
-          <div class="grid grid-cols-4 gap-2">
-            {#each [
-              { id: 'easy', label: 'Fácil', xp: '50' },
-              { id: 'medium', label: 'Médio', xp: '250' },
-              { id: 'hard', label: 'Difícil', xp: '1k' },
-              { id: 'epic', label: 'Épico', xp: '5k' }
-            ] as diff}
-              <button
-                type="button"
-                class="py-3 rounded-xl border transition-all flex flex-col items-center gap-1 {difficulty === diff.id ? 'bg-primary/20 border-primary text-primary shadow-[0_0_15px_rgba(124,92,255,0.3)]' : 'bg-surface border-white/5 text-white/40 hover:bg-white/5'}"
-                on:click={() => difficulty = diff.id}
-              >
-                <span class="text-xs font-bold">{diff.label}</span>
-                <span class="text-[10px] opacity-70">{diff.xp} XP</span>
-              </button>
-            {/each}
-          </div>
-        </div>
+        <!-- Removido: seleção de dificuldade e XP -->
 
         <div>
           <label class="text-xs text-white/40 mb-1 block">Data Limite (Opcional)</label>
@@ -187,7 +157,7 @@
         </div>
 
         <button type="submit" class="w-full bg-primary text-white rounded-xl py-4 font-bold mt-2 hover:bg-primary/90 transition-colors">
-          Criar meta (+{xpReward} XP)
+          Criar meta
         </button>
       </form>
     </div>
@@ -230,8 +200,8 @@
         </div>
         <div class="bg-bg rounded-lg p-3 w-full flex justify-around">
           <div>
-            <p class="text-lg font-bold text-xp">+{celebrating.xpReward}</p>
-            <p class="text-[10px] text-white/40">XP extra</p>
+            <p class="text-lg font-bold text-xp">🏅</p>
+            <p class="text-[10px] text-white/40">Conquista Avaliada</p>
           </div>
           {#if celebrating.reward}
             <div>

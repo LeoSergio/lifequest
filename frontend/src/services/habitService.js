@@ -8,6 +8,7 @@ import { applyXp } from '../lib/gamification.js';
 import { completedToday, todayIso, weeklyCount } from '../lib/habits.js';
 import { addCompletion, addHabit, archiveHabit } from '../repositories/habitRepository.js';
 import { getPlayer, updatePlayer } from '../repositories/playerRepository.js';
+import { checkAchievements } from '../lib/achievements.js';
 
 export { addHabit, archiveHabit };
 
@@ -24,11 +25,6 @@ export async function completeHabit(habit, completions) {
 
   await addCompletion(habit.id, todayIso());
 
-  const player = await getPlayer();
-  if (!player) return null;
-
-  const { level, xp, leveledUp } = applyXp(player.level, player.xp, habit.xpReward ?? 10);
-  await updatePlayer(player.id, { level, xp });
-
-  return { leveledUp, level };
+  await checkAchievements();
+  return { leveledUp: false, level: 0 };
 }

@@ -17,6 +17,7 @@ import {
   updateSet
 } from '../repositories/workoutRepository.js';
 import { getPlayer, updatePlayer } from '../repositories/playerRepository.js';
+import { checkAchievements } from '../lib/achievements.js';
 
 export { removePlan, removeExerciseLink };
 
@@ -88,6 +89,8 @@ export async function finishWorkout({ activeSession, exercises, activeSets, setI
   const player = await getPlayer();
   const { level, xp, leveledUp } = applyXp(player.level, player.xp, xpReward);
   await updatePlayer(player.id, { level, xp });
+
+  await checkAchievements();
 
   return { xpReward, leveledUp, level };
 }

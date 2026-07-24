@@ -8,63 +8,60 @@
   let selectedCategory = 'all';
 
   const categories = [
-    { id: 'all', name: 'Todos', icon: '🌟' },
-    { id: 'consumable', name: 'Consumíveis', icon: '🧪' },
-    { id: 'avatar', name: 'Avatares', icon: '🎭' },
-    { id: 'theme', name: 'Temas', icon: '🎨' }
+    { id: 'all', name: 'Todos' },
+    { id: 'consumable', name: 'Consumíveis' },
+    { id: 'avatar', name: 'Avatares' },
+    { id: 'theme', name: 'Temas' }
   ];
 
-  // Banco de dados falso dos itens da loja
   const storeItems = [
     {
       id: 'potion_freeze',
       name: 'Poção de Gelo',
-      description: 'Congela seu Streak. Você não perde sua ofensiva se ficar 1 dia sem logar.',
+      description: 'Congela seu streak por 1 dia sem perder a ofensiva.',
       price: 50,
-      icon: '❄️',
+      icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>',
       category: 'consumable',
-      color: 'text-blue-400',
-      bg: 'bg-blue-400/10 border-blue-400/20'
+      color: 'text-blue-500',
+      bg: 'bg-blue-500/10',
+      border: 'border-blue-500/30 hover:border-blue-500/50',
+      shadow: 'shadow-[0_0_15px_rgba(59,130,246,0.15)]'
     },
     {
       id: 'avatar_dragon',
       name: 'Avatar: Dragão Ancião',
       description: 'Um avatar exclusivo para impor respeito na Guilda.',
       price: 150,
-      icon: '🐲',
+      icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>',
       category: 'avatar',
-      color: 'text-danger',
-      bg: 'bg-danger/10 border-danger/20'
+      color: 'text-yellow-500',
+      bg: 'bg-yellow-500/10',
+      border: 'border-yellow-500/30 hover:border-yellow-500/50',
+      shadow: 'shadow-[0_0_15px_rgba(234,179,8,0.15)]'
     },
     {
       id: 'avatar_ninja',
       name: 'Avatar: Ninja das Sombras',
-      description: 'Para aqueles que treinam na calada da noite.',
+      description: 'Para quem treina na calada da noite.',
       price: 150,
-      icon: '🥷',
+      icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>',
       category: 'avatar',
-      color: 'text-gray-400',
-      bg: 'bg-gray-400/10 border-gray-400/20'
+      color: 'text-[#9333EA]',
+      bg: 'bg-[#9333EA]/10',
+      border: 'border-[#9333EA]/30 hover:border-[#9333EA]/50',
+      shadow: 'shadow-[0_0_15px_rgba(147,51,234,0.15)]'
     },
     {
       id: 'theme_blood',
-      name: 'Tema: Sangue de Dragão',
-      description: 'Muda a cor de destaque do aplicativo para um vermelho escarlate.',
+      name: 'Tema: Esmeralda',
+      description: 'Muda a cor de destaque do app para um verde vibrante.',
       price: 300,
-      icon: '🩸',
+      icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c0 0-8 7.33-8 13.5A8.5 8.5 0 0 0 12 24a8.5 8.5 0 0 0 8-8.5C20 9.33 12 2 12 2z"/></svg>',
       category: 'theme',
-      color: 'text-red-500',
-      bg: 'bg-red-500/10 border-red-500/20'
-    },
-    {
-      id: 'theme_nature',
-      name: 'Tema: Floresta Élfica',
-      description: 'Um verde suave e revigorante para o seu aplicativo.',
-      price: 300,
-      icon: '🌿',
-      category: 'theme',
-      color: 'text-green-500',
-      bg: 'bg-green-500/10 border-green-500/20'
+      color: 'text-emerald-500',
+      bg: 'bg-emerald-500/10',
+      border: 'border-emerald-500/30 hover:border-emerald-500/50',
+      shadow: 'shadow-[0_0_15px_rgba(16,185,129,0.15)]'
     }
   ];
 
@@ -117,75 +114,69 @@
 <main class="min-h-screen p-4 pb-24 max-w-md mx-auto flex flex-col gap-6">
   
   <!-- Header Loja -->
-  <div class="px-2 mt-2">
-    <div class="flex justify-between items-center mb-1">
-      <h1 class="text-3xl font-black text-white tracking-tight flex items-center gap-2">
-        <span class="text-yellow-500 drop-shadow-[0_0_10px_rgba(234,179,8,0.5)]">🏪</span> Loja
-      </h1>
-      <div class="bg-yellow-500/10 border border-yellow-500/30 px-3 py-1.5 rounded-xl flex items-center gap-2 shadow-[0_0_15px_rgba(234,179,8,0.2)]">
-        <span class="text-xl">💰</span>
-        <span class="font-black text-yellow-500 text-lg">{$player?.coins || 0}</span>
+  <div class="px-2 mt-4 mb-2">
+    <div class="flex justify-between items-start mb-2">
+      <div>
+        <h1 class="text-3xl font-black text-white tracking-tight mb-1">Loja</h1>
+        <p class="text-[13px] text-white/50 max-w-[200px] leading-snug">Troque moedas por vantagens e cosméticos.</p>
+      </div>
+      <div class="bg-[#1C1C22]/80 border border-white/5 px-4 py-2 rounded-[20px] flex items-center gap-2 shadow-inner mt-1">
+        <div class="w-2.5 h-2.5 rounded-full bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.8)]"></div>
+        <span class="font-bold text-yellow-500 text-[13px]">{$player?.coins || 0}</span>
       </div>
     </div>
-    <p class="text-xs text-white/50">Gaste suas moedas em cosméticos e vantagens épicas.</p>
   </div>
 
   <!-- Filtros de Categoria -->
-  <div class="flex overflow-x-auto gap-2 pb-2 -mx-4 px-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+  <div class="flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden px-2 mb-4">
     {#each categories as cat}
       <button 
         on:click={() => selectedCategory = cat.id}
-        class="whitespace-nowrap px-4 py-2 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 {selectedCategory === cat.id ? 'bg-primary/20 border-primary text-primary shadow-sm shadow-primary/20' : 'bg-surface/50 border-white/5 text-white/50 hover:bg-surface hover:text-white/80'}"
+        class="px-5 py-2.5 rounded-full font-bold text-[13px] transition-all whitespace-nowrap {selectedCategory === cat.id ? 'bg-[#9333EA] text-black shadow-[0_0_15px_rgba(147,51,234,0.3)]' : 'bg-transparent border border-white/10 text-white/50 hover:bg-white/5 hover:text-white/80'}"
       >
-        <span class="text-sm">{cat.icon}</span> 
         {cat.name}
       </button>
     {/each}
   </div>
 
-  <div class="grid grid-cols-2 gap-3">
+  <div class="grid grid-cols-2 gap-3 px-2">
     {#each filteredItems as item}
-      <div class="bg-surface/80 border border-white/5 rounded-2xl p-3 flex flex-col relative overflow-hidden group hover:bg-surface transition-colors">
+      <div class="bg-[#1C1C22]/80 backdrop-blur-md rounded-[28px] p-4 flex flex-col relative overflow-hidden transition-all {item.border} {item.shadow} hover:scale-[1.02]">
         
         <!-- Header: Ícone e Preço -->
-        <div class="flex justify-between items-start mb-2">
-          <div class="w-10 h-10 rounded-xl border flex items-center justify-center text-xl shrink-0 shadow-md {item.bg}">
-            {item.icon}
+        <div class="flex justify-between items-start mb-4">
+          <div class="w-12 h-12 rounded-[18px] flex items-center justify-center shrink-0 shadow-inner {item.bg} {item.color} border border-white/5">
+            {@html item.icon}
           </div>
           
           {#if item.category !== 'consumable' && hasItem(item.id)}
-             <span class="text-[9px] font-bold text-green-400 bg-green-400/10 px-1.5 py-0.5 rounded-md uppercase">Comprado</span>
+             <span class="text-[10px] font-bold text-green-400 bg-green-400/10 px-2 py-1 rounded-lg uppercase">Comprado</span>
           {:else}
-            <span class="text-[10px] font-bold text-yellow-500 bg-yellow-500/10 px-1.5 py-0.5 rounded-md flex items-center gap-1 border border-yellow-500/20">
-              {item.price} <span>💰</span>
-            </span>
+            <div class="bg-black/30 px-2.5 py-1 rounded-lg flex items-center">
+              <span class="text-[11px] font-black text-yellow-500">{item.price}</span>
+            </div>
           {/if}
         </div>
         
         <!-- Detalhes -->
-        <div class="flex-1 flex flex-col justify-start">
-          <h3 class="font-bold text-white text-xs leading-tight mb-1">{item.name}</h3>
-          <p class="text-[9px] text-white/50 leading-relaxed line-clamp-2 mb-3">{item.description}</p>
+        <div class="flex-1 flex flex-col justify-start mb-4">
+          <h3 class="font-bold text-white text-[13px] leading-tight mb-2">{item.name}</h3>
+          <p class="text-[11px] text-white/40 leading-relaxed">{item.description}</p>
         </div>
         
         <!-- Botão -->
         {#if item.category === 'consumable' || !hasItem(item.id)}
           <button 
             on:click={() => buyItem(item)}
-            class="w-full text-[10px] font-bold py-2 rounded-lg transition-all active:scale-95 {($player?.coins || 0) >= item.price ? 'bg-primary text-white hover:bg-primary/90 shadow-sm shadow-primary/20' : 'bg-white/5 text-white/30 cursor-not-allowed border border-white/10'}"
+            class="w-full text-[12px] font-bold py-3 rounded-[16px] transition-all active:scale-95 {($player?.coins || 0) >= item.price ? 'bg-[#9333EA] text-black hover:bg-[#9333EA]/90 shadow-[0_0_15px_rgba(147,51,234,0.3)]' : 'bg-transparent text-white/30 cursor-not-allowed border border-white/10'}"
           >
             {($player?.coins || 0) >= item.price ? 'Comprar' : 'Sem saldo'}
           </button>
         {:else}
-           <button class="w-full text-[10px] font-bold py-2 rounded-lg bg-white/5 text-white/40 border border-white/10 cursor-default">
+           <button class="w-full text-[12px] font-bold py-3 rounded-[16px] bg-white/5 text-white/40 border border-white/10 cursor-default">
              Possui
            </button>
         {/if}
-        
-        <!-- Decoração de fundo -->
-        <div class="absolute -right-4 -bottom-4 text-5xl opacity-[0.03] pointer-events-none group-hover:scale-110 transition-transform duration-500">
-          {item.icon}
-        </div>
       </div>
     {/each}
   </div>

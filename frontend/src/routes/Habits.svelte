@@ -61,16 +61,16 @@
 </script>
 
 <div class="relative">
-  <div class="flex justify-between items-start mb-1">
+  <div class="flex justify-between items-start mb-6">
     <div>
-      <h1 class="text-2xl font-bold text-primary">Hábitos</h1>
-      <p class="text-sm text-white/60">Crie hábitos saudáveis e acompanhe sua consistência.</p>
+      <h1 class="text-3xl font-black text-white tracking-tight mb-1">Hábitos</h1>
+      <p class="text-[13.5px] text-white/50">Pequenos rituais, constância visível.</p>
     </div>
     <button
-      class="shrink-0 bg-primary text-white rounded-full px-3 py-2 text-xs font-medium"
+      class="shrink-0 bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded-full px-4 py-2 text-xs font-bold transition-colors shadow-inner"
       on:click={() => (showForm = !showForm)}
     >
-      + Novo hábito
+      + Novo
     </button>
   </div>
 
@@ -108,10 +108,10 @@
     </form>
   {/if}
 
-  <div class="flex bg-surface rounded-xl p-1 my-4 text-sm">
+  <div class="flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden mb-6">
     {#each [['ativos', 'Ativos'], ['todos', 'Todos'], ['concluidos', 'Concluídos']] as [value, label]}
       <button
-        class="flex-1 py-2 rounded-lg transition-colors {tab === value ? 'bg-primary text-white' : 'text-white/40'}"
+        class="px-5 py-2.5 rounded-full font-bold text-[13px] transition-all whitespace-nowrap {tab === value ? 'bg-[#9333EA] text-black shadow-[0_0_15px_rgba(147,51,234,0.3)]' : 'bg-transparent border border-white/10 text-white/50 hover:bg-white/5 hover:text-white/80'}"
         on:click={() => (tab = value)}
       >
         {label}
@@ -140,19 +140,21 @@
     </div>
   {/if}
 
-  <p class="text-xs uppercase text-white/40 mb-2">Estatísticas</p>
-  <div class="grid grid-cols-3 gap-2">
-    <div class="bg-surface rounded-xl p-3 text-center">
-      <p class="text-lg font-bold">{activeHabits.length}</p>
-      <p class="text-[11px] text-white/40">Hábitos ativos</p>
-    </div>
-    <div class="bg-surface rounded-xl p-3 text-center">
-      <p class="text-lg font-bold">{bestStreak}</p>
-      <p class="text-[11px] text-white/40">Sequência atual</p>
-    </div>
-    <div class="bg-surface rounded-xl p-3 text-center">
-      <p class="text-lg font-bold">{rate}%</p>
-      <p class="text-[11px] text-white/40">Taxa de sucesso</p>
+  <div class="mt-8 mb-4">
+    <h2 class="text-[13px] font-bold text-white/80 mb-3">Estatísticas</h2>
+    <div class="grid grid-cols-3 gap-3">
+      <div class="bg-[#1C1C22]/80 backdrop-blur-md border border-white/5 rounded-[20px] p-4 text-center flex flex-col justify-center shadow-inner">
+        <p class="text-2xl font-black text-white">{activeHabits.length}</p>
+        <p class="text-[11px] text-white/50 font-medium mt-1">Hábitos</p>
+      </div>
+      <div class="bg-[#1C1C22]/80 backdrop-blur-md border border-white/5 rounded-[20px] p-4 text-center flex flex-col justify-center shadow-inner">
+        <p class="text-2xl font-black text-white">{bestStreak}</p>
+        <p class="text-[11px] text-white/50 font-medium mt-1">Sequência</p>
+      </div>
+      <div class="bg-[#1C1C22]/80 backdrop-blur-md border border-white/5 rounded-[20px] p-4 text-center flex flex-col justify-center shadow-inner">
+        <p class="text-2xl font-black text-white">{rate}%</p>
+        <p class="text-[11px] text-white/50 font-medium mt-1">Conclusão</p>
+      </div>
     </div>
   </div>
 </div>

@@ -15,6 +15,7 @@
   import Shop from './routes/Shop.svelte';
   import Profile from './routes/Profile.svelte';
   import NavBar from './components/NavBar.svelte';
+  import BackgroundBlobs from './components/BackgroundBlobs.svelte';
 
   const hasPlayer = liveQuery(async () => (await db.player.count()) > 0);
 </script>
@@ -24,6 +25,7 @@
     <p class="text-white/40 text-sm">Carregando...</p>
   </main>
 {:else if $hasPlayer}
+  <BackgroundBlobs />
   {#if $nav.name === 'pantry'}
     <Pantry />
   {:else if $nav.name === 'habits'}

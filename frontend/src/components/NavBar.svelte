@@ -32,7 +32,7 @@
     {
       id: 'quests',
       label: 'Missões',
-      svg: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>'
+      svg: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>'
     },
     {
       id: 'shop',
@@ -42,16 +42,21 @@
   ];
 </script>
 
-<nav class="fixed bottom-0 left-0 right-0 bg-[#0f0f14] border-t border-white/5 flex px-2 z-50">
+<nav class="fixed bottom-0 left-0 right-0 bg-[#0f0f14]/95 backdrop-blur-md border-t border-white/5 flex px-2 z-50">
   {#each tabs as tab}
+    {@const isActive = $nav.name === tab.id}
     <button
-      class="flex-1 flex flex-col items-center gap-1 py-3 text-[10px] transition-colors {$nav.name === tab.id ? 'text-primary' : 'text-white/40 hover:text-white/70'}"
+      class="flex-1 flex flex-col items-center justify-center gap-1.5 py-3 text-[10px] transition-all relative {isActive ? 'text-[#a855f7] font-bold' : 'text-white/40 hover:text-white/70 font-medium'}"
       on:click={() => navigate(tab.id)}
     >
-      <div class="[&>svg]:w-[22px] [&>svg]:h-[22px]">
+      {#if isActive}
+        <!-- Radial glow behind the active icon -->
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 bg-[#a855f7]/20 rounded-full blur-md pointer-events-none"></div>
+      {/if}
+      <div class="relative z-10 [&>svg]:w-[22px] [&>svg]:h-[22px] transition-transform {isActive ? 'scale-110 drop-shadow-[0_0_8px_rgba(168,85,247,0.8)] [&>svg]:fill-current' : ''}">
         {@html tab.svg}
       </div>
-      {tab.label}
+      <span class="relative z-10 tracking-wide">{tab.label}</span>
     </button>
   {/each}
 </nav>

@@ -230,35 +230,33 @@
 
 <main class="min-h-screen p-4 pb-24 max-w-md mx-auto flex flex-col gap-5">
   
-  <div class="px-2">
-    <h1 class="text-3xl font-black text-white tracking-tight flex items-center gap-2">
-      <span class="text-primary text-4xl drop-shadow-[0_0_10px_rgba(124,92,255,0.5)]">📜</span> Missões
-    </h1>
-    <p class="text-xs text-white/50 mt-1">Conclua seus desafios para ganhar XP.</p>
+  <div class="px-2 mt-4">
+    <h1 class="text-3xl font-black text-white tracking-tight mb-1">Missões</h1>
+    <p class="text-[13px] text-white/50">Desafios do dia rendem XP extra.</p>
   </div>
 
   <!-- Tabs -->
-  <div class="flex bg-surface rounded-xl p-1 text-sm max-w-md mx-auto w-full">
+  <div class="flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden px-2 mb-2">
     <button
-      class="flex-1 py-2 rounded-lg font-medium transition-all {currentTab === 'diarias' ? 'bg-primary text-white shadow-lg' : 'text-white/40 hover:text-white/70'}"
+      class="px-5 py-2.5 rounded-full font-bold text-[13px] transition-all whitespace-nowrap {currentTab === 'diarias' ? 'bg-[#9333EA] text-black shadow-[0_0_15px_rgba(147,51,234,0.3)]' : 'bg-white/5 border border-white/10 text-white/50 hover:bg-white/10 hover:text-white/80'}"
       on:click={() => (currentTab = 'diarias')}
     >
       Diárias
     </button>
     <button
-      class="flex-1 py-2 rounded-lg font-medium transition-all {currentTab === 'semanais' ? 'bg-primary text-white shadow-lg' : 'text-white/40 hover:text-white/70'}"
+      class="px-5 py-2.5 rounded-full font-bold text-[13px] transition-all whitespace-nowrap {currentTab === 'semanais' ? 'bg-[#9333EA] text-black shadow-[0_0_15px_rgba(147,51,234,0.3)]' : 'bg-white/5 border border-white/10 text-white/50 hover:bg-white/10 hover:text-white/80'}"
       on:click={() => (currentTab = 'semanais')}
     >
       Semanais
     </button>
     <button
-      class="flex-1 py-2 rounded-lg font-medium transition-all {currentTab === 'mensais' ? 'bg-primary text-white shadow-lg' : 'text-white/40 hover:text-white/70'}"
+      class="px-5 py-2.5 rounded-full font-bold text-[13px] transition-all whitespace-nowrap {currentTab === 'mensais' ? 'bg-[#9333EA] text-black shadow-[0_0_15px_rgba(147,51,234,0.3)]' : 'bg-white/5 border border-white/10 text-white/50 hover:bg-white/10 hover:text-white/80'}"
       on:click={() => (currentTab = 'mensais')}
     >
       Épicas
     </button>
     <button
-      class="flex-1 py-2 rounded-lg font-medium transition-all {currentTab === 'conquistas' ? 'bg-primary text-white shadow-lg' : 'text-white/40 hover:text-white/70'}"
+      class="px-5 py-2.5 rounded-full font-bold text-[13px] transition-all whitespace-nowrap {currentTab === 'conquistas' ? 'bg-[#9333EA] text-black shadow-[0_0_15px_rgba(147,51,234,0.3)]' : 'bg-white/5 border border-white/10 text-white/50 hover:bg-white/10 hover:text-white/80'}"
       on:click={() => (currentTab = 'conquistas')}
     >
       Conquistas
@@ -325,17 +323,32 @@
       </div>
     {:else}
       <!-- Estado Vazio (Precisa gerar) -->
-      <div class="flex flex-col items-center justify-center py-10 px-4 text-center border-2 border-dashed border-white/10 rounded-2xl">
-        <span class="text-5xl mb-4 opacity-50">🔮</span>
-        <h3 class="text-lg font-bold text-white mb-2">As missões de hoje sumiram!</h3>
-        <p class="text-sm text-white/50 mb-6">Peça ao Mestre de Jogo (IA) para ler seu destino e revelar seus desafios diários.</p>
+      <div class="flex flex-col items-center justify-center py-16 px-6 text-center border border-dashed border-white/10 rounded-[32px] relative overflow-hidden mt-4 mx-2">
+        <div class="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent opacity-20 pointer-events-none"></div>
+        
+        <div class="w-24 h-24 rounded-full bg-surface/50 border border-white/5 flex items-center justify-center shadow-[0_0_40px_rgba(147,51,234,0.15)] mb-6">
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2"></path>
+            <path d="M12 20v2"></path>
+            <path d="M4.93 4.93l1.41 1.41"></path>
+            <path d="M17.66 17.66l1.41 1.41"></path>
+            <path d="M2 12h2"></path>
+            <path d="M20 12h2"></path>
+            <path d="M6.34 17.66l-1.41 1.41"></path>
+            <path d="M19.07 4.93l-1.41 1.41"></path>
+          </svg>
+        </div>
+        
+        <h3 class="text-[22px] font-black text-white mb-4 leading-tight tracking-tight">O quadro de missões está em<br>branco</h3>
+        <p class="text-[13.5px] text-white/50 mb-8 max-w-[280px] leading-relaxed">Suas missões diárias ainda não foram sorteadas. Revele-as para saber o que a Guilda espera de você hoje.</p>
         
         <button 
           on:click={fetchDailyQuests}
           disabled={isLoadingQuests}
-          class="bg-primary text-white font-bold text-sm px-6 py-3 rounded-xl shadow-lg shadow-primary/25 disabled:opacity-50 transition-transform active:scale-95"
+          class="w-full max-w-[260px] bg-[#9333EA] text-black font-black text-[15px] py-4 rounded-2xl shadow-[0_0_20px_rgba(147,51,234,0.4)] disabled:opacity-50 transition-transform active:scale-95"
         >
-          {isLoadingQuests ? 'Consultando os oráculos...' : 'Revelar Missões de Hoje'}
+          {isLoadingQuests ? 'Consultando...' : 'Revelar missões de hoje'}
         </button>
       </div>
     {/if}

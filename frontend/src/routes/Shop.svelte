@@ -5,6 +5,15 @@
   const player = liveQuery(() => db.player.toCollection().first());
   const inventory = liveQuery(() => db.inventory.toArray());
 
+  let selectedCategory = 'all';
+
+  const categories = [
+    { id: 'all', name: 'Todos', icon: '🌟' },
+    { id: 'consumable', name: 'Consumíveis', icon: '🧪' },
+    { id: 'avatar', name: 'Avatares', icon: '🎭' },
+    { id: 'theme', name: 'Temas', icon: '🎨' }
+  ];
+
   // Banco de dados falso dos itens da loja
   const storeItems = [
     {
@@ -58,6 +67,10 @@
       bg: 'bg-green-500/10 border-green-500/20'
     }
   ];
+
+  $: filteredItems = selectedCategory === 'all' 
+    ? storeItems 
+    : storeItems.filter(item => item.category === selectedCategory);
 
   async function buyItem(item) {
     if (!$player) return;
@@ -117,8 +130,21 @@
     <p class="text-xs text-white/50">Gaste suas moedas em cosméticos e vantagens épicas.</p>
   </div>
 
+  <!-- Filtros de Categoria -->
+  <div class="flex overflow-x-auto gap-2 pb-2 -mx-4 px-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+    {#each categories as cat}
+      <button 
+        on:click={() => selectedCategory = cat.id}
+        class="whitespace-nowrap px-4 py-2 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 {selectedCategory === cat.id ? 'bg-primary/20 border-primary text-primary shadow-sm shadow-primary/20' : 'bg-surface/50 border-white/5 text-white/50 hover:bg-surface hover:text-white/80'}"
+      >
+        <span class="text-sm">{cat.icon}</span> 
+        {cat.name}
+      </button>
+    {/each}
+  </div>
+
   <div class="grid grid-cols-2 gap-3">
-    {#each storeItems as item}
+    {#each filteredItems as item}
       <div class="bg-surface/80 border border-white/5 rounded-2xl p-3 flex flex-col relative overflow-hidden group hover:bg-surface transition-colors">
         
         <!-- Header: Ícone e Preço -->

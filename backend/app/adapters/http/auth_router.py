@@ -59,7 +59,14 @@ async def login(user_credentials: UserLogin, db: AsyncSession = Depends(get_db_s
     user = result.scalars().first()
     
     # Valida senha
-    if not user or not verify_password(user_credentials.password, user.hashed_password):
+    try:
+        is_valid = False
+        if user and user.hashed_password:
+            is_valid = verify_password(user_credentials.password, user.hashed_password)
+    except ValueError:
+        is_valid = False
+
+    if not user or not is_valid:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Credenciais inválidas",

@@ -6,6 +6,7 @@
  */
 import { liveQuery } from 'dexie';
 import { db } from '../db/db.js';
+import { generateId } from '../lib/id.js';
 
 // --- Queries reativas ---
 
@@ -34,6 +35,7 @@ export async function removePlan(planId) {
 
 export async function addExerciseLink({ workoutPlanId, exerciseId, order, targetSets, targetReps, restSeconds }) {
   return db.workoutPlanExercises.add({
+    id: generateId(),
     workoutPlanId,
     exerciseId,
     order,
@@ -54,7 +56,7 @@ export async function findOrCreateExercise(catalog, name, muscleGroup, equipment
     await db.exercises.update(existing.id, { muscleGroup, equipment });
     return existing.id;
   }
-  return db.exercises.add({ name: trimmed, muscleGroup, equipment });
+  return db.exercises.add({ id: generateId(), name: trimmed, muscleGroup, equipment });
 }
 
 export async function countPlanExercises(planId) {
@@ -63,6 +65,7 @@ export async function countPlanExercises(planId) {
 
 export async function startSession(planId) {
   return db.workoutSessions.add({
+    id: generateId(),
     workoutPlanId: planId,
     startedAt: new Date().toISOString(),
     finishedAt: null
@@ -75,6 +78,7 @@ export async function finishSession(sessionId) {
 
 export async function saveSet({ workoutSessionId, workoutPlanExerciseId, exerciseId, setNumber, weightKg, repsDone }) {
   return db.sessionSets.add({
+    id: generateId(),
     workoutSessionId,
     workoutPlanExerciseId,
     exerciseId,

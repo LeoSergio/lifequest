@@ -1,6 +1,7 @@
 <script>
   import { liveQuery } from 'dexie';
   import { db } from '../db/db.js';
+  import { generateId } from '../lib/id.js';
   import { todayIso } from '../lib/habits.js';
   import { applyXp } from '../lib/gamification.js';
   import { ACHIEVEMENTS } from '../lib/achievements.js';
@@ -67,6 +68,7 @@
         // Salva no banco local
         for (const q of data.quests) {
           await db.dailyQuests.add({
+            id: generateId(),
             date: today,
             pillar: q.pillar,
             title: q.title,
@@ -106,6 +108,7 @@
         deadline.setDate(now.getDate() + epic.deadline_days);
         
         await db.goals.add({
+          id: generateId(),
           title: epic.title,
           targetValue: epic.target_value,
           currentValue: 0,
@@ -219,6 +222,7 @@
       await db.player.update(p.id, { level, xp });
     } else if (prize.type === 'item') {
       await db.inventory.add({
+        id: generateId(),
         itemId: prize.itemId,
         category: 'consumable',
         name: prize.name,

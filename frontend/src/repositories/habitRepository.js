@@ -8,6 +8,7 @@
  */
 import { liveQuery } from 'dexie';
 import { db } from '../db/db.js';
+import { generateId } from '../lib/id.js';
 
 // --- Queries reativas (retornam observables do Dexie) ---
 
@@ -19,6 +20,7 @@ export const allCompletionsQuery = () => liveQuery(() => db.habitCompletions.toA
 
 export async function addHabit({ title, icon, cadence, weeklyTarget, xpReward = 10 }) {
   return db.habits.add({
+    id: generateId(),
     title: title.trim(),
     icon: (icon ?? '🔥').trim() || '🔥',
     cadence,
@@ -34,5 +36,5 @@ export async function archiveHabit(id) {
 }
 
 export async function addCompletion(habitId, date) {
-  return db.habitCompletions.add({ habitId, date });
+  return db.habitCompletions.add({ id: generateId(), habitId, date });
 }

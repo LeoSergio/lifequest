@@ -1,5 +1,6 @@
 <script>
   import { db } from '../db/db.js';
+  import { generateId } from '../lib/id.js';
   import { GOALS } from '../lib/constants.js';
   import { api } from '../lib/api.js';
 
@@ -118,6 +119,7 @@
       // preenchida, pra não criar uma medição vazia sem sentido.
       if (age || weight || height) {
         await db.bodyMeasurements.add({
+          id: generateId(),
           date: new Date().toISOString().slice(0, 10),
           age: age === '' ? null : Number(age),
           weight: weight === '' ? null : Number(weight),
@@ -136,7 +138,12 @@
       // A partir daqui, o App.svelte percebe (via liveQuery) que já existe
       // um player e troca pra tela de Início sozinho.
       await db.habits.bulkAdd(
-        starterHabits.map((h) => ({ ...h, archivedAt: null, createdAt: new Date().toISOString() }))
+        starterHabits.map((h) => ({
+          ...h,
+          id: generateId(),
+          archivedAt: null,
+          createdAt: new Date().toISOString()
+        }))
       );
     } finally {
       saving = false;

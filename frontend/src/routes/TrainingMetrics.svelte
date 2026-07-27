@@ -1,6 +1,7 @@
 <script>
   import { liveQuery } from 'dexie';
   import { db } from '../db/db.js';
+  import { generateId } from '../lib/id.js';
   import { navigate } from '../lib/nav.js';
   import LineChart from '../components/LineChart.svelte';
   import ConsistencyCalendar from '../components/ConsistencyCalendar.svelte';
@@ -143,6 +144,7 @@
 
   async function addMeasurement() {
     await db.bodyMeasurements.add({
+      id: generateId(),
       date,
       age: toNumberOrNull(age),
       weight: toNumberOrNull(weight),

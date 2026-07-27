@@ -1,5 +1,6 @@
 <script>
   import { db } from '../db/db.js';
+  import { generateId } from '../lib/id.js';
   import { navigate } from '../lib/nav.js';
   import { WEEKDAYS } from '../lib/constants.js';
 
@@ -21,6 +22,7 @@
     if (!name.trim()) return;
 
     const id = await db.workoutPlans.add({
+      id: generateId(),
       name: name.trim(),
       weekdays,
       focus: focus.trim() || null

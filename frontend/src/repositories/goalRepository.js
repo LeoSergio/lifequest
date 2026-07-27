@@ -3,12 +3,14 @@
  */
 import { liveQuery } from 'dexie';
 import { db } from '../db/db.js';
+import { generateId } from '../lib/id.js';
 
 export const allGoalsQuery = () =>
   liveQuery(() => db.goals.orderBy('createdAt').reverse().toArray());
 
 export async function addGoal({ title, targetValue, unit, reward, xpReward, deadline }) {
   return db.goals.add({
+    id: generateId(),
     title: title.trim(),
     targetValue: Number(targetValue),
     currentValue: 0,

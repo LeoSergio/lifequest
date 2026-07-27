@@ -84,7 +84,8 @@ async def push_sync(
                 level=event.payload.get("level", 1),
                 xp=event.payload.get("xp", 0),
                 streak_days=event.payload.get("streak", 0),
-                avatar=event.payload.get("avatar")
+                avatar=event.payload.get("avatar"),
+                updated_at=datetime.utcnow()
             )
             await db.execute(stmt)
             processed += 1
@@ -176,8 +177,11 @@ async def pull_sync(
                     if isinstance(val, datetime):
                         record_dict[key] = val.isoformat() + "Z"
 
-    # Puxa o Player (UserModel)
-    user_stmt = select(UserModel).where(UserModel.id == UUID(user_id))
+    # Puxa o Player (UserModel) se foi alterado recentemente
+    user_stmt = select(UserModel).where(
+        UserModel.id == UUID(user_id),
+        UserModel.updated_at > last_sync_date
+    )
     user_result = await db.execute(user_stmt)
     user = user_result.scalars().first()
     if user:

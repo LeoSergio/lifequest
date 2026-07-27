@@ -160,8 +160,9 @@ export function startSyncWorker(intervalSeconds = 10) {
   setupSyncHooks();
 
   setInterval(async () => {
-    // Tenta primeiro puxar dados do servidor, depois empurrar dados
-    await pullSync();
+    // Primeiro envia as modificações locais pendentes para garantir que o backend receba
     await pushSync();
+    // Depois busca atualizações do backend (em outras sessões)
+    await pullSync();
   }, intervalSeconds * 1000);
 }

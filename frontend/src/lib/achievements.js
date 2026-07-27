@@ -1,4 +1,5 @@
 import { db } from '../db/db.js';
+import { generateId } from './id.js';
 
 export const ACHIEVEMENTS = [
   { id: 'madrugador', name: 'Madrugador', description: 'Completou um treino antes das 6h da manhã.', icon: '🌅', color: 'text-orange-400', bg: 'bg-orange-400/10 border-orange-400/20' },
@@ -82,6 +83,7 @@ export async function checkAchievements() {
   // Save new unlocks
   for (const id of newUnlocks) {
     await db.unlockedAchievements.add({
+      id: generateId(),
       achievementId: id,
       unlockedAt: new Date().toISOString()
     });

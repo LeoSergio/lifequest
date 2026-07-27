@@ -14,11 +14,18 @@ class SyncBase(Base):
     """
     __abstract__ = True
 
-    # Usaremos String para o ID porque o frontend Dexie atualmente usa Integers (1, 2, 3),
-    # mas precisaremos suportar UUIDs no futuro para evitar colisões entre múltiplos dispositivos offline.
+    # O frontend agora gera um UUID (crypto.randomUUID()) no cliente para todo
+    # registro novo, então colisões entre dispositivos/usuários deixam de
+    # acontecer na prática. Ainda assim, mantemos a chave primária composta
+    # com (id, user_id) — e não só `id` — como defesa em profundidade: mesmo
+    # que dois registros de usuários diferentes acabem com o mesmo `id`
+    # (ex.: dados antigos já gravados com ids sequenciais 1, 2, 3...), eles
+    # não colidem mais no banco, porque o par (id, user_id) continua único.
     id: Mapped[str] = mapped_column(String, primary_key=True)
-    
-    user_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"), index=True)
+
+    user_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id"), primary_key=True, index=True
+    )
     
     # Controle de Sincronização (Soft Delete e Auditoria)
     deleted: Mapped[bool] = mapped_column(Boolean, default=False)

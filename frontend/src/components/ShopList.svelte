@@ -1,6 +1,7 @@
 <script>
   import { liveQuery } from 'dexie';
   import { db } from '../db/db.js';
+  import { generateId } from '../lib/id.js';
   
   const player = liveQuery(() => db.player.toCollection().first());
   const inventory = liveQuery(() => db.inventory.toArray());
@@ -96,6 +97,7 @@
     
     // Adiciona ao inventário
     await db.inventory.add({
+      id: generateId(),
       itemId: item.id,
       category: item.category,
       name: item.name,

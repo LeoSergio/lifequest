@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import jwt
+import logging
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,6 +21,8 @@ from app.infra.models.sync_models import (
     BodyMeasurementModel, InventoryModel, UnlockedAchievementModel
 )
 from app.infra.models.user_model import UserModel
+
+logger = logging.getLogger("lifequest.sync")
 
 router = APIRouter(prefix="/sync", tags=["Sync"])
 security = HTTPBearer()
@@ -67,6 +70,71 @@ class SyncPushRequest(BaseModel):
 class SyncPushResponse(BaseModel):
     success: bool
     processed_events: int
+    # IDs (da syncQueue local) dos eventos que falharam e devem ser
+    # mantidos na fila para retry — o frontend só apaga da fila local
+    # os eventos que NÃO aparecem aqui.
+    failed_events: List[int] = []
+
+
+async def _apply_event(event: SyncEvent, db: AsyncSession, user_id: str) -> None:
+    """
+    Aplica um único evento de sync. Lança exceção se o evento for
+    inválido/malformado — o chamador decide o que fazer com isso.
+    """
+    if event.entity == "player" and event.action == "upsert" and event.payload:
+        stmt = update(UserModel).where(UserModel.id == UUID(user_id)).values(
+            level=event.payload.get("level", 1),
+            xp=event.payload.get("xp", 0),
+            streak_days=event.payload.get("streak", 0),
+            avatar=event.payload.get("avatar"),
+            updated_at=datetime.utcnow()
+        )
+        await db.execute(stmt)
+        return
+
+    model_class = TABLE_TO_MODEL.get(event.entity)
+    if not model_class:
+        raise ValueError(f"Entidade desconhecida: '{event.entity}'")
+
+    if event.action == "delete":
+        # Soft delete: marca deleted = True no registro existente
+        stmt = update(model_class).where(
+            model_class.id == str(event.entityId),
+            model_class.user_id == UUID(user_id)
+        ).values(deleted=True, updated_at=datetime.utcnow())
+        await db.execute(stmt)
+
+    elif event.action == "upsert" and event.payload:
+        # Verifica se já existe
+        result = await db.execute(select(model_class).where(
+            model_class.id == str(event.entityId),
+            model_class.user_id == UUID(user_id)
+        ))
+        existing = result.scalars().first()
+
+        # Limpa campos que não são colunas reais da tabela (whitelist, não hasattr:
+        # hasattr também é True pra atributos internos do SQLAlchemy como
+        # `metadata`/`registry`, que não queremos deixar o payload sobrescrever).
+        column_names = model_class.__table__.columns.keys()
+        clean_payload = {k: v for k, v in event.payload.items() if k in column_names}
+        clean_payload["updated_at"] = datetime.utcnow()
+
+        # Converte ints para strings onde a Model espera string
+        if "id" in clean_payload:
+            clean_payload["id"] = str(clean_payload["id"])
+
+        if existing:
+            for k, v in clean_payload.items():
+                setattr(existing, k, v)
+            existing.deleted = False
+        else:
+            clean_payload["user_id"] = UUID(user_id)
+            clean_payload["deleted"] = False
+            new_record = model_class(**clean_payload)
+            db.add(new_record)
+    else:
+        raise ValueError(f"Ação inválida ou payload ausente: action='{event.action}'")
+
 
 @router.post("/push", response_model=SyncPushResponse)
 async def push_sync(
@@ -76,63 +144,31 @@ async def push_sync(
 ):
     """
     Recebe os eventos offline criados pelo Frontend e salva no PostgreSQL.
+
+    Cada evento é aplicado dentro de sua própria SAVEPOINT: se um evento
+    for malformado ou violar uma constraint do banco, só ELE é descartado
+    (e reportado em `failed_events`) — os demais eventos do lote continuam
+    sendo processados e commitados normalmente. Antes, uma falha em
+    qualquer evento derrubava o lote inteiro e travava a fila de sync do
+    dispositivo indefinidamente, sem nenhum log no servidor.
     """
     processed = 0
+    failed_events: List[int] = []
+
     for event in request.events:
-        if event.entity == "player" and event.action == "upsert" and event.payload:
-            stmt = update(UserModel).where(UserModel.id == UUID(user_id)).values(
-                level=event.payload.get("level", 1),
-                xp=event.payload.get("xp", 0),
-                streak_days=event.payload.get("streak", 0),
-                avatar=event.payload.get("avatar"),
-                updated_at=datetime.utcnow()
-            )
-            await db.execute(stmt)
+        try:
+            async with db.begin_nested():
+                await _apply_event(event, db, user_id)
             processed += 1
-            continue
+        except Exception as exc:
+            logger.error(
+                "Falha ao processar evento de sync id=%s entity=%s action=%s entityId=%s user_id=%s: %s",
+                event.id, event.entity, event.action, event.entityId, user_id, exc,
+            )
+            failed_events.append(event.id)
 
-        model_class = TABLE_TO_MODEL.get(event.entity)
-        if not model_class:
-            continue # Ignora entidades desconhecidas
-
-        if event.action == "delete":
-            # Soft delete: marca deleted = True no registro existente
-            stmt = update(model_class).where(
-                model_class.id == str(event.entityId),
-                model_class.user_id == UUID(user_id)
-            ).values(deleted=True, updated_at=datetime.utcnow())
-            await db.execute(stmt)
-        
-        elif event.action == "upsert" and event.payload:
-            # Verifica se já existe
-            result = await db.execute(select(model_class).where(
-                model_class.id == str(event.entityId),
-                model_class.user_id == UUID(user_id)
-            ))
-            existing = result.scalars().first()
-            
-            # Limpa campos que não estão na tabela SQL ou são controlados por nós
-            clean_payload = {k: v for k, v in event.payload.items() if hasattr(model_class, k)}
-            clean_payload["updated_at"] = datetime.utcnow()
-            
-            # Converte ints para strings onde a Model espera string
-            if "id" in clean_payload:
-                clean_payload["id"] = str(clean_payload["id"])
-            
-            if existing:
-                for k, v in clean_payload.items():
-                    setattr(existing, k, v)
-                existing.deleted = False
-            else:
-                clean_payload["user_id"] = UUID(user_id)
-                clean_payload["deleted"] = False
-                new_record = model_class(**clean_payload)
-                db.add(new_record)
-
-        processed += 1
-        
     await db.commit()
-    return {"success": True, "processed_events": processed}
+    return {"success": True, "processed_events": processed, "failed_events": failed_events}
 
 
 @router.get("/pull")

@@ -1,4 +1,4 @@
-<script>
+bug tá pulando o cadastro de objetivos e as tela pos cadastro sucedido<script>
   import { liveQuery } from 'dexie';
   import { db } from '../db/db.js';
   import { ACHIEVEMENTS } from '../lib/achievements.js';

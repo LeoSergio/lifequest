@@ -89,10 +89,22 @@ export async function pushSync() {
     });
 
     if (response.ok) {
-      // Se deu certo, deletamos os eventos da fila baseados nos IDs enviados
-      const idsToDelete = pendingEvents.map(e => e.id);
+      const data = await response.json();
+      const failedIds = new Set(data.failed_events || []);
+
+      // Só removemos da fila local os eventos que o backend de fato aplicou.
+      // Os que falharam continuam na fila e serão tentados de novo no
+      // próximo ciclo (em vez de travar o lote inteiro, como antes).
+      const idsToDelete = pendingEvents
+        .map(e => e.id)
+        .filter(id => !failedIds.has(id));
+
       await db.syncQueue.bulkDelete(idsToDelete);
-      console.log(`[Sync] Enviados ${pendingEvents.length} eventos para a nuvem.`);
+      console.log(`[Sync] Enviados ${idsToDelete.length}/${pendingEvents.length} eventos para a nuvem.`);
+
+      if (failedIds.size > 0) {
+        console.warn(`[Sync] ${failedIds.size} evento(s) falharam e serão tentados novamente:`, [...failedIds]);
+      }
     }
   } catch (err) {
     console.error('[Sync] Erro ao enviar eventos (modo offline?)', err);

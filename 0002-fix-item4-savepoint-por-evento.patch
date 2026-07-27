@@ -1,0 +1,343 @@
+From fe7fd5b1272adfd507504e9ebc9a1112f73f65e2 Mon Sep 17 00:00:00 2001
+From: "Claude (assistente)" <assistant@local>
+Date: Mon, 27 Jul 2026 19:35:06 +0000
+Subject: [PATCH] fix(sync): isola cada evento do push em savepoint propria
+ (item 4)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Antes, o /sync/push processava todos os eventos do lote num unico
+commit no final. Se UM evento fosse invalido (entidade desconhecida,
+payload ausente, violacao de constraint), a excecao subia, o request
+inteiro voltava 500 e NENHUM evento do lote era salvo -- nem os
+validos que vieram junto. Como o frontend so limpa a syncQueue local
+em caso de resposta ok, esse lote inteiro ficava sendo reenviado a
+cada 10s pra sempre, sem nenhum log visivel no backend.
+
+Correcao no backend (sync_router.py):
+- cada evento agora roda dentro de 'async with db.begin_nested()'
+  (SAVEPOINT). Se falhar, so aquele SAVEPOINT e desfeito -- os demais
+  eventos do lote continuam sendo processados e commitados juntos.
+- adiciona logging.error() por evento que falhar, com entity/action/
+  entityId/user_id, pra dar visibilidade no servidor (antes so
+  aparecia no console do navegador do usuario, se aparecia).
+- troca o whitelist de campos aceitos no upsert de 'hasattr(model, k)'
+  para 'k in model.__table__.columns.keys()', evitando que o payload
+  sobrescreva atributos internos do SQLAlchemy (metadata, registry).
+- SyncPushResponse ganha 'failed_events: list[int]' com os ids (da
+  syncQueue local) que falharam.
+
+Correcao no frontend (syncService.js):
+- pushSync() so remove da fila local os eventos que NÃO aparecem em
+  failed_events -- os que falharam continuam na fila pra nova
+  tentativa, em vez de ficarem presos atras de um vizinho invalido.
+
+Novo teste (tests/test_sync_router.py) reproduz o cenario: um evento
+valido e um invalido no mesmo lote. Confirma que o valido e
+processado e persistido, e que so o invalido aparece em
+failed_events. Suite completa (3 testes) passando.
+---
+ backend/app/adapters/http/sync_router.py | 140 ++++++++++++++---------
+ backend/tests/test_sync_router.py        |  81 +++++++++++++
+ frontend/src/services/syncService.js     |  18 ++-
+ 3 files changed, 184 insertions(+), 55 deletions(-)
+ create mode 100644 backend/tests/test_sync_router.py
+
+diff --git a/backend/app/adapters/http/sync_router.py b/backend/app/adapters/http/sync_router.py
+index f3fbeb2..4d81ab0 100644
+--- a/backend/app/adapters/http/sync_router.py
++++ b/backend/app/adapters/http/sync_router.py
+@@ -1,6 +1,7 @@
+ from fastapi import APIRouter, Depends, HTTPException
+ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+ import jwt
++import logging
+ from typing import List, Dict, Any, Optional
+ from pydantic import BaseModel
+ from sqlalchemy.ext.asyncio import AsyncSession
+@@ -21,6 +22,8 @@ from app.infra.models.sync_models import (
+ )
+ from app.infra.models.user_model import UserModel
+ 
++logger = logging.getLogger("lifequest.sync")
++
+ router = APIRouter(prefix="/sync", tags=["Sync"])
+ security = HTTPBearer()
+ 
+@@ -67,6 +70,71 @@ class SyncPushRequest(BaseModel):
+ class SyncPushResponse(BaseModel):
+     success: bool
+     processed_events: int
++    # IDs (da syncQueue local) dos eventos que falharam e devem ser
++    # mantidos na fila para retry — o frontend só apaga da fila local
++    # os eventos que NÃO aparecem aqui.
++    failed_events: List[int] = []
++
++
++async def _apply_event(event: SyncEvent, db: AsyncSession, user_id: str) -> None:
++    """
++    Aplica um único evento de sync. Lança exceção se o evento for
++    inválido/malformado — o chamador decide o que fazer com isso.
++    """
++    if event.entity == "player" and event.action == "upsert" and event.payload:
++        stmt = update(UserModel).where(UserModel.id == UUID(user_id)).values(
++            level=event.payload.get("level", 1),
++            xp=event.payload.get("xp", 0),
++            streak_days=event.payload.get("streak", 0),
++            avatar=event.payload.get("avatar"),
++            updated_at=datetime.utcnow()
++        )
++        await db.execute(stmt)
++        return
++
++    model_class = TABLE_TO_MODEL.get(event.entity)
++    if not model_class:
++        raise ValueError(f"Entidade desconhecida: '{event.entity}'")
++
++    if event.action == "delete":
++        # Soft delete: marca deleted = True no registro existente
++        stmt = update(model_class).where(
++            model_class.id == str(event.entityId),
++            model_class.user_id == UUID(user_id)
++        ).values(deleted=True, updated_at=datetime.utcnow())
++        await db.execute(stmt)
++
++    elif event.action == "upsert" and event.payload:
++        # Verifica se já existe
++        result = await db.execute(select(model_class).where(
++            model_class.id == str(event.entityId),
++            model_class.user_id == UUID(user_id)
++        ))
++        existing = result.scalars().first()
++
++        # Limpa campos que não são colunas reais da tabela (whitelist, não hasattr:
++        # hasattr também é True pra atributos internos do SQLAlchemy como
++        # `metadata`/`registry`, que não queremos deixar o payload sobrescrever).
++        column_names = model_class.__table__.columns.keys()
++        clean_payload = {k: v for k, v in event.payload.items() if k in column_names}
++        clean_payload["updated_at"] = datetime.utcnow()
++
++        # Converte ints para strings onde a Model espera string
++        if "id" in clean_payload:
++            clean_payload["id"] = str(clean_payload["id"])
++
++        if existing:
++            for k, v in clean_payload.items():
++                setattr(existing, k, v)
++            existing.deleted = False
++        else:
++            clean_payload["user_id"] = UUID(user_id)
++            clean_payload["deleted"] = False
++            new_record = model_class(**clean_payload)
++            db.add(new_record)
++    else:
++        raise ValueError(f"Ação inválida ou payload ausente: action='{event.action}'")
++
+ 
+ @router.post("/push", response_model=SyncPushResponse)
+ async def push_sync(
+@@ -76,63 +144,31 @@ async def push_sync(
+ ):
+     """
+     Recebe os eventos offline criados pelo Frontend e salva no PostgreSQL.
++
++    Cada evento é aplicado dentro de sua própria SAVEPOINT: se um evento
++    for malformado ou violar uma constraint do banco, só ELE é descartado
++    (e reportado em `failed_events`) — os demais eventos do lote continuam
++    sendo processados e commitados normalmente. Antes, uma falha em
++    qualquer evento derrubava o lote inteiro e travava a fila de sync do
++    dispositivo indefinidamente, sem nenhum log no servidor.
+     """
+     processed = 0
++    failed_events: List[int] = []
++
+     for event in request.events:
+-        if event.entity == "player" and event.action == "upsert" and event.payload:
+-            stmt = update(UserModel).where(UserModel.id == UUID(user_id)).values(
+-                level=event.payload.get("level", 1),
+-                xp=event.payload.get("xp", 0),
+-                streak_days=event.payload.get("streak", 0),
+-                avatar=event.payload.get("avatar"),
+-                updated_at=datetime.utcnow()
+-            )
+-            await db.execute(stmt)
++        try:
++            async with db.begin_nested():
++                await _apply_event(event, db, user_id)
+             processed += 1
+-            continue
+-
+-        model_class = TABLE_TO_MODEL.get(event.entity)
+-        if not model_class:
+-            continue # Ignora entidades desconhecidas
+-
+-        if event.action == "delete":
+-            # Soft delete: marca deleted = True no registro existente
+-            stmt = update(model_class).where(
+-                model_class.id == str(event.entityId),
+-                model_class.user_id == UUID(user_id)
+-            ).values(deleted=True, updated_at=datetime.utcnow())
+-            await db.execute(stmt)
+-        
+-        elif event.action == "upsert" and event.payload:
+-            # Verifica se já existe
+-            result = await db.execute(select(model_class).where(
+-                model_class.id == str(event.entityId),
+-                model_class.user_id == UUID(user_id)
+-            ))
+-            existing = result.scalars().first()
+-            
+-            # Limpa campos que não estão na tabela SQL ou são controlados por nós
+-            clean_payload = {k: v for k, v in event.payload.items() if hasattr(model_class, k)}
+-            clean_payload["updated_at"] = datetime.utcnow()
+-            
+-            # Converte ints para strings onde a Model espera string
+-            if "id" in clean_payload:
+-                clean_payload["id"] = str(clean_payload["id"])
+-            
+-            if existing:
+-                for k, v in clean_payload.items():
+-                    setattr(existing, k, v)
+-                existing.deleted = False
+-            else:
+-                clean_payload["user_id"] = UUID(user_id)
+-                clean_payload["deleted"] = False
+-                new_record = model_class(**clean_payload)
+-                db.add(new_record)
+-
+-        processed += 1
+-        
++        except Exception as exc:
++            logger.error(
++                "Falha ao processar evento de sync id=%s entity=%s action=%s entityId=%s user_id=%s: %s",
++                event.id, event.entity, event.action, event.entityId, user_id, exc,
++            )
++            failed_events.append(event.id)
++
+     await db.commit()
+-    return {"success": True, "processed_events": processed}
++    return {"success": True, "processed_events": processed, "failed_events": failed_events}
+ 
+ 
+ @router.get("/pull")
+diff --git a/backend/tests/test_sync_router.py b/backend/tests/test_sync_router.py
+new file mode 100644
+index 0000000..2a82298
+--- /dev/null
++++ b/backend/tests/test_sync_router.py
+@@ -0,0 +1,81 @@
++import uuid
++
++import pytest
++from httpx import ASGITransport, AsyncClient
++
++from app.main import app
++
++
++async def _register_and_login(client: AsyncClient) -> str:
++    """Cria um usuário novo (email único por execução) e retorna o token."""
++    email = f"sync-test-{uuid.uuid4().hex[:10]}@example.com"
++    password = "senha-super-forte-123"
++
++    res = await client.post("/auth/register", json={
++        "name": "Teste Sync",
++        "email": email,
++        "password": password,
++    })
++    assert res.status_code == 200, res.text
++
++    res = await client.post("/auth/login", json={"email": email, "password": password})
++    assert res.status_code == 200, res.text
++    return res.json()["access_token"]
++
++
++@pytest.mark.asyncio
++async def test_push_with_one_bad_event_does_not_block_the_rest():
++    """
++    Regressão do bug: antes, um evento inválido no meio do lote (entidade
++    desconhecida, payload ausente, etc.) derrubava a transação inteira e
++    NENHUM evento do lote era salvo — nem os válidos. Agora cada evento
++    roda em sua própria SAVEPOINT, então só o evento ruim falha.
++    """
++    transport = ASGITransport(app=app)
++    async with AsyncClient(transport=transport, base_url="http://test") as client:
++        token = await _register_and_login(client)
++        headers = {"Authorization": f"Bearer {token}"}
++
++        good_id = str(uuid.uuid4())
++        events = [
++            {
++                "id": 1,
++                "entity": "habits",
++                "entityId": good_id,
++                "action": "upsert",
++                "timestamp": "2026-07-27T00:00:00.000Z",
++                "payload": {
++                    "id": good_id,
++                    "title": "Beber água",
++                    "icon": "💧",
++                    "cadence": "daily",
++                    "xpReward": 10,
++                },
++            },
++            {
++                "id": 2,
++                "entity": "tabela_que_nao_existe",
++                "entityId": "qualquer-coisa",
++                "action": "upsert",
++                "timestamp": "2026-07-27T00:00:01.000Z",
++                "payload": {"foo": "bar"},
++            },
++        ]
++
++        res = await client.post("/sync/push", json={"events": events}, headers=headers)
++        assert res.status_code == 200, res.text
++        data = res.json()
++
++        # O evento bom foi processado, o ruim falhou e foi reportado — mas
++        # não derrubou o lote inteiro.
++        assert data["processed_events"] == 1
++        assert data["failed_events"] == [2]
++
++        # Confere que o hábito válido realmente foi salvo (sobreviveu ao evento ruim).
++        res = await client.get(
++            "/sync/pull?last_sync=1970-01-01T00:00:00.000Z", headers=headers
++        )
++        assert res.status_code == 200, res.text
++        changes = res.json()["changes"]
++        assert "habits" in changes
++        assert any(h["id"] == good_id and h["title"] == "Beber água" for h in changes["habits"])
+diff --git a/frontend/src/services/syncService.js b/frontend/src/services/syncService.js
+index f2e93aa..c319c44 100644
+--- a/frontend/src/services/syncService.js
++++ b/frontend/src/services/syncService.js
+@@ -89,10 +89,22 @@ export async function pushSync() {
+     });
+ 
+     if (response.ok) {
+-      // Se deu certo, deletamos os eventos da fila baseados nos IDs enviados
+-      const idsToDelete = pendingEvents.map(e => e.id);
++      const data = await response.json();
++      const failedIds = new Set(data.failed_events || []);
++
++      // Só removemos da fila local os eventos que o backend de fato aplicou.
++      // Os que falharam continuam na fila e serão tentados de novo no
++      // próximo ciclo (em vez de travar o lote inteiro, como antes).
++      const idsToDelete = pendingEvents
++        .map(e => e.id)
++        .filter(id => !failedIds.has(id));
++
+       await db.syncQueue.bulkDelete(idsToDelete);
+-      console.log(`[Sync] Enviados ${pendingEvents.length} eventos para a nuvem.`);
++      console.log(`[Sync] Enviados ${idsToDelete.length}/${pendingEvents.length} eventos para a nuvem.`);
++
++      if (failedIds.size > 0) {
++        console.warn(`[Sync] ${failedIds.size} evento(s) falharam e serão tentados novamente:`, [...failedIds]);
++      }
+     }
+   } catch (err) {
+     console.error('[Sync] Erro ao enviar eventos (modo offline?)', err);
+-- 
+2.43.0
+

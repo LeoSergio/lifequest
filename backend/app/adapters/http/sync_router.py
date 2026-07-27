@@ -19,6 +19,7 @@ from app.infra.models.sync_models import (
     WorkoutSessionModel, SessionSetModel, PantryItemModel,
     BodyMeasurementModel, InventoryModel, UnlockedAchievementModel
 )
+from app.infra.models.user_model import UserModel
 
 router = APIRouter(prefix="/sync", tags=["Sync"])
 security = HTTPBearer()
@@ -78,9 +79,20 @@ async def push_sync(
     """
     processed = 0
     for event in request.events:
+        if event.entity == "player" and event.action == "upsert" and event.payload:
+            stmt = update(UserModel).where(UserModel.id == UUID(user_id)).values(
+                level=event.payload.get("level", 1),
+                xp=event.payload.get("xp", 0),
+                streak_days=event.payload.get("streak", 0),
+                avatar=event.payload.get("avatar")
+            )
+            await db.execute(stmt)
+            processed += 1
+            continue
+
         model_class = TABLE_TO_MODEL.get(event.entity)
         if not model_class:
-            continue # Ignora entidades desconhecidas (ex: player)
+            continue # Ignora entidades desconhecidas
 
         if event.action == "delete":
             # Soft delete: marca deleted = True no registro existente
@@ -163,6 +175,21 @@ async def pull_sync(
                 for key, val in record_dict.items():
                     if isinstance(val, datetime):
                         record_dict[key] = val.isoformat() + "Z"
+
+    # Puxa o Player (UserModel)
+    user_stmt = select(UserModel).where(UserModel.id == UUID(user_id))
+    user_result = await db.execute(user_stmt)
+    user = user_result.scalars().first()
+    if user:
+        changes["player"] = [{
+            "id": "1", # Dexie ID padrão para single-player
+            "name": user.username,
+            "level": user.level,
+            "xp": user.xp,
+            "streak": user.streak_days,
+            "avatar": user.avatar,
+            "coins": 0 # Temporário
+        }]
 
     return {
         "timestamp": datetime.utcnow().isoformat() + "Z",

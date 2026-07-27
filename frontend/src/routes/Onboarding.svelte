@@ -63,13 +63,26 @@
           const data = await api.login({ email: email.trim(), password });
           localStorage.setItem('access_token', data.access_token);
           
-          // Como ainda não temos uma rota para buscar os dados do usuário sincronizados,
-          // simulamos a continuação localmente para o Dashboard
+          // IMPORTANTE: Trazemos os dados da nuvem para o dispositivo local!
+          const { pullSync } = await import('../services/syncService.js');
+          await pullSync();
+
+          // Cria/Atualiza o Player no banco local para o Svelte renderizar
           const rawName = data.name || email.split('@')[0];
-          name = rawName.charAt(0).toUpperCase() + rawName.slice(1);
-          goal = 'health'; // Objetivo mockado provisório
-          await finish();
-          return;
+          const finalName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
+          
+          await db.player.clear();
+          await db.player.add({
+            name: finalName,
+            goal: 'health', // Ou um valor salvo se existir
+            level: data.level || 1,
+            xp: data.xp || 0,
+            coins: data.coins || 0,
+            streak: data.streak_days || 0,
+            createdAt: new Date().toISOString()
+          });
+          
+          return; // A tela sairá do Onboarding automaticamente via liveQuery
         }
       } catch (err) {
         errorMessage = 'Erro de conexão com o servidor. Verifique se o backend está rodando.';

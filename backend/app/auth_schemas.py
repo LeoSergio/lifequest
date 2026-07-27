@@ -25,3 +25,7 @@ class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
     name: str | None = None
+    level: int = 1
+    xp: int = 0
+    streak_days: int = 0
+    coins: int = 0

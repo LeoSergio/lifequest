@@ -28,7 +28,10 @@ export default defineConfig({
     })
   ],
   server: {
+    host: true,
     port: 5173,
+    // Permite que o túnel do Cloudflare (e qualquer host externo) acesse o dev server
+    allowedHosts: true,
     proxy: {
       // Evita CORS em dev: chamadas a /api vão para o FastAPI local
       '/api': {

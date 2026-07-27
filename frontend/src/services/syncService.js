@@ -4,7 +4,7 @@ import { db } from '../db/db.js';
 let isSyncing = false;
 
 const SYNCABLE_TABLES = [
-  'habits', 'habitCompletions', 'goals', 'dailyQuests', 
+  'player', 'habits', 'habitCompletions', 'goals', 'dailyQuests', 
   'exercises', 'workoutPlans', 'workoutPlanExercises', 
   'workoutSessions', 'sessionSets', 'pantryItems', 
   'bodyMeasurements', 'inventory', 'unlockedAchievements'

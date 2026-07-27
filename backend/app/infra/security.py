@@ -2,7 +2,9 @@ from datetime import datetime, timedelta
 import jwt
 import bcrypt
 
-SECRET_KEY = "lifequest-super-secret-key"  # Em prod, coloque no .env
+from app.infra.config import settings
+
+SECRET_KEY = settings.secret_key
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 dias
 

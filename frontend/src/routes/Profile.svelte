@@ -27,6 +27,13 @@
     };
     reader.readAsDataURL(file);
   }
+
+  async function handleLogout() {
+    if (confirm('Tem certeza que deseja sair e limpar todos os dados locais?')) {
+      await db.delete(); // Apaga o banco Dexie
+      window.location.reload(); // Recarrega a página para voltar pro Onboarding
+    }
+  }
 </script>
 
 <main class="min-h-screen p-4 pb-24 max-w-md mx-auto flex flex-col">
@@ -207,6 +214,15 @@
                 <span class="text-[12px] font-medium">Central de ajuda</span>
              </div>
              <span class="text-white/20 text-sm">›</span>
+          </button>
+          
+          <!-- Botão de Sair -->
+          <button class="flex items-center justify-between w-full group py-1 mt-2" on:click={handleLogout}>
+             <div class="flex items-center gap-2.5 text-white/70 group-hover:text-red-400 transition-colors">
+                <svg class="w-[18px] h-[18px] text-red-500/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                <span class="text-[12px] font-medium text-red-400/80 group-hover:text-red-400">Sair da Conta (Reset)</span>
+             </div>
+             <span class="text-red-400/20 text-sm">›</span>
           </button>
        </div>
     </div>

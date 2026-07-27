@@ -75,4 +75,12 @@ async def login(user_credentials: UserLogin, db: AsyncSession = Depends(get_db_s
     
     # Gera JWT
     access_token = create_access_token(data={"sub": str(user.id)})
-    return {"access_token": access_token, "token_type": "bearer", "name": user.username}
+    return {
+        "access_token": access_token, 
+        "token_type": "bearer", 
+        "name": user.username,
+        "level": user.level,
+        "xp": user.xp,
+        "streak_days": user.streak_days,
+        "coins": 0 # Pode ser implementado depois
+    }

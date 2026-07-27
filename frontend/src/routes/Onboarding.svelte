@@ -21,6 +21,7 @@
   let successMessage = '';
   let isLoading = false;
   let goal = null;
+  let pendingToken = null;
 
   let age = '';
   let weight = '';
@@ -48,9 +49,9 @@
           // Chamada para a API de Registro
           await api.register({ name: name.trim(), email: email.trim(), password });
 
-          // Auto-login após o registro para já salvar o token
+          // Auto-login após o registro para já salvar o token provisoriamente
           const loginData = await api.login({ email: email.trim(), password });
-          localStorage.setItem('access_token', loginData.access_token);
+          pendingToken = loginData.access_token;
 
           isLoading = false;
           successMessage = 'Cadastrado com sucesso!';
@@ -144,7 +145,11 @@
           archivedAt: null,
           createdAt: new Date().toISOString()
         }))
-      );
+      // Salva o token no localStorage apenas no final do fluxo, para que o
+      // worker de sincronização não puxe o perfil antes da hora e pule a tela.
+      if (pendingToken) {
+        localStorage.setItem('access_token', pendingToken);
+      }
     } finally {
       saving = false;
     }

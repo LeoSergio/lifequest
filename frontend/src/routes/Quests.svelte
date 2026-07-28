@@ -8,6 +8,7 @@
   import ShopList from '../components/ShopList.svelte';
   import { nav } from '../lib/nav.js';
   import { pushSync } from '../services/syncService.js';
+  import { API_BASE } from '../lib/api.js';
   
   let currentTab = 'diarias'; // 'diarias', 'semanais', 'mensais', 'conquistas', 'loja'
   
@@ -53,9 +54,13 @@
     isLoadingQuests = true;
     
     try {
-      const response = await fetch(import.meta.env.VITE_API_URL + '/ai/quests/daily', {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${API_BASE}/ai/quests/daily`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({
           player_level: $player.level,
           focus_areas: ["saúde", "desenvolvimento pessoal", "organização"]
@@ -66,7 +71,6 @@
         const data = await response.json();
         const today = todayIso();
         
-        // Salva no banco local
         for (const q of data.quests) {
           await db.dailyQuests.add({
             id: generateId(),
@@ -78,10 +82,14 @@
             completed: false
           });
         }
+      } else {
+        const err = await response.text();
+        console.error('[IA] Erro ao gerar missões:', response.status, err);
+        alert('Não foi possível contatar o Mestre do Jogo (IA). Tente novamente mais tarde.');
       }
     } catch (e) {
-      console.error("Erro ao gerar missões:", e);
-      alert("Não foi possível contatar o Mestre do Jogo (IA). Tente novamente mais tarde.");
+      console.error('[IA] Erro de conexão:', e);
+      alert('Não foi possível contatar o Mestre do Jogo (IA). Verifique sua conexão.');
     } finally {
       isLoadingQuests = false;
     }
@@ -93,9 +101,13 @@
     isLoadingEpic = true;
     
     try {
-      const response = await fetch(import.meta.env.VITE_API_URL + '/ai/quests/epic', {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${API_BASE}/ai/quests/epic`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({
           player_level: $player.level
         })
@@ -117,12 +129,19 @@
           reward: epic.description,
           xpReward: epic.xp_reward,
           deadline: deadline.toISOString().slice(0, 10),
+          achievedAt: null,
           createdAt: now.toISOString()
         });
+
+        pushSync().catch(() => {});
+      } else {
+        const err = await response.text();
+        console.error('[IA] Erro ao gerar missão épica:', response.status, err);
+        alert('Falha ao invocar o Chefão. Tente novamente.');
       }
     } catch (e) {
-      console.error("Erro ao gerar missão épica:", e);
-      alert("Falha ao invocar o Chefão. Tente novamente.");
+      console.error('[IA] Erro de conexão:', e);
+      alert('Falha ao invocar o Chefão. Verifique sua conexão.');
     } finally {
       isLoadingEpic = false;
     }

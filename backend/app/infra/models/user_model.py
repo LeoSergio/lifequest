@@ -2,7 +2,7 @@
 Modelos de banco de dados da Infraestrutura (SQLAlchemy).
 Este modelo representa a Tabela real no PostgreSQL.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
 from sqlalchemy import String, Integer, DateTime
@@ -30,5 +30,5 @@ class UserModel(Base):
     last_active_date: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     
     # Metadados
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None))

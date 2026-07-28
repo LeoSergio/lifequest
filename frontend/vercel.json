@@ -3,6 +3,7 @@
   "outputDirectory": "dist",
   "framework": null,
   "rewrites": [
+    { "source": "/api/(.*)", "destination": "https://lifequest-production-adfd.up.railway.app/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

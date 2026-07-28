@@ -15,6 +15,15 @@ bug tá pulando o cadastro de objetivos e as tela pos cadastro sucedido<script>
   $: nextLevelXp = ($player?.level ?? 1) * 100;
   $: progressPercent = Math.min(100, Math.round((totalXp / nextLevelXp) * 100));
 
+  const completedGoalsCount = liveQuery(async () => {
+    const goals = await db.goals.toArray();
+    return goals.filter(g => !!g.achievedAt).length;
+  });
+
+  const completedHabitsCount = liveQuery(async () => {
+    return await db.habitCompletions.count();
+  });
+
   function handleImageUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -116,21 +125,21 @@ bug tá pulando o cadastro de objetivos e as tela pos cadastro sucedido<script>
   <div class="bg-[#1C1C22]/80 backdrop-blur-md rounded-[20px] p-4 flex justify-between items-center border border-white/5 shadow-inner mb-5">
     <div class="flex flex-col items-center text-center px-1">
       <div class="flex items-center gap-1 text-[17px] font-black text-white mb-0.5">
-        <span class="text-[#a855f7] text-[15px]">🎯</span> 8
+        <span class="text-[#a855f7] text-[15px]">🎯</span> {$completedGoalsCount || 0}
       </div>
       <p class="text-[9px] text-white/50 font-medium leading-tight w-[45px]">Metas concl.</p>
     </div>
     <div class="w-px h-8 bg-white/5"></div>
     <div class="flex flex-col items-center text-center px-1">
       <div class="flex items-center gap-1 text-[17px] font-black text-white mb-0.5">
-        <span class="text-green-500 text-[15px]">✅</span> 15
+        <span class="text-green-500 text-[15px]">✅</span> {$completedHabitsCount || 0}
       </div>
       <p class="text-[9px] text-white/50 font-medium leading-tight w-[45px]">Hábitos concl.</p>
     </div>
     <div class="w-px h-8 bg-white/5"></div>
     <div class="flex flex-col items-center text-center px-1">
       <div class="flex items-center gap-1 text-[17px] font-black text-white mb-0.5">
-        <span class="text-red-500 text-[15px]">🔥</span> 1
+        <span class="text-red-500 text-[15px]">🔥</span> {$player?.streak || 0}
       </div>
       <p class="text-[9px] text-white/50 font-medium leading-tight w-[45px]">Maior seq.</p>
     </div>

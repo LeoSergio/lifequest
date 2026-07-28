@@ -171,6 +171,13 @@ export function startSyncWorker(intervalSeconds = 10) {
   // Configura os hooks antes de mais nada
   setupSyncHooks();
 
+  // Executa imediatamente ao iniciar (sem esperar o primeiro intervalo)
+  // para que os dados apareçam o quanto antes ao abrir o app num novo device.
+  (async () => {
+    await pushSync();
+    await pullSync();
+  })();
+
   setInterval(async () => {
     // Primeiro envia as modificações locais pendentes para garantir que o backend receba
     await pushSync();

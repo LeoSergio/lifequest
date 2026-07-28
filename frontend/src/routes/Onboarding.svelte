@@ -65,24 +65,29 @@
           const data = await api.login({ email: email.trim(), password });
           localStorage.setItem('access_token', data.access_token);
           
-          // IMPORTANTE: Trazemos os dados da nuvem para o dispositivo local!
+          // IMPORTANTE: Trazemos os dados da nuvem para o dispositivo local.
+          // O pullSync pode já trazer o registro "player" salvo na nuvem.
           const { pullSync } = await import('../services/syncService.js');
           await pullSync();
 
-          // Cria/Atualiza o Player no banco local para o Svelte renderizar
-          const rawName = data.name || email.split('@')[0];
-          const finalName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
-          
-          await db.player.clear();
-          await db.player.add({
-            name: finalName,
-            goal: 'health', // Ou um valor salvo se existir
-            level: data.level || 1,
-            xp: data.xp || 0,
-            coins: data.coins || 0,
-            streak: data.streak_days || 0,
-            createdAt: new Date().toISOString()
-          });
+          // Só cria um player local se o pullSync NÃO trouxe nenhum da nuvem.
+          // Isso evita sobrescrever os dados (level, xp, hábitos, etc.) que
+          // acabaram de ser restaurados.
+          const existingPlayer = await db.player.toCollection().first();
+          if (!existingPlayer) {
+            const rawName = data.name || email.split('@')[0];
+            const finalName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
+            
+            await db.player.add({
+              name: finalName,
+              goal: 'health',
+              level: data.level || 1,
+              xp: data.xp || 0,
+              coins: data.coins || 0,
+              streak: data.streak_days || 0,
+              createdAt: new Date().toISOString()
+            });
+          }
           
           return; // A tela sairá do Onboarding automaticamente via liveQuery
         }
@@ -145,6 +150,8 @@
           archivedAt: null,
           createdAt: new Date().toISOString()
         }))
+      ); // <-- parêntese e ponto-e-vírgula que estavam faltando
+
       // Salva o token no localStorage apenas no final do fluxo, para que o
       // worker de sincronização não puxe o perfil antes da hora e pule a tela.
       if (pendingToken) {

@@ -222,13 +222,15 @@ async def pull_sync(
     user = user_result.scalars().first()
     if user:
         changes["player"] = [{
-            "id": "1", # Dexie ID padrão para single-player
+            "id": 1,  # int, igual ao autoincrement do Dexie (++id começa em 1)
             "name": user.username,
+            "goal": "health",  # campo necessário no Dexie
             "level": user.level,
             "xp": user.xp,
             "streak": user.streak_days,
             "avatar": user.avatar,
-            "coins": 0 # Temporário
+            "coins": 0,  # Temporário até ter o campo no UserModel
+            "createdAt": user.created_at.isoformat() + "Z" if user.created_at else None
         }]
 
     return {

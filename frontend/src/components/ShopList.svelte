@@ -2,6 +2,7 @@
   import { liveQuery } from 'dexie';
   import { db } from '../db/db.js';
   import { generateId } from '../lib/id.js';
+  import { pushSync } from '../services/syncService.js';
   
   const player = liveQuery(() => db.player.toCollection().first());
   const inventory = liveQuery(() => db.inventory.toArray());
@@ -103,6 +104,9 @@
       name: item.name,
       purchasedAt: new Date().toISOString()
     });
+
+    // Push imediato: coins e item vão para a nuvem agora
+    pushSync().catch(() => {});
 
     alert(`🎉 Compra realizada com sucesso! Você adquiriu: ${item.name}`);
   }

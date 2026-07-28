@@ -3,6 +3,7 @@
   import { allHabitsQuery, allCompletionsQuery } from '../repositories/habitRepository.js';
   import { completeHabit, addHabit, archiveHabit } from '../services/habitService.js';
   import HabitCard from '../components/HabitCard.svelte';
+  import { pushSync } from '../services/syncService.js';
 
   const allHabits = allHabitsQuery();
   const completions = allCompletionsQuery();
@@ -43,6 +44,8 @@
     const habit = event.detail;
     const result = await completeHabit(habit, $completions ?? []);
     if (result?.leveledUp) alert(`Level up! Agora você é nível ${result.level} 🎉`);
+    // Push imediato: conclusão do hábito vai para a nuvem agora
+    pushSync().catch(() => {});
   }
 
   async function createHabit() {
@@ -53,10 +56,14 @@
     cadence = 'daily';
     weeklyTarget = 3;
     showForm = false;
+    // Push imediato: novo hábito vai para a nuvem agora
+    pushSync().catch(() => {});
   }
 
   async function handleArchive(id) {
     await archiveHabit(id);
+    // Push imediato: arquivamento vai para a nuvem agora
+    pushSync().catch(() => {});
   }
 </script>
 

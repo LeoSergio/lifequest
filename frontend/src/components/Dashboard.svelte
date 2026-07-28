@@ -6,6 +6,7 @@
   import { completedToday, todayIso } from '../lib/habits.js';
   import { navigate } from '../lib/nav.js';
   import { onMount } from 'svelte';
+  import { pushSync } from '../services/syncService.js';
 
   const player = liveQuery(() => db.player.toCollection().first());
   const habits = liveQuery(() => db.habits.where('archivedAt').equals(null).toArray());
@@ -41,6 +42,8 @@
           streak: newStreak,
           lastActiveAt: today
         });
+        // Push imediato: streak atualizado vai para a nuvem agora
+        pushSync().catch(() => {});
       }
     }
   });

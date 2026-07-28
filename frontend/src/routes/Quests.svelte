@@ -7,6 +7,7 @@
   import { ACHIEVEMENTS } from '../lib/achievements.js';
   import ShopList from '../components/ShopList.svelte';
   import { nav } from '../lib/nav.js';
+  import { pushSync } from '../services/syncService.js';
   
   let currentTab = 'diarias'; // 'diarias', 'semanais', 'mensais', 'conquistas', 'loja'
   
@@ -161,6 +162,9 @@
     if (leveledUp) {
       alert(`🎉 Level Up! Você alcançou o nível ${level}!`);
     }
+
+    // Push imediato: missão concluída e XP/coins vão para a nuvem agora
+    pushSync().catch(() => {});
   }
 
   // Ataca o Chefão (Missão Épica)
@@ -190,10 +194,15 @@
       const newCoins = (p.coins || 0) + bossCoins;
       
       await db.player.update(p.id, { level, xp, coins: newCoins });
-      
+
+      // Push imediato: chefão derrotado vai para a nuvem agora
+      pushSync().catch(() => {});
+
       alert(`🎉 CHEFÃO DERROTADO! Você ganhou ${goal.xpReward} XP e 💰 ${bossCoins} LifeCoins!`);
       if (leveledUp) alert(`Level Up! Nível ${level} alcançado!`);
     } else {
+      // Push imediato: dano no chefão vai para a nuvem agora
+      pushSync().catch(() => {});
       alert(`💥 Pow! Você causou ${damage} de dano!`);
     }
   }
@@ -231,6 +240,9 @@
     }
     
     isSpinning = false;
+
+    // Push imediato: prêmio da roleta vai para a nuvem agora
+    pushSync().catch(() => {});
   }
   
   function closeRoulette() {

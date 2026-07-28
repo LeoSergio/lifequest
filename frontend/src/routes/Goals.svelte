@@ -3,6 +3,7 @@
   import { allGoalsQuery } from '../repositories/goalRepository.js';
   import { addGoal, addProgress } from '../services/goalService.js';
   import GoalCard from '../components/GoalCard.svelte';
+  import { pushSync } from '../services/syncService.js';
 
   const allGoals = allGoalsQuery();
 
@@ -50,12 +51,17 @@
     difficulty = 'medium';
     deadline = '';
     showForm = false;
+    // Push imediato: nova meta vai para a nuvem agora
+    pushSync().catch(() => {});
   }
 
   async function handleProgress(event) {
     const { goal, amount } = event.detail;
     const result = await addProgress(goal, amount);
     if (!result) return;
+
+    // Push imediato: progresso (e possível achievedAt) vai para a nuvem agora
+    pushSync().catch(() => {});
 
     if (result.leveledUp) alert(`Level up! Agora você é nível ${result.level} 🎉`);
     if (result.achieved) celebrating = result.updatedGoal;

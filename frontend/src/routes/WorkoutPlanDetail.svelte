@@ -15,6 +15,7 @@
     persistSet,
     finishWorkout
   } from '../services/workoutService.js';
+  import { pushSync } from '../services/syncService.js';
 
   export let planId; // recebido via navigate('workout-plan-detail', { planId })
 
@@ -83,7 +84,7 @@
     return activeSets.find((s) => s.workoutPlanExerciseId === linkId && s.setNumber === setNumber);
   }
 
-    async function handleAddExercise() {
+  async function handleAddExercise() {
     if (!exerciseName.trim()) return;
     await addExerciseToPlan({
       planId,
@@ -98,6 +99,8 @@
     exerciseName = '';
     targetSets = 3;
     restSeconds = 90;
+    // Push imediato: não esperar o ciclo de 10s
+    pushSync().catch(() => {});
   }
 
   async function handleStartWorkout() {
@@ -138,6 +141,8 @@
         activeSets,
         setInputs
       });
+      // Push imediato ao encerrar sessão
+      pushSync().catch(() => {});
       if (leveledUp) {
         alert(`Treino concluído! +${xpReward} XP — Level up! Agora você é nível ${level} 🎉`);
       } else {

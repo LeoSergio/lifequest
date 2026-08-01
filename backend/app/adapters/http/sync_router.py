@@ -236,6 +236,9 @@ async def pull_sync(
         }]
 
     return {
-        "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+        # Formato limpo: "2026-08-01T16:50:19.232144Z" (sem "+00:00")
+        # datetime.now(timezone.utc).isoformat() geraria "+00:00Z" (duplo sufixo)
+        # que quebrava o próximo pull com TypeError naive vs aware.
+        "timestamp": datetime.utcnow().isoformat() + "Z",
         "changes": changes
     }

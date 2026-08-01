@@ -107,7 +107,9 @@ export async function pushSync() {
       }
     }
   } catch (err) {
-    console.error('[Sync] Erro ao enviar eventos (modo offline?)', err);
+    // TypeError = "Failed to fetch" = offline ou servidor inacessível (esperado)
+    if (err instanceof TypeError || !navigator.onLine) return;
+    console.error('[Sync] Erro inesperado no push:', err);
   }
 }
 
@@ -159,8 +161,9 @@ export async function pullSync() {
       }
     }
   } catch (err) {
-    console.error('[Sync] Erro ao buscar eventos da nuvem', err);
     isSyncing = false;
+    if (err instanceof TypeError || !navigator.onLine) return;
+    console.error('[Sync] Erro inesperado no pull:', err);
   }
 }
 

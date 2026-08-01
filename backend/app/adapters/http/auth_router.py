@@ -33,22 +33,8 @@ async def register(user: UserCreate, db: AsyncSession = Depends(get_db_session))
         hashed_password=hashed_password
     )
     db.add(new_user)
-    
-    try:
-        await db.commit()
-        await db.refresh(new_user)
-    except IntegrityError:
-        await db.rollback()
-        # Se falhou por unique constraint do username, gera com suffix
-        unique_username = f"{base_username}_{str(uuid.uuid4())[:8]}"
-        new_user.username = unique_username
-        db.add(new_user)
-        try:
-            await db.commit()
-            await db.refresh(new_user)
-        except IntegrityError:
-            await db.rollback()
-            raise HTTPException(status_code=400, detail="Erro de integridade no banco de dados.")
+    await db.flush()  # garante que o id seja gerado sem commitar ainda
+    await db.refresh(new_user)
     
     return new_user
 

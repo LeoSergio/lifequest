@@ -87,7 +87,7 @@ async def _apply_event(event: SyncEvent, db: AsyncSession, user_id: str) -> None
             xp=event.payload.get("xp", 0),
             streak_days=event.payload.get("streak", 0),
             avatar=event.payload.get("avatar"),
-            updated_at=datetime.now(timezone.utc)
+            updated_at=datetime.now(timezone.utc).replace(tzinfo=None)
         )
         await db.execute(stmt)
         return
@@ -101,7 +101,7 @@ async def _apply_event(event: SyncEvent, db: AsyncSession, user_id: str) -> None
         stmt = update(model_class).where(
             model_class.id == str(event.entityId),
             model_class.user_id == UUID(user_id)
-        ).values(deleted=True, updated_at=datetime.now(timezone.utc))
+        ).values(deleted=True, updated_at=datetime.now(timezone.utc).replace(tzinfo=None))
         await db.execute(stmt)
 
     elif event.action == "upsert" and event.payload:
@@ -117,7 +117,7 @@ async def _apply_event(event: SyncEvent, db: AsyncSession, user_id: str) -> None
         # `metadata`/`registry`, que não queremos deixar o payload sobrescrever).
         column_names = model_class.__table__.columns.keys()
         clean_payload = {k: v for k, v in event.payload.items() if k in column_names}
-        clean_payload["updated_at"] = datetime.now(timezone.utc)
+        clean_payload["updated_at"] = datetime.now(timezone.utc).replace(tzinfo=None)
 
         # Converte ints para strings onde a Model espera string
         if "id" in clean_payload:
@@ -167,7 +167,9 @@ async def push_sync(
             )
             failed_events.append(event.id)
 
-    await db.commit()
+    # O commit é feito automaticamente pelo context manager de get_db_session
+    # (session.begin()). Não chamar db.commit() aqui — causaria
+    # InvalidRequestError: "can't commit a subtransaction".
     return {"success": True, "processed_events": processed, "failed_events": failed_events}
 
 

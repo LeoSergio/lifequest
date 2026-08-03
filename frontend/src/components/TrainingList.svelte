@@ -8,16 +8,22 @@
   let openMenuId = null;
 
   function weekdayLabel(plan) {
-    if (plan.weekdays && plan.weekdays.length > 0) {
-      const sorted = [...plan.weekdays].sort((a, b) => {
+    // Novo formato: weekday é uma string JSON (ex: '["seg","qua"]')
+    // Formato antigo: weekdays era um array direto no Dexie
+    let days = [];
+    if (plan.weekday) {
+      try { days = JSON.parse(plan.weekday); } catch { days = [plan.weekday]; }
+    } else if (plan.weekdays && plan.weekdays.length > 0) {
+      days = plan.weekdays;
+    }
+
+    if (days.length > 0) {
+      const sorted = [...days].sort((a, b) => {
         const iA = WEEKDAYS.findIndex(w => w.value === a);
         const iB = WEEKDAYS.findIndex(w => w.value === b);
         return iA - iB;
       });
       return sorted.map(w => WEEKDAYS.find(x => x.value === w)?.label).join(', ');
-    }
-    if (plan.weekday) {
-      return WEEKDAYS.find((w) => w.value === plan.weekday)?.label ?? 'Livre';
     }
     return 'Livre';
   }

@@ -1,63 +1,36 @@
 import { db } from '../db/db.js';
 
-// Variável para evitar que as mudanças vindas do backend entrem na fila de novo.
-let isSyncing = false;
+// Flag para evitar que mudanças vindas do backend entrem na fila de novo.
+export let isSyncing = false;
 
 const SYNCABLE_TABLES = [
-  'player', 'habits', 'habitCompletions', 'goals', 'dailyQuests', 
-  'exercises', 'workoutPlans', 'workoutPlanExercises', 
-  'workoutSessions', 'sessionSets', 'pantryItems', 
+  'player', 'habits', 'habitCompletions', 'goals', 'dailyQuests',
+  'exercises', 'workoutPlans', 'workoutPlanExercises',
+  'workoutSessions', 'sessionSets', 'pantryItems',
   'bodyMeasurements', 'inventory', 'unlockedAchievements'
 ];
 
 /**
- * Registra os ganchos (Hooks) no Dexie para que qualquer tabela modificada
- * insira automaticamente um evento na syncQueue.
+ * Adiciona um evento na fila de sync local.
+ *
+ * Chame isso diretamente nos repositórios após qualquer escrita no Dexie.
+ * Não depende de hooks — é explícito e não tem problemas de timing.
+ *
+ * @param {'upsert'|'delete'} action
+ * @param {string} entity  — nome da tabela (ex: 'habits', 'workoutPlans')
+ * @param {string|number} entityId — ID do registro
+ * @param {object|null} payload — objeto completo (obrigatório para upsert)
  */
-export function setupSyncHooks() {
-  SYNCABLE_TABLES.forEach(tableName => {
-    db[tableName].hook('creating', function (primKey, obj, trans) {
-      if (isSyncing) return;
-      
-      // Quando é um insert, o Dexie pode ainda não ter gerado o primKey se for ++id
-      // Mas o hook passa primKey depois, ou injetamos
-      // Usaremos o "onsuccess" do hook para garantir que temos o ID real gerado pelo banco.
-      this.onsuccess = function (realKey) {
-        db.syncQueue.add({
-          entity: tableName,
-          entityId: String(realKey),
-          action: 'upsert',
-          timestamp: new Date().toISOString(),
-          payload: { ...obj, id: realKey }
-        });
-      };
-    });
+export async function enqueue(action, entity, entityId, payload = null) {
+  if (isSyncing) return; // Ignora mudanças vindas do pull
+  if (!SYNCABLE_TABLES.includes(entity)) return;
 
-    db[tableName].hook('updating', function (mods, primKey, obj, trans) {
-      if (isSyncing) return;
-      const updatedObj = { ...obj, ...mods };
-      this.onsuccess = function () {
-        db.syncQueue.add({
-          entity: tableName,
-          entityId: String(primKey),
-          action: 'upsert',
-          timestamp: new Date().toISOString(),
-          payload: updatedObj
-        });
-      };
-    });
-
-    db[tableName].hook('deleting', function (primKey, obj, trans) {
-      if (isSyncing) return;
-      this.onsuccess = function () {
-        db.syncQueue.add({
-          entity: tableName,
-          entityId: String(primKey),
-          action: 'delete',
-          timestamp: new Date().toISOString()
-        });
-      };
-    });
+  await db.syncQueue.add({
+    entity,
+    entityId: String(entityId),
+    action,
+    timestamp: new Date().toISOString(),
+    ...(payload ? { payload: { ...payload, id: String(entityId) } } : {})
   });
 }
 
@@ -76,8 +49,8 @@ function getHeaders() {
  * Envia tudo que está na fila (Push)
  */
 export async function pushSync() {
-  if (!localStorage.getItem('access_token')) return; // Só sincroniza se estiver logado
-  
+  if (!localStorage.getItem('access_token')) return;
+
   const pendingEvents = await db.syncQueue.toArray();
   if (pendingEvents.length === 0) return;
 
@@ -92,9 +65,6 @@ export async function pushSync() {
       const data = await response.json();
       const failedIds = new Set(data.failed_events || []);
 
-      // Só removemos da fila local os eventos que o backend de fato aplicou.
-      // Os que falharam continuam na fila e serão tentados de novo no
-      // próximo ciclo (em vez de travar o lote inteiro, como antes).
       const idsToDelete = pendingEvents
         .map(e => e.id)
         .filter(id => !failedIds.has(id));
@@ -107,7 +77,6 @@ export async function pushSync() {
       }
     }
   } catch (err) {
-    // TypeError = "Failed to fetch" = offline ou servidor inacessível (esperado)
     if (err instanceof TypeError || !navigator.onLine) return;
     console.error('[Sync] Erro inesperado no push:', err);
   }
@@ -119,35 +88,32 @@ export async function pushSync() {
 export async function pullSync() {
   if (!localStorage.getItem('access_token')) return;
 
-  const lastSync = localStorage.getItem('last_sync_time') || "1970-01-01T00:00:00.000Z";
+  const lastSync = localStorage.getItem('last_sync_time') || '1970-01-01T00:00:00.000Z';
 
   try {
-    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/sync/pull?last_sync=${encodeURIComponent(lastSync)}`, {
-      method: 'GET',
-      headers: getHeaders()
-    });
+    const response = await fetch(
+      `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/sync/pull?last_sync=${encodeURIComponent(lastSync)}`,
+      { method: 'GET', headers: getHeaders() }
+    );
 
     if (response.ok) {
       const data = await response.json();
       const changes = data.changes;
-      
-      // Inicia a aplicação das mudanças com flag para ignorar os hooks locais
+
       isSyncing = true;
       let totalChanges = 0;
 
       for (const [table, records] of Object.entries(changes)) {
         if (!SYNCABLE_TABLES.includes(table)) continue;
-        
+
         for (const record of records) {
           totalChanges++;
           const localId = isNaN(Number(record.id)) ? record.id : Number(record.id);
-          
+
           if (record.deleted) {
             await db[table].delete(localId);
           } else {
-            // Remove o deleted para não poluir o Dexie que não usa isso
             delete record.deleted;
-            // Upsert (Put sobrescreve se já existe, cria se não)
             await db[table].put({ ...record, id: localId });
           }
         }
@@ -155,7 +121,7 @@ export async function pullSync() {
 
       isSyncing = false;
       localStorage.setItem('last_sync_time', data.timestamp);
-      
+
       if (totalChanges > 0) {
         console.log(`[Sync] Recebidas e aplicadas ${totalChanges} alterações da nuvem.`);
       }
@@ -171,20 +137,14 @@ export async function pullSync() {
  * Inicia o worker que fica rodando em background
  */
 export function startSyncWorker(intervalSeconds = 10) {
-  // Configura os hooks antes de mais nada
-  setupSyncHooks();
-
-  // Executa imediatamente ao iniciar (sem esperar o primeiro intervalo)
-  // para que os dados apareçam o quanto antes ao abrir o app num novo device.
+  // Executa imediatamente ao iniciar
   (async () => {
     await pushSync();
     await pullSync();
   })();
 
   setInterval(async () => {
-    // Primeiro envia as modificações locais pendentes para garantir que o backend receba
     await pushSync();
-    // Depois busca atualizações do backend (em outras sessões)
     await pullSync();
   }, intervalSeconds * 1000);
 }

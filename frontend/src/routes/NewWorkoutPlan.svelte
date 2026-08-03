@@ -3,7 +3,7 @@
   import { generateId } from '../lib/id.js';
   import { navigate } from '../lib/nav.js';
   import { WEEKDAYS } from '../lib/constants.js';
-  import { pushSync } from '../services/syncService.js';
+  import { enqueue, pushSync } from '../services/syncService.js';
 
   let name = '';
   let weekdays = [];
@@ -22,18 +22,16 @@
   async function createPlan() {
     if (!name.trim()) return;
 
-    const planId = generateId(); // UUID gerado antes do add()
-    await db.workoutPlans.put({
-      id: planId,
+    const plan = {
+      id: generateId(),
       name: name.trim(),
-      weekdays,
-      focus: focus.trim() || null
-    });
+      weekday: JSON.stringify(weekdays),
+    };
+    await db.workoutPlans.put(plan);
+    await enqueue('upsert', 'workoutPlans', plan.id, plan);
+    pushSync().catch(() => {});
 
-    // Push imediato para a nuvem assim que salva
-    pushSync().catch(() => {}); // dispara sem bloquear a UI
-
-    navigate('workout-plan-detail', { planId, isNew: true });
+    navigate('workout-plan-detail', { planId: plan.id, isNew: true });
   }
 </script>
 

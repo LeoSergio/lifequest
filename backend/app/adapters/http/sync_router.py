@@ -126,6 +126,11 @@ async def _apply_event(event: SyncEvent, db: AsyncSession, user_id: str) -> None
         # `metadata`/`registry`, que não queremos deixar o payload sobrescrever).
         column_names = model_class.__table__.columns.keys()
         clean_payload = {k: v for k, v in snake_payload.items() if k in column_names}
+
+        # O backend gerencia updated_at (sempre sobrescreve) e created_at
+        # (tem default server-side). O frontend envia ambos como strings ISO
+        # que o SQLAlchemy DateTime rejeitaria — removemos para usar os defaults.
+        clean_payload.pop("created_at", None)
         clean_payload["updated_at"] = datetime.now(timezone.utc).replace(tzinfo=None)
 
         # Converte ints para strings onde a Model espera string

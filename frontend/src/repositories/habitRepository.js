@@ -1,14 +1,7 @@
-/**
- * Repositório de hábitos — encapsula todo acesso ao IndexedDB (Dexie)
- * para as tabelas `habits` e `habitCompletions`.
- *
- * Os componentes Svelte e os services nunca importam `db` diretamente
- * para operações de hábito: passam por aqui. Isso garante que trocar
- * o Dexie por outra solução de persistência afete apenas este arquivo.
- */
 import { liveQuery } from 'dexie';
 import { db } from '../db/db.js';
 import { generateId } from '../lib/id.js';
+import { enqueue } from '../services/syncService.js';
 
 // --- Queries reativas (retornam observables do Dexie) ---
 
@@ -19,7 +12,7 @@ export const allCompletionsQuery = () => liveQuery(() => db.habitCompletions.toA
 // --- Operações de escrita ---
 
 export async function addHabit({ title, icon, cadence, weeklyTarget, xpReward = 10 }) {
-  return db.habits.add({
+  const habit = {
     id: generateId(),
     title: title.trim(),
     icon: (icon ?? '🔥').trim() || '🔥',
@@ -28,13 +21,22 @@ export async function addHabit({ title, icon, cadence, weeklyTarget, xpReward = 
     xpReward,
     archivedAt: null,
     createdAt: new Date().toISOString()
-  });
+  };
+  await db.habits.add(habit);
+  await enqueue('upsert', 'habits', habit.id, habit);
+  return habit.id;
 }
 
 export async function archiveHabit(id) {
-  return db.habits.update(id, { archivedAt: new Date().toISOString() });
+  const updated = { archivedAt: new Date().toISOString() };
+  await db.habits.update(id, updated);
+  const habit = await db.habits.get(id);
+  await enqueue('upsert', 'habits', id, habit);
 }
 
 export async function addCompletion(habitId, date) {
-  return db.habitCompletions.add({ id: generateId(), habitId, date });
+  const completion = { id: generateId(), habitId, date };
+  await db.habitCompletions.add(completion);
+  await enqueue('upsert', 'habitCompletions', completion.id, completion);
+  return completion.id;
 }

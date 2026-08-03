@@ -3,6 +3,7 @@
   import { db } from '../db/db.js';
   import { generateId } from '../lib/id.js';
   import { navigate } from '../lib/nav.js';
+  import { enqueue, pushSync } from '../services/syncService.js';
   import LineChart from '../components/LineChart.svelte';
   import ConsistencyCalendar from '../components/ConsistencyCalendar.svelte';
   import {
@@ -143,7 +144,7 @@
   })();
 
   async function addMeasurement() {
-    await db.bodyMeasurements.add({
+    const measurement = {
       id: generateId(),
       date,
       age: toNumberOrNull(age),
@@ -158,7 +159,10 @@
       armRight: toNumberOrNull(armRight),
       forearm: toNumberOrNull(forearm),
       bodyFatPercent: toNumberOrNull(bodyFatPercent)
-    });
+    };
+    await db.bodyMeasurements.add(measurement);
+    await enqueue('upsert', 'bodyMeasurements', measurement.id, measurement);
+    pushSync().catch(() => {});
 
     age = weight = height = shoulder = chest = abdomen = thigh = calf = armLeft = armRight = forearm = bodyFatPercent = '';
   }

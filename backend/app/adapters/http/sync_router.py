@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import jwt
 import logging
+import re
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -112,11 +113,19 @@ async def _apply_event(event: SyncEvent, db: AsyncSession, user_id: str) -> None
         ))
         existing = result.scalars().first()
 
+        # O Dexie usa camelCase (weeklyTarget, habitId…) mas o SQLAlchemy usa
+        # snake_case (weekly_target, habit_id…). Convertemos antes de filtrar.
+        def camel_to_snake(name: str) -> str:
+            s1 = re.sub(r'([A-Z]+)([A-Z][a-z])', r'\1_\2', name)
+            return re.sub(r'([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
+
+        snake_payload = {camel_to_snake(k): v for k, v in event.payload.items()}
+
         # Limpa campos que não são colunas reais da tabela (whitelist, não hasattr:
         # hasattr também é True pra atributos internos do SQLAlchemy como
         # `metadata`/`registry`, que não queremos deixar o payload sobrescrever).
         column_names = model_class.__table__.columns.keys()
-        clean_payload = {k: v for k, v in event.payload.items() if k in column_names}
+        clean_payload = {k: v for k, v in snake_payload.items() if k in column_names}
         clean_payload["updated_at"] = datetime.now(timezone.utc).replace(tzinfo=None)
 
         # Converte ints para strings onde a Model espera string
@@ -184,12 +193,20 @@ async def pull_sync(
     após o timestamp `last_sync`.
     """
     try:
-        # Se vier com Z no final, converte corretamente
-        if last_sync.endswith('Z'):
-            last_sync_date = datetime.fromisoformat(last_sync[:-1])
-        else:
-            last_sync_date = datetime.fromisoformat(last_sync)
-    except ValueError:
+        # Normaliza o timestamp: remove sufixo 'Z' e qualquer offset timezone (+00:00)
+        # para obter um datetime naive (sem tzinfo) compatível com as colunas Postgres.
+        # Casos tratados:
+        #   "2026-08-01T16:50:19.232144Z"          → fromisoformat ok
+        #   "2026-07-28T19:15:15.678403+00:00"      → fromisoformat ok (Python 3.11+)
+        #   "2026-07-28T19:15:15.678403+00:00Z"     → duplo sufixo, era o bug
+        normalized = last_sync.strip()
+        # Remove o 'Z' final se existir (pode ser Z puro ou +00:00Z)
+        if normalized.endswith('Z'):
+            normalized = normalized[:-1]
+        # Remove offset de timezone (+00:00 ou -03:00) se ainda restar
+        normalized = re.sub(r'[+-]\d{2}:\d{2}$', '', normalized)
+        last_sync_date = datetime.fromisoformat(normalized)
+    except (ValueError, AttributeError):
         last_sync_date = datetime.min
 
     changes = {}

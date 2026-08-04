@@ -303,11 +303,14 @@
   </div>
 
   <!-- Filtros de Categoria -->
-  <div class="flex flex-wrap gap-2 px-1 mb-2">
+  <div class="flex overflow-x-auto gap-2 px-1 mb-3 pb-1 -mx-1 snap-x [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
     {#each categories as cat}
-      <button 
+      <button
         on:click={() => selectedCategory = cat.id}
-        class="px-4 py-2 rounded-full font-bold text-[12px] transition-all {selectedCategory === cat.id ? 'bg-[#9333EA] text-black shadow-[0_0_15px_rgba(147,51,234,0.3)]' : 'bg-transparent border border-white/10 text-white/50 hover:bg-white/5 hover:text-white/80'}"
+        class="shrink-0 snap-start px-4 py-2 rounded-full font-bold text-[12px] whitespace-nowrap transition-all
+          {selectedCategory === cat.id
+            ? 'bg-[#9333EA] text-white shadow-[0_0_15px_rgba(147,51,234,0.3)]'
+            : 'bg-transparent border border-white/10 text-white/50 hover:bg-white/5 hover:text-white/80'}"
       >
         {cat.name}
       </button>

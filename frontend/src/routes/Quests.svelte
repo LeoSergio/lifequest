@@ -33,7 +33,7 @@
   ];
 
   const player = liveQuery(() => db.player.toCollection().first());
-  
+
   // As missões diárias de HOJE
   const dailyQuests = liveQuery(async () => {
     const today = todayIso();
@@ -48,6 +48,24 @@
     const list = await db.unlockedAchievements.toArray();
     return new Set(list.map(a => a.achievementId));
   });
+
+  // ── Sessões desta semana (seg–dom) ──
+  const weekSessions = liveQuery(async () => {
+    const now = new Date();
+    const dayOfWeek = now.getDay(); // 0=dom
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - ((dayOfWeek + 6) % 7));
+    startOfWeek.setHours(0, 0, 0, 0);
+    const startIso = startOfWeek.toISOString().slice(0, 10);
+    const all = await db.workoutSessions.toArray();
+    return all.filter(s => s.finishedAt && s.finishedAt.slice(0, 10) >= startIso);
+  });
+
+  const WEEKLY_GOAL = 4; // meta de treinos por semana
+  $: weekCount   = $weekSessions ? $weekSessions.length : 0;
+  $: weekPct     = Math.min(100, Math.round((weekCount / WEEKLY_GOAL) * 100));
+  $: weekDone    = weekCount >= WEEKLY_GOAL;
+  $: weekUsed    = false; // TODO: persistir uso da roleta semanal no Dexie
 
   // Função para pedir novas missões para a IA
   async function fetchDailyQuests() {
@@ -420,32 +438,64 @@
   <!-- Missões Semanais -->
   {#if currentTab === 'semanais'}
     <div class="flex flex-col gap-3">
-      
+
+      <!-- Banner de recompensa -->
       <div class="bg-gradient-to-r from-yellow-500/10 to-yellow-600/10 border border-yellow-500/30 rounded-2xl p-4 flex items-start gap-3 mb-1">
         <span class="text-3xl filter drop-shadow-[0_0_5px_rgba(234,179,8,0.5)]">🎁</span>
         <div>
           <h3 class="text-sm font-bold text-yellow-500 mb-1">Recompensa Semanal</h3>
-          <p class="text-[10px] text-white/60 leading-relaxed">Conclua todos os marcos de uma missão semanal para liberar um giro na Roleta da Sorte. Você pode ganhar até 50 LifeCoins ou Poções!</p>
+          <p class="text-[10px] text-white/60 leading-relaxed">Faça {WEEKLY_GOAL} treinos nesta semana e ganhe um giro na Roleta da Sorte. Você pode ganhar até 50 LifeCoins ou Poções!</p>
         </div>
       </div>
 
-      <div class="bg-surface/80 border border-white/5 rounded-2xl p-4 relative overflow-hidden">
-        <div class="absolute inset-0 bg-primary/5 flex items-center justify-center pointer-events-none">
-          <span class="text-6xl opacity-10">✔️</span>
+      <!-- Card da missão semanal com progresso real -->
+      <div class="bg-surface/80 border {weekDone ? 'border-yellow-500/40' : 'border-white/5'} rounded-2xl p-4 relative overflow-hidden transition-all">
+        {#if weekDone}
+          <div class="absolute inset-0 bg-yellow-500/5 pointer-events-none"></div>
+        {/if}
+
+        <div class="flex items-center justify-between mb-1 relative z-10">
+          <h3 class="text-white font-bold text-sm">Guerreiro de Ferro</h3>
+          {#if weekDone}
+            <span class="text-[10px] font-bold text-yellow-500 bg-yellow-500/10 px-2 py-0.5 rounded-md uppercase">Completa!</span>
+          {:else}
+            <span class="text-[10px] font-bold text-white/30 uppercase">{weekCount}/{WEEKLY_GOAL}</span>
+          {/if}
         </div>
-        
-        <h3 class="text-white font-bold mb-1 text-sm">Guerreiro de Ferro</h3>
-        <p class="text-xs text-white/50 mb-3">Complete 4 treinos na semana.</p>
-        <div class="w-full bg-white/5 rounded-full h-1.5 mb-2">
-          <div class="bg-blue-500 h-full rounded-full w-full"></div>
+
+        <p class="text-xs text-white/50 mb-3 relative z-10">Complete {WEEKLY_GOAL} treinos nesta semana (seg–dom).</p>
+
+        <!-- Barra de progresso real -->
+        <div class="w-full bg-white/5 rounded-full h-2 mb-1 relative z-10 overflow-hidden">
+          <div
+            class="h-full rounded-full transition-all duration-700 {weekDone ? 'bg-gradient-to-r from-yellow-500 to-yellow-400 shadow-[0_0_8px_rgba(234,179,8,0.5)]' : 'bg-blue-500'}"
+            style="width: {weekPct}%"
+          ></div>
         </div>
-        <p class="text-[10px] text-right mt-1 text-white/40 mb-3">4 / 4 treinos</p>
-        
-        <button 
-          on:click={() => showRoulette = true}
-          class="w-full bg-gradient-to-r from-yellow-600 to-yellow-500 text-black font-black py-2 rounded-xl shadow-[0_0_15px_rgba(234,179,8,0.3)] active:scale-95 transition-all flex items-center justify-center gap-2"
+        <p class="text-[10px] text-right text-white/40 mb-4 relative z-10">{weekCount} / {WEEKLY_GOAL} treinos</p>
+
+        <!-- Ícones de treino (dots) -->
+        <div class="flex gap-2 mb-4 relative z-10">
+          {#each Array(WEEKLY_GOAL) as _, i}
+            <div class="w-7 h-7 rounded-full border flex items-center justify-center text-xs
+              {i < weekCount
+                ? 'bg-yellow-500/20 border-yellow-500/50 text-yellow-400'
+                : 'bg-white/5 border-white/10 text-white/20'}">
+              {i < weekCount ? '💪' : '○'}
+            </div>
+          {/each}
+        </div>
+
+        <button
+          on:click={() => { if (weekDone) showRoulette = true; }}
+          disabled={!weekDone}
+          class="w-full font-black py-2.5 rounded-xl active:scale-95 transition-all flex items-center justify-center gap-2 text-sm relative z-10
+            {weekDone
+              ? 'bg-gradient-to-r from-yellow-600 to-yellow-500 text-black shadow-[0_0_15px_rgba(234,179,8,0.3)]'
+              : 'bg-white/5 text-white/30 border border-white/10 cursor-not-allowed'}"
         >
-          <span>🎰</span> GIRAR ROLETA SEMANAL
+          <span>🎰</span>
+          {weekDone ? 'GIRAR ROLETA SEMANAL!' : `Faltam ${WEEKLY_GOAL - weekCount} treino${WEEKLY_GOAL - weekCount !== 1 ? 's' : ''}`}
         </button>
       </div>
     </div>

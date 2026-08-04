@@ -7,6 +7,9 @@ export async function getPlayer() {
 
 export async function updatePlayer(id, changes) {
   await db.player.update(id, changes);
-  const player = await db.player.get(id);
-  await enqueue('upsert', 'player', id, player);
+  const updatedPlayer = await db.player.get(id);
+  if (updatedPlayer) {
+    await enqueue('upsert', 'player', id, updatedPlayer);
+  }
+  return updatedPlayer;
 }

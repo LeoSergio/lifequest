@@ -86,6 +86,7 @@ async def _apply_event(event: SyncEvent, db: AsyncSession, user_id: str) -> None
         stmt = update(UserModel).where(UserModel.id == UUID(user_id)).values(
             level=event.payload.get("level", 1),
             xp=event.payload.get("xp", 0),
+            coins=event.payload.get("coins", 0),
             streak_days=event.payload.get("streak", 0),
             avatar=event.payload.get("avatar"),
             updated_at=datetime.now(timezone.utc).replace(tzinfo=None)
@@ -253,7 +254,7 @@ async def pull_sync(
             "xp": user.xp,
             "streak": user.streak_days,
             "avatar": user.avatar,
-            "coins": 0,  # Temporário até ter o campo no UserModel
+            "coins": getattr(user, 'coins', 0) or 0,
             "createdAt": user.created_at.isoformat() + "Z" if user.created_at else None
         }]
 

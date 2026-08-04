@@ -21,6 +21,8 @@
   $: nextLevelXp = currentLevel * 100;
   $: progressPercent = Math.min(100, Math.round((totalXp / nextLevelXp) * 100));
 
+  import { updatePlayer } from '../repositories/playerRepository.js';
+
   onMount(async () => {
     const p = await db.player.toCollection().first();
     if (p) {
@@ -38,7 +40,7 @@
         } else {
           newStreak = 1;
         }
-        await db.player.update(p.id, {
+        await updatePlayer(p.id, {
           streak: newStreak,
           lastActiveAt: today
         });

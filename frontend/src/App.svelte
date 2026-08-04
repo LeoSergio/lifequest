@@ -15,10 +15,14 @@
   import Profile from './routes/Profile.svelte';
   import NavBar from './components/NavBar.svelte';
   import BackgroundBlobs from './components/BackgroundBlobs.svelte';
+  import SyncBadge from './components/SyncBadge.svelte';
 
   const hasPlayer = liveQuery(async () => (await db.player.count()) > 0);
 </script>
 <BackgroundBlobs />
+{#if $hasPlayer}
+  <SyncBadge />
+{/if}
 
 {#if $hasPlayer === undefined}
   <main class="min-h-screen flex items-center justify-center">

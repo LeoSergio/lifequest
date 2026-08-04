@@ -24,6 +24,9 @@
     return await db.habitCompletions.count();
   });
 
+  import { updatePlayer } from '../repositories/playerRepository.js';
+  import { pushSync } from '../services/syncService.js';
+
   function handleImageUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -31,7 +34,8 @@
     reader.onload = async (event) => {
       const base64 = event.target.result;
       if ($player) {
-        await db.player.update($player.id, { avatar: base64 });
+        await updatePlayer($player.id, { avatar: base64 });
+        pushSync().catch(() => {});
       }
     };
     reader.readAsDataURL(file);

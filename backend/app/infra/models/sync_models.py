@@ -146,6 +146,7 @@ class BodyMeasurementModel(SyncBase):
     arm_left: Mapped[float] = mapped_column(Float, nullable=True)
     arm_right: Mapped[float] = mapped_column(Float, nullable=True)
     forearm: Mapped[float] = mapped_column(Float, nullable=True)
+    body_fat_percent: Mapped[float] = mapped_column(Float, nullable=True)
 
 class InventoryModel(SyncBase):
     __tablename__ = "inventory"

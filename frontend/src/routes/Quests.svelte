@@ -7,7 +7,8 @@
   import { ACHIEVEMENTS } from '../lib/achievements.js';
   import ShopList from '../components/ShopList.svelte';
   import { nav } from '../lib/nav.js';
-  import { pushSync, enqueue } from '../services/syncService.js';
+  import { enqueue, pushSync } from '../services/syncService.js';
+  import { updatePlayer } from '../repositories/playerRepository.js';
   import { API_BASE } from '../lib/api.js';
   
   let currentTab = 'diarias'; // 'diarias', 'semanais', 'mensais', 'conquistas', 'loja'
@@ -72,7 +73,7 @@
         const today = todayIso();
         
         for (const q of data.quests) {
-          const quest = {
+          await db.dailyQuests.add({
             id: generateId(),
             date: today,
             pillar: q.pillar,
@@ -80,11 +81,8 @@
             description: q.description,
             xpReward: q.xp_reward,
             completed: false
-          };
-          await db.dailyQuests.add(quest);
-          await enqueue('upsert', 'dailyQuests', quest.id, quest);
+          });
         }
-        pushSync().catch(() => {});
       } else {
         const err = await response.text();
         console.error('[IA] Erro ao gerar missões:', response.status, err);
@@ -123,7 +121,7 @@
         const deadline = new Date();
         deadline.setDate(now.getDate() + epic.deadline_days);
         
-        const goal = {
+        await db.goals.add({
           id: generateId(),
           title: epic.title,
           targetValue: epic.target_value,
@@ -134,9 +132,7 @@
           deadline: deadline.toISOString().slice(0, 10),
           achievedAt: null,
           createdAt: now.toISOString()
-        };
-        await db.goals.add(goal);
-        await enqueue('upsert', 'goals', goal.id, goal);
+        });
 
         pushSync().catch(() => {});
       } else {
@@ -158,7 +154,7 @@
     
     await db.dailyQuests.update(quest.id, { completed: true });
     const updatedQuest = await db.dailyQuests.get(quest.id);
-    await enqueue('upsert', 'dailyQuests', quest.id, updatedQuest);
+    if (updatedQuest) await enqueue('upsert', 'dailyQuests', quest.id, updatedQuest);
     
     const p = await db.player.toCollection().first();
     const { level, xp, leveledUp } = applyXp(p.level, p.xp, quest.xpReward);
@@ -177,9 +173,9 @@
        gotChest = true;
     }
 
-    await db.player.update(p.id, { level, xp, coins: newCoins });
-    const updatedPlayer = await db.player.get(p.id);
-    await enqueue('upsert', 'player', p.id, updatedPlayer);
+    if (p) {
+      await updatePlayer(p.id, { level, xp, coins: newCoins });
+    }
     
     if (gotChest) {
       setTimeout(() => {
@@ -211,29 +207,29 @@
     }
 
     const newValue = Math.min(goal.targetValue, goal.currentValue + damage);
-    await db.goals.update(goal.id, { currentValue: newValue });
-    const updatedGoal2 = await db.goals.get(goal.id);
-    await enqueue('upsert', 'goals', goal.id, updatedGoal2);
+    const goalUpdates = { currentValue: newValue };
+    if (newValue >= goal.targetValue) {
+      goalUpdates.achievedAt = new Date().toISOString();
+    }
+    await db.goals.update(goal.id, goalUpdates);
+    const updatedGoal = await db.goals.get(goal.id);
+    if (updatedGoal) await enqueue('upsert', 'goals', goal.id, updatedGoal);
     
     if (newValue >= goal.targetValue) {
-      await db.goals.update(goal.id, { achievedAt: new Date().toISOString() });
-      const updatedGoal = await db.goals.get(goal.id);
-      await enqueue('upsert', 'goals', goal.id, updatedGoal);
       const p = await db.player.toCollection().first();
-      const { level, xp, leveledUp } = applyXp(p.level, p.xp, goal.xpReward);
-      
-      const bossCoins = Math.floor(goal.xpReward / 5);
-      const newCoins = (p.coins || 0) + bossCoins;
-      
-      await db.player.update(p.id, { level, xp, coins: newCoins });
-      const updatedP = await db.player.get(p.id);
-      await enqueue('upsert', 'player', p.id, updatedP);
+      if (p) {
+        const { level, xp, leveledUp } = applyXp(p.level, p.xp, goal.xpReward);
+        const bossCoins = Math.floor(goal.xpReward / 5);
+        const newCoins = (p.coins || 0) + bossCoins;
+        
+        await updatePlayer(p.id, { level, xp, coins: newCoins });
+        if (leveledUp) alert(`Level Up! Nível ${level} alcançado!`);
+      }
 
       // Push imediato: chefão derrotado vai para a nuvem agora
       pushSync().catch(() => {});
 
-      alert(`🎉 CHEFÃO DERROTADO! Você ganhou ${goal.xpReward} XP e 💰 ${bossCoins} LifeCoins!`);
-      if (leveledUp) alert(`Level Up! Nível ${level} alcançado!`);
+      alert(`🎉 CHEFÃO DERROTADO! Você ganhou ${goal.xpReward} XP e 💰 ${Math.floor(goal.xpReward / 5)} LifeCoins!`);
     } else {
       // Push imediato: dano no chefão vai para a nuvem agora
       pushSync().catch(() => {});
@@ -259,18 +255,22 @@
     
     const p = await db.player.toCollection().first();
     if (prize.type === 'coins') {
-      await db.player.update(p.id, { coins: (p.coins || 0) + prize.value });
+      if (p) await updatePlayer(p.id, { coins: (p.coins || 0) + prize.value });
     } else if (prize.type === 'xp') {
-      const { level, xp } = applyXp(p.level, p.xp, prize.value);
-      await db.player.update(p.id, { level, xp });
+      if (p) {
+        const { level, xp } = applyXp(p.level, p.xp, prize.value);
+        await updatePlayer(p.id, { level, xp });
+      }
     } else if (prize.type === 'item') {
-      await db.inventory.add({
+      const invItem = {
         id: generateId(),
         itemId: prize.itemId,
         category: 'consumable',
         name: prize.name,
         purchasedAt: new Date().toISOString()
-      });
+      };
+      await db.inventory.add(invItem);
+      await enqueue('upsert', 'inventory', invItem.id, invItem);
     }
     
     isSpinning = false;

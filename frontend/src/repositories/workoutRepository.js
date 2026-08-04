@@ -3,6 +3,15 @@ import { db } from '../db/db.js';
 import { generateId } from '../lib/id.js';
 import { enqueue } from '../services/syncService.js';
 
+function normalizeId(val) {
+  if (val === null || val === undefined) return val;
+  if (typeof val === 'number') return val;
+  if (typeof val === 'string') {
+    return isNaN(Number(val)) ? val : Number(val);
+  }
+  return val;
+}
+
 // --- Queries reativas ---
 
 export const workoutPlansQuery = () => liveQuery(() => db.workoutPlans.toArray());
@@ -12,28 +21,29 @@ export const exerciseCatalogQuery = () => liveQuery(() => db.exercises.toArray()
 export const allSessionSetsQuery = () => liveQuery(() => db.sessionSets.toArray());
 
 export const planSessionsQuery = (planId) =>
-  liveQuery(() => db.workoutSessions.where('workoutPlanId').equals(planId).toArray());
+  liveQuery(() => db.workoutSessions.where('workoutPlanId').equals(normalizeId(planId)).toArray());
 
 export const planExerciseLinksQuery = (planId) =>
   liveQuery(() =>
-    db.workoutPlanExercises.where('workoutPlanId').equals(planId).sortBy('order')
+    db.workoutPlanExercises.where('workoutPlanId').equals(normalizeId(planId)).sortBy('order')
   );
 
 // --- Operações de escrita ---
 
 export async function removePlan(planId) {
+  const normPlanId = normalizeId(planId);
   await db.transaction('rw', db.workoutPlans, db.workoutPlanExercises, async () => {
-    await db.workoutPlans.delete(planId);
-    await db.workoutPlanExercises.where('workoutPlanId').equals(planId).delete();
+    await db.workoutPlans.delete(normPlanId);
+    await db.workoutPlanExercises.where('workoutPlanId').equals(normPlanId).delete();
   });
-  await enqueue('delete', 'workoutPlans', planId);
+  await enqueue('delete', 'workoutPlans', String(normPlanId));
 }
 
 export async function addExerciseLink({ workoutPlanId, exerciseId, order, targetSets, targetReps, restSeconds }) {
   const link = {
     id: generateId(),
-    workoutPlanId,
-    exerciseId,
+    workoutPlanId: normalizeId(workoutPlanId),
+    exerciseId: normalizeId(exerciseId),
     order,
     targetSets: Number(targetSets),
     targetReps,
@@ -45,8 +55,9 @@ export async function addExerciseLink({ workoutPlanId, exerciseId, order, target
 }
 
 export async function removeExerciseLink(linkId) {
-  await db.workoutPlanExercises.delete(linkId);
-  await enqueue('delete', 'workoutPlanExercises', linkId);
+  const normId = normalizeId(linkId);
+  await db.workoutPlanExercises.delete(normId);
+  await enqueue('delete', 'workoutPlanExercises', String(normId));
 }
 
 export async function findOrCreateExercise(catalog, name, muscleGroup, equipment) {
@@ -55,7 +66,7 @@ export async function findOrCreateExercise(catalog, name, muscleGroup, equipment
   if (existing) {
     await db.exercises.update(existing.id, { muscleGroup, equipment });
     const updated = await db.exercises.get(existing.id);
-    await enqueue('upsert', 'exercises', existing.id, updated);
+    await enqueue('upsert', 'exercises', String(existing.id), updated);
     return existing.id;
   }
   const exercise = { id: generateId(), name: trimmed, muscleGroup, equipment };
@@ -65,7 +76,7 @@ export async function findOrCreateExercise(catalog, name, muscleGroup, equipment
 }
 
 export async function countPlanExercises(planId) {
-  return db.workoutPlanExercises.where('workoutPlanId').equals(planId).count();
+  return db.workoutPlanExercises.where('workoutPlanId').equals(normalizeId(planId)).count();
 }
 
 export async function startSession(planId) {

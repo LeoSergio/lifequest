@@ -1,4 +1,5 @@
 import { db } from '../db/db.js';
+import { syncState } from '../lib/syncStore.js';
 
 // Flag para evitar que mudanças vindas do backend entrem na fila de novo.
 export let isSyncing = false;
@@ -11,18 +12,45 @@ const SYNCABLE_TABLES = [
 ];
 
 /**
+ * Converte uma chave snake_case para camelCase.
+ * Ex: "workout_plan_id" → "workoutPlanId"
+ */
+function snakeToCamel(key) {
+  return key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+}
+
+/**
+ * Normaliza valores de ID (se for numérico string "123", converte para Number 123
+ * para bater com os auto-increments do Dexie ++id; se for UUID string, mantém string).
+ */
+function normalizeIdValue(val) {
+  if (val === null || val === undefined) return val;
+  if (typeof val === 'number') return val;
+  if (typeof val === 'string') {
+    return isNaN(Number(val)) ? val : Number(val);
+  }
+  return val;
+}
+
+/**
+ * Converte todas as chaves de um objeto de snake_case para camelCase e normaliza IDs.
+ */
+function convertKeysToCamel(obj) {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
+  return Object.fromEntries(
+    Object.entries(obj).map(([k, v]) => {
+      const camelKey = snakeToCamel(k);
+      const isIdField = camelKey === 'id' || camelKey.endsWith('Id');
+      return [camelKey, isIdField ? normalizeIdValue(v) : v];
+    })
+  );
+}
+
+/**
  * Adiciona um evento na fila de sync local.
- *
- * Chame isso diretamente nos repositórios após qualquer escrita no Dexie.
- * Não depende de hooks — é explícito e não tem problemas de timing.
- *
- * @param {'upsert'|'delete'} action
- * @param {string} entity  — nome da tabela (ex: 'habits', 'workoutPlans')
- * @param {string|number} entityId — ID do registro
- * @param {object|null} payload — objeto completo (obrigatório para upsert)
  */
 export async function enqueue(action, entity, entityId, payload = null) {
-  if (isSyncing) return; // Ignora mudanças vindas do pull
+  if (isSyncing) return;
   if (!SYNCABLE_TABLES.includes(entity)) return;
 
   await db.syncQueue.add({
@@ -34,9 +62,6 @@ export async function enqueue(action, entity, entityId, payload = null) {
   });
 }
 
-/**
- * Retorna os headers de autenticação
- */
 function getHeaders() {
   const token = localStorage.getItem('access_token');
   return {
@@ -50,9 +75,15 @@ function getHeaders() {
  */
 export async function pushSync() {
   if (!localStorage.getItem('access_token')) return;
+  if (!navigator.onLine) {
+    syncState.update(s => ({ ...s, status: 'offline' }));
+    return;
+  }
 
   const pendingEvents = await db.syncQueue.toArray();
   if (pendingEvents.length === 0) return;
+
+  syncState.update(s => ({ ...s, status: 'syncing' }));
 
   try {
     const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/sync/push`, {
@@ -71,13 +102,16 @@ export async function pushSync() {
 
       await db.syncQueue.bulkDelete(idsToDelete);
       console.log(`[Sync] Enviados ${idsToDelete.length}/${pendingEvents.length} eventos para a nuvem.`);
-
-      if (failedIds.size > 0) {
-        console.warn(`[Sync] ${failedIds.size} evento(s) falharam e serão tentados novamente:`, [...failedIds]);
-      }
+      syncState.update(s => ({ ...s, status: 'idle' }));
+    } else {
+      syncState.update(s => ({ ...s, status: 'error' }));
     }
   } catch (err) {
-    if (err instanceof TypeError || !navigator.onLine) return;
+    if (err instanceof TypeError || !navigator.onLine) {
+      syncState.update(s => ({ ...s, status: 'offline' }));
+      return;
+    }
+    syncState.update(s => ({ ...s, status: 'error' }));
     console.error('[Sync] Erro inesperado no push:', err);
   }
 }
@@ -87,6 +121,10 @@ export async function pushSync() {
  */
 export async function pullSync() {
   if (!localStorage.getItem('access_token')) return;
+  if (!navigator.onLine) {
+    syncState.update(s => ({ ...s, status: 'offline' }));
+    return;
+  }
 
   const lastSync = localStorage.getItem('last_sync_time') || '1970-01-01T00:00:00.000Z';
 
@@ -108,27 +146,35 @@ export async function pullSync() {
 
         for (const record of records) {
           totalChanges++;
-          const localId = isNaN(Number(record.id)) ? record.id : Number(record.id);
+          const camelRecord = convertKeysToCamel(record);
+          const localId = camelRecord.id;
 
-          if (record.deleted) {
+          if (camelRecord.deleted) {
             await db[table].delete(localId);
           } else {
-            delete record.deleted;
-            await db[table].put({ ...record, id: localId });
+            delete camelRecord.deleted;
+            await db[table].put(camelRecord);
           }
         }
       }
 
       isSyncing = false;
       localStorage.setItem('last_sync_time', data.timestamp);
+      syncState.update(s => ({ ...s, status: 'idle', lastSyncTime: data.timestamp }));
 
       if (totalChanges > 0) {
         console.log(`[Sync] Recebidas e aplicadas ${totalChanges} alterações da nuvem.`);
       }
+    } else {
+      syncState.update(s => ({ ...s, status: 'error' }));
     }
   } catch (err) {
     isSyncing = false;
-    if (err instanceof TypeError || !navigator.onLine) return;
+    if (err instanceof TypeError || !navigator.onLine) {
+      syncState.update(s => ({ ...s, status: 'offline' }));
+      return;
+    }
+    syncState.update(s => ({ ...s, status: 'error' }));
     console.error('[Sync] Erro inesperado no pull:', err);
   }
 }
@@ -137,7 +183,6 @@ export async function pullSync() {
  * Inicia o worker que fica rodando em background
  */
 export function startSyncWorker(intervalSeconds = 10) {
-  // Executa imediatamente ao iniciar
   (async () => {
     await pushSync();
     await pullSync();

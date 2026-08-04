@@ -1,5 +1,6 @@
 import { db } from '../db/db.js';
 import { generateId } from './id.js';
+import { enqueue } from '../services/syncService.js';
 
 export const ACHIEVEMENTS = [
   { id: 'madrugador', name: 'Madrugador', description: 'Completou um treino antes das 6h da manhã.', icon: '🌅', color: 'text-orange-400', bg: 'bg-orange-400/10 border-orange-400/20' },
@@ -82,11 +83,13 @@ export async function checkAchievements() {
 
   // Save new unlocks
   for (const id of newUnlocks) {
-    await db.unlockedAchievements.add({
+    const item = {
       id: generateId(),
       achievementId: id,
       unlockedAt: new Date().toISOString()
-    });
+    };
+    await db.unlockedAchievements.add(item);
+    await enqueue('upsert', 'unlockedAchievements', item.id, item);
     
     const ach = ACHIEVEMENTS.find(a => a.id === id);
     if (ach) {

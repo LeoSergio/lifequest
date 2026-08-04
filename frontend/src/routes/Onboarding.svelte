@@ -106,12 +106,16 @@
     step -= 1;
   }
 
+  import { enqueue, pushSync } from '../services/syncService.js';
+
   async function finish() {
     if (!name.trim() || !goal || saving) return;
     saving = true;
 
     try {
-      await db.player.add({
+      const playerId = generateId();
+      const playerData = {
+        id: playerId,
         name: name.trim(),
         goal,
         level: 1,
@@ -119,13 +123,16 @@
         coins: 0,
         streak: 0,
         createdAt: new Date().toISOString()
-      });
+      };
+      await db.player.add(playerData);
+      await enqueue('upsert', 'player', playerId, playerData);
 
       // Métricas básicas são opcionais — só grava se pelo menos uma foi
       // preenchida, pra não criar uma medição vazia sem sentido.
       if (age || weight || height) {
-        await db.bodyMeasurements.add({
-          id: generateId(),
+        const mId = generateId();
+        const mData = {
+          id: mId,
           date: new Date().toISOString().slice(0, 10),
           age: age === '' ? null : Number(age),
           weight: weight === '' ? null : Number(weight),
@@ -138,24 +145,28 @@
           armLeft: null,
           armRight: null,
           forearm: null
-        });
+        };
+        await db.bodyMeasurements.add(mData);
+        await enqueue('upsert', 'bodyMeasurements', mId, mData);
       }
 
-      // A partir daqui, o App.svelte percebe (via liveQuery) que já existe
-      // um player e troca pra tela de Início sozinho.
-      await db.habits.bulkAdd(
-        starterHabits.map((h) => ({
-          ...h,
-          id: generateId(),
-          archivedAt: null,
-          createdAt: new Date().toISOString()
-        }))
-      ); // <-- parêntese e ponto-e-vírgula que estavam faltando
+      const habitItems = starterHabits.map((h) => ({
+        ...h,
+        id: generateId(),
+        archivedAt: null,
+        createdAt: new Date().toISOString()
+      }));
+
+      await db.habits.bulkAdd(habitItems);
+      for (const h of habitItems) {
+        await enqueue('upsert', 'habits', h.id, h);
+      }
 
       // Salva o token no localStorage apenas no final do fluxo, para que o
       // worker de sincronização não puxe o perfil antes da hora e pule a tela.
       if (pendingToken) {
         localStorage.setItem('access_token', pendingToken);
+        pushSync().catch(() => {});
       }
     } finally {
       saving = false;

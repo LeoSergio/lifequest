@@ -2,7 +2,7 @@
   import { liveQuery } from 'dexie';
   import { db } from '../db/db.js';
   import { generateId } from '../lib/id.js';
-  import { pushSync } from '../services/syncService.js';
+  import { pushSync, enqueue } from '../services/syncService.js';
   
   const player = liveQuery(() => db.player.toCollection().first());
   const inventory = liveQuery(() => db.inventory.toArray());
@@ -71,6 +71,8 @@
     ? storeItems 
     : storeItems.filter(item => item.category === selectedCategory);
 
+  import { updatePlayer } from '../repositories/playerRepository.js';
+
   async function buyItem(item) {
     if (!$player) return;
     
@@ -93,17 +95,19 @@
     const confirmBuy = confirm(`Deseja comprar "${item.name}" por ${item.price} LifeCoins?`);
     if (!confirmBuy) return;
 
-    // Deduz moedas
-    await db.player.update($player.id, { coins: currentCoins - item.price });
+    // Deduz moedas usando updatePlayer (que enfileira sync)
+    await updatePlayer($player.id, { coins: currentCoins - item.price });
     
     // Adiciona ao inventário
-    await db.inventory.add({
+    const invItem = {
       id: generateId(),
       itemId: item.id,
       category: item.category,
       name: item.name,
       purchasedAt: new Date().toISOString()
-    });
+    };
+    await db.inventory.add(invItem);
+    await enqueue('upsert', 'inventory', invItem.id, invItem);
 
     // Push imediato: coins e item vão para a nuvem agora
     pushSync().catch(() => {});

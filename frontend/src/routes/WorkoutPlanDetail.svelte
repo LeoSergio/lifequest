@@ -64,11 +64,11 @@
   const planSessions = planSessionsQuery(planId);
   const allSessionSets = allSessionSetsQuery();
 
-  $: currentPlan = ($plan ?? []).find((p) => p.id === planId);
+  $: currentPlan = ($plan ?? []).find((p) => String(p.id) === String(planId));
 
   $: exercises = ($links ?? []).map((link) => ({
     ...link,
-    exercise: ($catalog ?? []).find((e) => e.id === link.exerciseId) ?? { name: '(exercício removido)' }
+    exercise: ($catalog ?? []).find((e) => String(e.id) === String(link.exerciseId)) ?? { name: '(exercício removido)' }
   }));
 
   const today = new Date().toISOString().slice(0, 10);

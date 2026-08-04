@@ -19,6 +19,8 @@
     tonnageByMuscleGroup
   } from '../lib/metrics.js';
 
+  export let focusPlanId = null;
+
   let tab = 'desempenho'; // perimetria | desempenho | consistencia
 
   // ---------- Perimetria ----------
@@ -144,7 +146,7 @@
   })();
 
   async function addMeasurement() {
-    const measurement = {
+    const item = {
       id: generateId(),
       date,
       age: toNumberOrNull(age),
@@ -160,8 +162,8 @@
       forearm: toNumberOrNull(forearm),
       bodyFatPercent: toNumberOrNull(bodyFatPercent)
     };
-    await db.bodyMeasurements.add(measurement);
-    await enqueue('upsert', 'bodyMeasurements', measurement.id, measurement);
+    await db.bodyMeasurements.add(item);
+    await enqueue('upsert', 'bodyMeasurements', item.id, item);
     pushSync().catch(() => {});
 
     age = weight = height = shoulder = chest = abdomen = thigh = calf = armLeft = armRight = forearm = bodyFatPercent = '';

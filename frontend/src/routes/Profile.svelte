@@ -71,7 +71,81 @@
   async function handleLogout() {
     if (confirm('Tem certeza que deseja sair e limpar todos os dados locais?')) {
       await db.delete(); // Apaga o banco Dexie
+      localStorage.removeItem('token');
       window.location.reload(); // Recarrega a página para voltar pro Onboarding
+    }
+  }
+
+  function handleSoftLogout() {
+    if (confirm('Deseja apenas deslogar da nuvem? (Seus dados locais serão mantidos)')) {
+      localStorage.removeItem('token');
+      window.location.reload();
+    }
+  }
+
+  async function handleEditProfile() {
+    if (!$player) return;
+    const newName = prompt('Qual o seu novo nome de herói?', $player.name);
+    if (newName && newName.trim()) {
+      await updatePlayer($player.id, { name: newName.trim() });
+      pushSync().catch(() => {});
+    }
+  }
+
+  function showPrivacyNote() {
+    alert('Privacidade e Segurança:\n\nO LifeQuest usa arquitetura Local-First. Isso significa que SEUS dados pertencem a VOCÊ. Suas informações sensíveis (como diário, finanças e metas) são armazenadas primariamente de forma segura no seu próprio dispositivo (IndexedDB). Apenas dados essenciais de estado são sincronizados com a nuvem sob criptografia de trânsito.');
+  }
+
+  function showBackupNote() {
+    alert('Como o backup funciona:\n\nA cada ação que você toma no LifeQuest, o aplicativo salva imediatamente no banco de dados do seu navegador. Em seguida, os dados entram em uma fila segura e são sincronizados em background com nossos servidores. Isso garante que você nunca perca nada, mesmo offline!');
+  }
+
+  import jsPDF from 'jspdf';
+  import 'jspdf-autotable';
+
+  async function exportData() {
+    try {
+      const doc = new jsPDF();
+      doc.setFontSize(20);
+      doc.text('LifeQuest - Relatorio de Jornada', 14, 22);
+      
+      if ($player) {
+        doc.setFontSize(12);
+        doc.text(`Heroi: ${$player.name}`, 14, 32);
+        doc.text(`Nivel: ${$player.level} | XP: ${$player.xp} | Moedas: ${$player.coins}`, 14, 40);
+        doc.text(`Maior Sequencia: ${$player.streak} dias`, 14, 48);
+      }
+
+      const goals = await db.goals.toArray();
+      const completedGoals = goals.filter(g => !!g.achievedAt).length;
+      
+      const habits = await db.habits.toArray();
+      const completions = await db.habitCompletions.toArray();
+
+      doc.text(`Estatisticas Resumidas:`, 14, 60);
+      doc.text(`- Metas Concluidas: ${completedGoals} / ${goals.length}`, 14, 68);
+      doc.text(`- Habitos Registrados: ${habits.length}`, 14, 76);
+      doc.text(`- Conclusoes de Habitos: ${completions.length}`, 14, 84);
+
+      if (goals.length > 0) {
+        doc.setFontSize(14);
+        doc.text('Suas Metas', 14, 100);
+        const goalData = goals.map(g => [
+          g.title, 
+          g.category, 
+          g.achievedAt ? 'Concluida' : 'Em Progresso'
+        ]);
+        doc.autoTable({
+          startY: 105,
+          head: [['Meta', 'Categoria', 'Status']],
+          body: goalData,
+        });
+      }
+
+      doc.save(`LifeQuest_Relatorio_${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao exportar PDF.');
     }
   }
 </script>
@@ -213,14 +287,14 @@
     <div>
        <h3 class="text-[13px] font-bold text-white mb-3 pl-1">Conta e preferências</h3>
        <div class="flex flex-col gap-3 pl-1">
-          <button class="flex items-center justify-between w-full group py-1">
+          <button class="flex items-center justify-between w-full group py-1" on:click={handleEditProfile}>
              <div class="flex items-center gap-2.5 text-white/70 group-hover:text-white transition-colors">
                 <svg class="w-[18px] h-[18px] text-[#3b82f6]" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg> 
                 <span class="text-[12px] font-medium">Editar perfil</span>
              </div>
              <span class="text-white/20 text-sm">›</span>
           </button>
-          <button class="flex items-center justify-between w-full group py-1">
+          <button class="flex items-center justify-between w-full group py-1" on:click={showPrivacyNote}>
              <div class="flex items-center gap-2.5 text-white/70 group-hover:text-white transition-colors">
                 <svg class="w-[18px] h-[18px] text-white/50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                 <span class="text-[12px] font-medium">Privacidade</span>
@@ -234,21 +308,21 @@
     <div>
        <h3 class="text-[13px] font-bold text-white mb-3 pl-1">Ferramentas</h3>
        <div class="flex flex-col gap-3 pl-1">
-          <button class="flex items-center justify-between w-full group py-1">
+          <button class="flex items-center justify-between w-full group py-1" on:click={showBackupNote}>
              <div class="flex items-center gap-2.5 text-white/70 group-hover:text-white transition-colors">
                 <svg class="w-[18px] h-[18px] text-white/50" viewBox="0 0 24 24" fill="currentColor"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
                 <span class="text-[12px] font-medium">Backup de dados</span>
              </div>
              <span class="text-white/20 text-sm">›</span>
           </button>
-          <button class="flex items-center justify-between w-full group py-1">
+          <button class="flex items-center justify-between w-full group py-1" on:click={exportData}>
              <div class="flex items-center gap-2.5 text-white/70 group-hover:text-white transition-colors">
                 <svg class="w-[18px] h-[18px] text-orange-400" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
                 <span class="text-[12px] font-medium">Exportar dados</span>
              </div>
              <span class="text-white/20 text-sm">›</span>
           </button>
-          <button class="flex items-center justify-between w-full group py-1">
+          <button class="flex items-center justify-between w-full group py-1" on:click={() => window.location.href = 'mailto:leosergio.583@gmail.com'}>
              <div class="flex items-center gap-2.5 text-white/70 group-hover:text-white transition-colors">
                 <svg class="w-[18px] h-[18px] text-white/50" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/></svg>
                 <span class="text-[12px] font-medium">Central de ajuda</span>
@@ -256,10 +330,17 @@
              <span class="text-white/20 text-sm">›</span>
           </button>
           
-          <!-- Botão de Sair -->
-          <button class="flex items-center justify-between w-full group py-1 mt-2" on:click={handleLogout}>
+          <!-- Botões de Sair -->
+          <button class="flex items-center justify-between w-full group py-1 mt-2" on:click={handleSoftLogout}>
+             <div class="flex items-center gap-2.5 text-white/70 group-hover:text-orange-400 transition-colors">
+                <svg class="w-[18px] h-[18px] text-orange-500/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                <span class="text-[12px] font-medium text-orange-400/80 group-hover:text-orange-400">Sair (Sem Resetar)</span>
+             </div>
+             <span class="text-orange-400/20 text-sm">›</span>
+          </button>
+          <button class="flex items-center justify-between w-full group py-1" on:click={handleLogout}>
              <div class="flex items-center gap-2.5 text-white/70 group-hover:text-red-400 transition-colors">
-                <svg class="w-[18px] h-[18px] text-red-500/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                <svg class="w-[18px] h-[18px] text-red-500/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"></path></svg>
                 <span class="text-[12px] font-medium text-red-400/80 group-hover:text-red-400">Sair da Conta (Reset)</span>
              </div>
              <span class="text-red-400/20 text-sm">›</span>

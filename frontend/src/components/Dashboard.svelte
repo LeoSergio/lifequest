@@ -207,7 +207,7 @@
 
   <!-- Links / Ações -->
   <div class="bg-[#1C1C22]/80 border border-white/5 rounded-[24px] py-2 mt-4 flex flex-col">
-     <button class="flex items-center justify-between px-5 py-3.5 group hover:bg-white/5 transition-colors border-b border-white/5">
+     <button class="flex items-center justify-between px-5 py-3.5 group hover:bg-white/5 transition-colors border-b border-white/5" on:click={() => navigate('stats')}>
         <div class="flex items-center gap-3">
            <svg class="w-[20px] h-[20px] text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
            <div class="text-left">
@@ -218,56 +218,23 @@
         <span class="text-white/20 text-sm group-hover:text-white/50">›</span>
      </button>
 
-     <button class="flex items-center justify-between px-5 py-3.5 group hover:bg-white/5 transition-colors border-b border-white/5">
-        <div class="flex items-center gap-3">
-           <svg class="w-[20px] h-[20px] text-[#a855f7]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-           <div class="text-left">
-              <h4 class="text-[12px] font-bold text-white mb-0.5">Histórico de atividades</h4>
-              <p class="text-[10px] text-white/40">Veja tudo o que você já fez</p>
-           </div>
-        </div>
-        <span class="text-white/20 text-sm group-hover:text-white/50">›</span>
-     </button>
-
-     <button class="flex items-center justify-between px-5 py-3.5 group hover:bg-white/5 transition-colors border-b border-white/5" on:click={() => navigate('habits')}>
-        <div class="flex items-center gap-3">
-           <svg class="w-[20px] h-[20px] text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-           <div class="text-left">
-              <h4 class="text-[12px] font-bold text-white mb-0.5">Hábitos</h4>
-              <p class="text-[10px] text-white/40">Gerencie seus hábitos diários</p>
-           </div>
-        </div>
-        <span class="text-white/20 text-sm group-hover:text-white/50">›</span>
-     </button>
-
-     <button class="flex items-center justify-between px-5 py-3.5 group hover:bg-white/5 transition-colors border-b border-white/5" on:click={() => navigate('training')}>
-        <div class="flex items-center gap-3">
-           <svg class="w-[20px] h-[20px] text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
-           <div class="text-left">
-              <h4 class="text-[12px] font-bold text-white mb-0.5">Metas</h4>
-              <p class="text-[10px] text-white/40">Acompanhe suas metas de longo prazo</p>
-           </div>
-        </div>
-        <span class="text-white/20 text-sm group-hover:text-white/50">›</span>
-     </button>
-
      <button class="flex items-center justify-between px-5 py-3.5 group hover:bg-white/5 transition-colors border-b border-white/5" on:click={() => navigate('quests', { tab: 'loja' })}>
         <div class="flex items-center gap-3">
-           <svg class="w-[20px] h-[20px] text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/></svg>
+           <svg class="w-[20px] h-[20px] text-[#a855f7]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 12A4 4 0 0 0 8 12M12 16v.01"/></svg>
            <div class="text-left">
               <h4 class="text-[12px] font-bold text-white mb-0.5">Personalização</h4>
-              <p class="text-[10px] text-white/40">Avatar, temas e loja</p>
+              <p class="text-[10px] text-white/40">Visite a loja para temas e avatares</p>
            </div>
         </div>
         <span class="text-white/20 text-sm group-hover:text-white/50">›</span>
      </button>
 
-     <button class="flex items-center justify-between px-5 py-3.5 group hover:bg-white/5 transition-colors" on:click={() => navigate('pantry')}>
+     <button class="flex items-center justify-between px-5 py-3.5 group hover:bg-white/5 transition-colors" on:click={() => navigate('quests', { tab: 'conquistas' })}>
         <div class="flex items-center gap-3">
-           <svg class="w-[20px] h-[20px] text-yellow-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10H12V2zM21.18 8.02c-1-2.3-2.85-4.17-5.16-5.18"/></svg>
+           <svg class="w-[20px] h-[20px] text-yellow-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
            <div class="text-left">
-              <h4 class="text-[12px] font-bold text-white mb-0.5">Nutrição com IA</h4>
-              <p class="text-[10px] text-white/40">Gerencie sua dispensa e dietas</p>
+              <h4 class="text-[12px] font-bold text-white mb-0.5">Ver as conquistas</h4>
+              <p class="text-[10px] text-white/40">Acompanhe suas medalhas e troféus</p>
            </div>
         </div>
         <span class="text-white/20 text-sm group-hover:text-white/50">›</span>
@@ -297,17 +264,7 @@
        </div>
     </div>
 
-    <!-- Horário mais produtivo -->
-    <div class="bg-[#1C1C22]/80 border border-white/5 rounded-[20px] p-3 flex flex-col justify-between">
-       <div>
-         <div class="flex items-center gap-1.5 mb-2">
-            <svg class="w-3.5 h-3.5 text-[#a855f7] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            <span class="text-[10px] font-bold text-white leading-tight">Horário</span>
-         </div>
-         <h4 class="text-xl font-black text-white">Manhã</h4>
-       </div>
-       <p class="text-[8px] text-white/40 leading-tight mt-3">Mais produtivo entre 08:00 e 12:00</p>
-    </div>
+
 
     <!-- Conquistas Recentes -->
     <div class="bg-[#1C1C22]/80 border border-white/5 rounded-[20px] p-3 flex flex-col justify-between">

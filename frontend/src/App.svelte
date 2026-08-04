@@ -13,6 +13,7 @@
   import WorkoutPlanDetail from './routes/WorkoutPlanDetail.svelte';
   import Quests from './routes/Quests.svelte';
   import Profile from './routes/Profile.svelte';
+  import Stats from './routes/Stats.svelte';
   import NavBar from './components/NavBar.svelte';
   import BackgroundBlobs from './components/BackgroundBlobs.svelte';
   import SyncBadge from './components/SyncBadge.svelte';
@@ -47,6 +48,8 @@
     <Quests />
   {:else if $nav.name === 'profile'}
     <Profile />
+  {:else if $nav.name === 'stats'}
+    <Stats />
   {:else}
     <Dashboard />
   {/if}

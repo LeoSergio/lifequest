@@ -41,17 +41,17 @@
 
   <form on:submit|preventDefault={createPlan} class="flex flex-col gap-4">
     <div class="bg-[#1C1C22]/80 border border-white/5 rounded-[20px] p-5 shadow-inner">
-      <label class="text-[10px] text-[#a855f7] mb-2 block uppercase font-bold tracking-wider">Nome do treino</label>
+      <label for="plan-name" class="text-[10px] text-[#a855f7] mb-2 block uppercase font-bold tracking-wider">Nome do treino</label>
       <input
+        id="plan-name"
         class="w-full bg-white/5 border border-white/10 rounded-[10px] px-3 py-3 text-[12px] font-bold text-white focus:border-[#a855f7] outline-none placeholder:text-white/30 transition-colors"
         placeholder="ex: Treino A - Peito e Tríceps"
         bind:value={name}
-        autofocus
       />
     </div>
 
     <div class="bg-[#1C1C22]/80 border border-white/5 rounded-[20px] p-5 shadow-inner">
-      <label class="text-[10px] text-[#a855f7] mb-3 block uppercase font-bold tracking-wider">Dias da semana</label>
+      <label for="plan-weekdays" class="text-[10px] text-[#a855f7] mb-3 block uppercase font-bold tracking-wider">Dias da semana</label>
       <div class="flex flex-wrap gap-2">
         {#each activeDays as day}
           <button
@@ -73,8 +73,9 @@
     </div>
 
     <div class="bg-[#1C1C22]/80 border border-white/5 rounded-[20px] p-5 shadow-inner">
-      <label class="text-[10px] text-[#a855f7] mb-2 block uppercase font-bold tracking-wider">Foco (Opcional)</label>
+      <label for="plan-focus" class="text-[10px] text-[#a855f7] mb-2 block uppercase font-bold tracking-wider">Foco (Opcional)</label>
       <input
+        id="plan-focus"
         class="w-full bg-white/5 border border-white/10 rounded-[10px] px-3 py-3 text-[12px] font-bold text-white focus:border-[#a855f7] outline-none placeholder:text-white/30 transition-colors"
         placeholder="ex: Hipertrofia, Força, Resistência"
         bind:value={focus}

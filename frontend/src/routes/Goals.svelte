@@ -117,8 +117,9 @@
 
       <form on:submit|preventDefault={createGoal} class="flex flex-col gap-4">
         <div>
-          <label class="text-xs text-white/40 mb-1 block">Título da meta</label>
+          <label for="goal-title" class="text-xs text-white/40 mb-1 block">Título da meta</label>
           <input
+            id="goal-title"
             class="w-full bg-surface border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-primary outline-none transition-colors"
             placeholder="ex: Correr 5km sem parar"
             bind:value={title}
@@ -127,8 +128,9 @@
 
         <div class="flex gap-2">
           <div class="flex-1">
-            <label class="text-xs text-white/40 mb-1 block">Alvo Numérico</label>
+            <label for="goal-target" class="text-xs text-white/40 mb-1 block">Alvo Numérico</label>
             <input
+              id="goal-target"
               type="number"
               min="1"
               class="w-full bg-surface border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-primary outline-none transition-colors"
@@ -137,8 +139,9 @@
             />
           </div>
           <div class="w-24">
-            <label class="text-xs text-white/40 mb-1 block">Unidade</label>
+            <label for="goal-unit" class="text-xs text-white/40 mb-1 block">Unidade</label>
             <input
+              id="goal-unit"
               class="w-full bg-surface border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-primary outline-none transition-colors"
               placeholder="kg, km..."
               bind:value={unit}
@@ -147,8 +150,9 @@
         </div>
 
         <div>
-          <label class="text-xs text-white/40 mb-1 block">Recompensa pessoal (Opcional)</label>
+          <label for="goal-reward" class="text-xs text-white/40 mb-1 block">Recompensa pessoal (Opcional)</label>
           <input
+            id="goal-reward"
             class="w-full bg-surface border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-primary outline-none transition-colors"
             placeholder="O que você vai se dar de presente?"
             bind:value={reward}
@@ -158,8 +162,8 @@
         <!-- Removido: seleção de dificuldade e XP -->
 
         <div>
-          <label class="text-xs text-white/40 mb-1 block">Data Limite (Opcional)</label>
-          <input type="date" class="w-full bg-surface border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-primary outline-none transition-colors text-white" bind:value={deadline} />
+          <label for="goal-deadline" class="text-xs text-white/40 mb-1 block">Data Limite (Opcional)</label>
+          <input id="goal-deadline" type="date" class="w-full bg-surface border border-white/10 rounded-xl px-4 py-4 text-sm focus:border-primary outline-none transition-colors text-white" bind:value={deadline} />
         </div>
 
         <button type="submit" class="w-full bg-primary text-white rounded-xl py-4 font-bold mt-2 hover:bg-primary/90 transition-colors">

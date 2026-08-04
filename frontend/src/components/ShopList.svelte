@@ -331,7 +331,7 @@
               {#if getCurrency(item.category) === 'proCoins'}
                  <div class="w-1.5 h-1.5 rounded-full bg-purple-400"></div>
                  <span class="text-[11px] font-black text-purple-400">{item.price}</span>
-              {#else}
+              {:else}
                  <div class="w-1.5 h-1.5 rounded-full bg-slate-300"></div>
                  <span class="text-[11px] font-black text-slate-300">{item.price}</span>
               {/if}

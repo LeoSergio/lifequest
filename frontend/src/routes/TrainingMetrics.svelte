@@ -19,7 +19,7 @@
     tonnageByMuscleGroup
   } from '../lib/metrics.js';
 
-  export let focusPlanId = null;
+  export const focusPlanId = null;
 
   let tab = 'desempenho'; // perimetria | desempenho | consistencia
 
@@ -475,16 +475,6 @@
   {/if}
 </main>
 <style>
-  .custom-scrollbar::-webkit-scrollbar {
-    height: 4px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 4px;
-  }
   .custom-date::-webkit-calendar-picker-indicator {
     filter: invert(1);
     opacity: 0.5;

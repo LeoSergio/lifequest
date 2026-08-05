@@ -25,6 +25,16 @@
     return await db.habitCompletions.count();
   });
 
+  const completedWorkoutsCount = liveQuery(async () => {
+    const sessions = await db.workoutSessions.toArray();
+    return sessions.filter(s => !!s.finishedAt).length;
+  });
+
+  const volumeTotal = liveQuery(async () => {
+    const sets = await db.sessionSets.toArray();
+    return sets.reduce((acc, set) => acc + ((set.weightKg || 0) * (set.repsDone || 0)), 0);
+  });
+
   import { updatePlayer } from '../repositories/playerRepository.js';
   import { pushSync } from '../services/syncService.js';
 
@@ -186,203 +196,201 @@
   }
 </script>
 
-<main class="min-h-screen p-4 pb-24 max-w-md mx-auto flex flex-col">
+<main class="min-h-screen p-5 pb-28 max-w-md mx-auto flex flex-col bg-gradient-to-br from-[#140b2e] via-[#0a0a0c] to-[#050505]">
   
   <!-- CABEÇALHO -->
-  <div class="flex justify-between items-start mb-6 mt-4">
+  <div class="flex justify-between items-start mb-10 mt-2">
     <div>
-      <h1 class="text-3xl font-black text-white tracking-tight mb-1">Perfil do Herói</h1>
+      <h1 class="text-3xl font-black text-white tracking-tight mb-1">Perfil</h1>
       <p class="text-[13px] text-white/50">Sua jornada e estatísticas.</p>
     </div>
-    <button class="w-10 h-10 bg-[#1C1C22]/80 border border-white/5 rounded-[12px] flex items-center justify-center shadow-inner hover:bg-white/5 transition-colors text-white/60">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-    </button>
+    <div class="flex items-center gap-3">
+      <div class="flex items-center gap-1.5 bg-green-500/10 border border-green-500/20 px-3 py-1.5 rounded-full">
+         <div class="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.6)]"></div>
+         <span class="text-[10px] font-bold text-green-500">Nuvem ok</span>
+      </div>
+      <button class="w-9 h-9 bg-transparent border border-white/10 rounded-[10px] flex items-center justify-center hover:bg-white/5 transition-colors text-white/60">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+    </div>
   </div>
 
   {#if $player}
-    <div class="flex items-start gap-4 mb-6">
+    <!-- Avatar e Info (Lado a Lado) -->
+    <div class="flex items-start gap-5 mb-8">
       <!-- Avatar -->
       <div class="relative shrink-0">
-        <label class="block w-[90px] h-[90px] rounded-full border-[3px] border-[#9333EA] shadow-[0_0_20px_rgba(147,51,234,0.4)] overflow-hidden cursor-pointer bg-surface flex items-center justify-center text-3xl">
+        <label class="block w-[100px] h-[100px] rounded-full border-2 border-[#9333EA] overflow-hidden cursor-pointer bg-[#0a0a0c] flex items-center justify-center text-5xl transition-transform hover:scale-105">
           {#if $player?.avatar}
              {#if $player.avatar.startsWith('data:image')}
                <img src={$player.avatar} alt="Avatar" class="w-full h-full object-cover" />
              {:else}
-               <span>{$player.avatar}</span>
+               <span class="text-4xl text-[#9333EA]">{$player.avatar}</span>
              {/if}
           {:else}
-             <span>👤</span>
+             <svg class="w-12 h-12 text-[#9333EA]" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
           {/if}
           <input type="file" accept="image/*" class="hidden" on:change={handleImageUpload} />
         </label>
-        <!-- Badge Câmera -->
-        <label class="absolute bottom-0 right-0 bg-[#9333EA] text-white w-7 h-7 rounded-full flex items-center justify-center border-2 border-bg cursor-pointer">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        
+        <!-- Botão Câmera -->
+        <label class="absolute bottom-0 right-0 bg-[#0a0a0c] border border-white/20 text-white w-9 h-9 rounded-full flex items-center justify-center cursor-pointer hover:bg-white/10 transition-colors shadow-lg">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
           <input type="file" accept="image/*" class="hidden" on:change={handleImageUpload} />
         </label>
       </div>
 
-      <!-- Info e Progresso -->
-      <div class="flex-1 flex flex-col justify-center pt-2 min-w-0">
-        <h2 class="text-white text-[15px] mb-3 truncate">Olá, <span class="font-bold text-[#a855f7]">{$player.name || 'Aventureiro'}</span> 👋</h2>
+      <!-- Info -->
+      <div class="flex-1 flex flex-col pt-1">
+        <div class="flex items-center gap-2 mb-2 cursor-pointer group" on:click={handleEditProfile}>
+          <h2 class="text-white text-[22px] font-black tracking-tight truncate">{$player.name || 'Aventureiro'}</h2>
+          <svg class="w-3.5 h-3.5 text-white/30 group-hover:text-white transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+        </div>
         
-        <div class="flex items-start gap-4">
-          <!-- Level Badge -->
-          <div class="flex flex-col items-center shrink-0">
-            <div class="relative w-14 h-16 bg-gradient-to-b from-[#9333EA] to-[#5b21b6] rounded-[12px] flex flex-col items-center justify-center shadow-lg border border-[#a855f7]/50">
-               <span class="text-[9px] text-white/80 uppercase font-black absolute top-2 tracking-wider">Nível</span>
-               <span class="text-[24px] font-black text-white mt-2 leading-none">{$player.level}</span>
-            </div>
-            <span class="bg-[#1C1C22] text-[#a855f7] border border-[#a855f7]/30 text-[10px] font-bold px-2.5 py-0.5 rounded-full mt-2 uppercase tracking-wide">Iniciante</span>
-          </div>
+        <div class="mb-4">
+           <span class="bg-[#1C1C22]/80 text-[#c084fc] text-[9px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest border border-[#a855f7]/30 inline-block">
+             NÍVEL {$player.level} • INICIANTE
+           </span>
+        </div>
 
-          <!-- Progress bar and details -->
-          <div class="flex-1 min-w-0">
-            <div class="flex justify-between items-end mb-2">
-              <span class="text-[11px] text-white/70 font-medium">Seu progresso</span>
-              <span class="text-[11px] text-white/50"><span class="text-[#a855f7] font-bold">{$player.xp}</span> / {nextLevelXp} XP</span>
-            </div>
-            <div class="w-full h-1.5 bg-white/10 rounded-full mb-1.5 overflow-hidden">
-               <div class="h-full bg-gradient-to-r from-[#9333EA] to-[#c084fc] rounded-full transition-all duration-500" style="width: {progressPercent}%"></div>
-            </div>
-            <p class="text-[10px] font-medium"><span class="text-[#a855f7] font-bold">{progressPercent}%</span> <span class="text-white/50">até o nível {$player.level + 1}</span></p>
-
-            <div class="flex items-center justify-between mt-4">
-               <div class="flex items-center gap-4 text-[12px] font-bold text-white/80">
-                  <span class="flex items-center gap-1.5 whitespace-nowrap">🔥 Streak: {$player.streak || 0} d</span>
-                  <span class="bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 px-2 py-0.5 rounded-md flex items-center gap-1.5 shadow-[0_0_8px_rgba(234,179,8,0.1)] whitespace-nowrap">
-                     💰 {$player.coins || 0}
-                  </span>
-               </div>
-               <span class="text-white/30 text-sm font-light">›</span>
-            </div>
+        <!-- Barra de Progresso -->
+        <div class="bg-[#1C1C22]/40 border border-white/5 rounded-2xl p-4">
+          <div class="flex justify-between items-end mb-2">
+            <span class="text-[10px] text-white/90 font-medium">Próximo Nível</span>
+            <span class="text-[9px] text-white/50"><span class="text-[#c084fc] font-bold">{$player.xp}</span> / {nextLevelXp} XP</span>
           </div>
+          <div class="w-full h-1.5 bg-white/5 rounded-full overflow-hidden mb-2">
+             <div class="h-full bg-gradient-to-r from-[#9333EA] to-[#c084fc] rounded-full" style="width: {progressPercent}%"></div>
+          </div>
+          <p class="text-[9px] text-white/50 text-center"><span class="font-bold text-[#c084fc]">{progressPercent}%</span> concluído</p>
         </div>
       </div>
     </div>
+
+    <!-- Estatísticas em Grid 3x2 -->
+    <div class="grid grid-cols-3 gap-3 mb-10">
+       <!-- Metas -->
+       <div class="bg-[#1C1C22]/40 border border-white/5 rounded-2xl p-4 flex flex-col justify-between aspect-square">
+          <div class="w-7 h-7 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-400 mb-2">
+             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+          </div>
+          <div class="flex flex-col mt-auto">
+             <p class="text-2xl font-black text-white leading-none mb-1">{$completedGoalsCount || 0}</p>
+             <p class="text-[9px] text-white/70 uppercase tracking-widest font-bold leading-tight">Metas</p>
+             <p class="text-[9px] text-white/40 leading-tight">concluídas</p>
+          </div>
+       </div>
+       
+       <!-- Hábitos -->
+       <div class="bg-[#1C1C22]/40 border border-white/5 rounded-2xl p-4 flex flex-col justify-between aspect-square">
+          <div class="w-7 h-7 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 mb-2">
+             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+          <div class="flex flex-col mt-auto">
+             <p class="text-2xl font-black text-white leading-none mb-1">{$completedHabitsCount || 0}</p>
+             <p class="text-[9px] text-white/70 uppercase tracking-widest font-bold leading-tight">Hábitos</p>
+             <p class="text-[9px] text-white/40 leading-tight">concluídos</p>
+          </div>
+       </div>
+       
+       <!-- Ofensiva -->
+       <div class="bg-[#1C1C22]/40 border border-white/5 rounded-2xl p-4 flex flex-col justify-between aspect-square">
+          <div class="w-7 h-7 rounded-full bg-orange-500/10 flex items-center justify-center text-orange-400 mb-2">
+             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12,22A10,10,0,0,1,2.83,16c.45-.48.91-1,1.4-1.42A7,7,0,0,0,10,21.57c0-2.31-1.31-3.64-2.8-5.2C5.58,14.65,4,13,4,9.5A8,8,0,0,1,12,2a5,5,0,0,0,1,5c0,1-1,2-1,3,1.69-1.07,4-2,5-4a6.52,6.52,0,0,1,1,3.46c0,4-2.58,6-5,7a4.42,4.42,0,0,0,2.15-1.5,10,10,0,0,1-2.15,3Z"/></svg>
+          </div>
+          <div class="flex flex-col mt-auto">
+             <p class="text-2xl font-black text-white leading-none mb-1">{$player?.streak || 0} d</p>
+             <p class="text-[9px] text-white/70 uppercase tracking-widest font-bold leading-tight">Ofensiva</p>
+             <p class="text-[9px] text-white/40 leading-tight">atual</p>
+          </div>
+       </div>
+       
+       <!-- LifeCoins -->
+       <div class="bg-[#1C1C22]/40 border border-white/5 rounded-2xl p-4 flex flex-col justify-between aspect-square">
+          <div class="w-7 h-7 rounded-full bg-yellow-500/10 flex items-center justify-center text-yellow-500 mb-2">
+             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 12A4 4 0 0 0 8 12M12 16v.01"/></svg>
+          </div>
+          <div class="flex flex-col mt-auto">
+             <p class="text-2xl font-black text-white leading-none mb-1">{$player?.coins || 0}</p>
+             <p class="text-[9px] text-white/70 uppercase tracking-widest font-bold leading-tight">LifeCoins</p>
+             <p class="text-[9px] text-white/40 leading-tight">disponíveis</p>
+          </div>
+       </div>
+       
+       <!-- Treinos -->
+       <div class="bg-[#1C1C22]/40 border border-white/5 rounded-2xl p-4 flex flex-col justify-between aspect-square">
+          <div class="w-7 h-7 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-400 mb-2">
+             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 10v4"/><path d="M18 10v4"/><path d="M2 12h20"/><path d="M2 9v6"/><path d="M22 9v6"/></svg>
+          </div>
+          <div class="flex flex-col mt-auto">
+             <p class="text-2xl font-black text-white leading-none mb-1">{$completedWorkoutsCount || 0}</p>
+             <p class="text-[9px] text-white/70 uppercase tracking-widest font-bold leading-tight">Treinos</p>
+             <p class="text-[9px] text-white/40 leading-tight">registrados</p>
+          </div>
+       </div>
+       
+       <!-- Carga Total -->
+       <div class="bg-[#1C1C22]/40 border border-white/5 rounded-2xl p-4 flex flex-col justify-between aspect-square">
+          <div class="w-7 h-7 rounded-full bg-cyan-500/10 flex items-center justify-center text-cyan-400 mb-2">
+             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m8 17 4 4 4-4"/></svg>
+          </div>
+          <div class="flex flex-col mt-auto">
+             <p class="text-2xl font-black text-white leading-none mb-1 truncate w-full">{($volumeTotal || 0) > 1000 ? (($volumeTotal || 0)/1000).toFixed(1) + ' t' : Math.round($volumeTotal || 0) + ' kg'}</p>
+             <p class="text-[9px] text-white/70 uppercase tracking-widest font-bold leading-tight">Carga Total</p>
+             <p class="text-[9px] text-white/40 leading-tight">levantada</p>
+          </div>
+       </div>
+    </div>
   {/if}
 
-  <!-- Stats Row -->
-  <div class="bg-[#1C1C22]/80 backdrop-blur-md rounded-[20px] p-4 flex justify-between items-center border border-white/5 shadow-inner mb-5">
-    <div class="flex flex-col items-center text-center px-1">
-      <div class="flex items-center gap-1 text-[17px] font-black text-white mb-0.5">
-        <span class="text-[#a855f7] text-[15px]">🎯</span> {$completedGoalsCount || 0}
-      </div>
-      <p class="text-[9px] text-white/50 font-medium leading-tight w-[45px]">Metas concl.</p>
-    </div>
-    <div class="w-px h-8 bg-white/5"></div>
-    <div class="flex flex-col items-center text-center px-1">
-      <div class="flex items-center gap-1 text-[17px] font-black text-white mb-0.5">
-        <span class="text-green-500 text-[15px]">✅</span> {$completedHabitsCount || 0}
-      </div>
-      <p class="text-[9px] text-white/50 font-medium leading-tight w-[45px]">Hábitos concl.</p>
-    </div>
-    <div class="w-px h-8 bg-white/5"></div>
-    <div class="flex flex-col items-center text-center px-1">
-      <div class="flex items-center gap-1 text-[17px] font-black text-white mb-0.5">
-        <span class="text-red-500 text-[15px]">🔥</span> {$player?.streak || 0}
-      </div>
-      <p class="text-[9px] text-white/50 font-medium leading-tight w-[45px]">Maior seq.</p>
-    </div>
-    <div class="w-px h-8 bg-white/5"></div>
-    <div class="flex flex-col items-center text-center px-1">
-      <div class="flex items-center gap-1 text-[17px] font-black text-white mb-0.5">
-        <span class="text-yellow-500 text-[15px]">★</span> {totalXp}
-      </div>
-      <p class="text-[9px] text-white/50 font-medium leading-tight w-[45px]">XP total acm.</p>
-    </div>
+  <!-- Configurações e Ferramentas -->
+  <h3 class="text-[10px] font-black text-white/40 mb-3 uppercase tracking-widest">Configurações e Ferramentas</h3>
+  <div class="bg-[#1C1C22]/40 border border-white/5 rounded-[16px] flex flex-col overflow-hidden mb-8">
+     
+     <button class="flex items-center gap-4 w-full px-5 py-4 group hover:bg-white/5 transition-colors border-b border-white/5" on:click={showPrivacyNote}>
+        <svg class="w-5 h-5 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <div class="text-left flex-1">
+           <span class="text-[13px] font-bold text-white/90 block mb-0.5">Privacidade e Segurança</span>
+           <span class="text-[10px] text-white/40 block">Gerencie seus dados e privacidade</span>
+        </div>
+        <span class="text-white/20 text-sm">›</span>
+     </button>
+     
+     <button class="flex items-center gap-4 w-full px-5 py-4 group hover:bg-white/5 transition-colors border-b border-white/5" on:click={showBackupNote}>
+        <svg class="w-5 h-5 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
+        <div class="text-left flex-1">
+           <span class="text-[13px] font-bold text-white/90 block mb-0.5">Backup LocalFirst</span>
+           <span class="text-[10px] text-white/40 block">Sincronize seus dados com a nuvem</span>
+        </div>
+        <span class="text-white/20 text-sm">›</span>
+     </button>
+     
+     <button class="flex items-center gap-4 w-full px-5 py-4 group hover:bg-white/5 transition-colors border-b border-white/5" on:click={exportData}>
+        <svg class="w-5 h-5 text-fuchsia-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+        <div class="text-left flex-1">
+           <span class="text-[13px] font-bold text-white/90 block mb-0.5">Exportar Relatório PDF</span>
+           <span class="text-[10px] text-white/40 block">Gere um relatório completo da sua jornada</span>
+        </div>
+        <span class="text-white/20 text-sm">›</span>
+     </button>
+     
+     <button class="flex items-center gap-4 w-full px-5 py-4 group hover:bg-white/5 transition-colors" on:click={() => window.location.href = 'mailto:leosergio.583@gmail.com'}>
+        <svg class="w-5 h-5 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+        <div class="text-left flex-1">
+           <span class="text-[13px] font-bold text-white/90 block mb-0.5">Central de Ajuda</span>
+           <span class="text-[10px] text-white/40 block">Tire dúvidas e fale com o suporte</span>
+        </div>
+        <span class="text-white/20 text-sm">›</span>
+     </button>
   </div>
-
-  <!-- Grids para Conquistas e Chart (2 Colunas em desktop, empilhado no mobile para não quebrar layout, mas inspirado na imagem que é lado a lado) -->
-  <div class="flex flex-col gap-3 mb-6">
-    <!-- Conquistas -->
-    <div class="bg-[#1C1C22]/80 border border-white/5 rounded-[24px] p-4 shadow-inner">
-      <div class="flex justify-between items-center mb-4">
-        <h3 class="text-[13px] font-bold text-white">Conquistas recentes</h3>
-        <button class="text-[10px] text-[#a855f7] font-medium flex items-center gap-1" on:click={() => navigate('quests')}>Ver todas <span>›</span></button>
-      </div>
-      <div class="flex justify-between px-2">
-        {#each (myMedals || []).slice(0, 3) as medal}
-           <div class="flex flex-col items-center">
-             <div class="w-14 h-[60px] flex items-center justify-center text-2xl shadow-lg border border-white/10 rounded-xl {medal.bg}">
-                {medal.icon}
-             </div>
-             <span class="text-[9px] text-white/80 mt-2 text-center max-w-[50px] leading-tight font-medium">{medal.name}</span>
-           </div>
-        {/each}
-        {#if (myMedals || []).length === 0}
-           <p class="text-xs text-white/40 w-full text-center py-4">Nenhuma conquista ainda. Cumpra suas metas!</p>
-        {/if}
-      </div>
-    </div>
+  
+  <!-- Sessão da Conta -->
+  <h3 class="text-[10px] font-black text-white/40 mb-3 uppercase tracking-widest">Sessão da Conta</h3>
+  <div class="bg-[#1C1C22]/40 border border-white/5 rounded-[16px] flex flex-col overflow-hidden">
+     <button class="flex items-center gap-4 w-full px-5 py-4 group hover:bg-red-500/5 transition-colors" on:click={handleSoftLogout}>
+        <svg class="w-5 h-5 text-[#f43f5e]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <span class="text-[13px] font-bold text-[#f43f5e] flex-1 text-left">Desconectar da Nuvem</span>
+        <span class="text-white/20 text-sm">›</span>
+     </button>
   </div>
-
-  <!-- Links / Configurações (Duas Colunas) -->
-  <div class="grid grid-cols-2 gap-3 mb-4">
-    <!-- Coluna 1 -->
-    <div>
-       <h3 class="text-[13px] font-bold text-white mb-3 pl-1">Conta e preferências</h3>
-       <div class="flex flex-col gap-3 pl-1">
-          <button class="flex items-center justify-between w-full group py-1" on:click={handleEditProfile}>
-             <div class="flex items-center gap-2.5 text-white/70 group-hover:text-white transition-colors">
-                <svg class="w-[18px] h-[18px] text-[#3b82f6]" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg> 
-                <span class="text-[12px] font-medium">Editar perfil</span>
-             </div>
-             <span class="text-white/20 text-sm">›</span>
-          </button>
-          <button class="flex items-center justify-between w-full group py-1" on:click={showPrivacyNote}>
-             <div class="flex items-center gap-2.5 text-white/70 group-hover:text-white transition-colors">
-                <svg class="w-[18px] h-[18px] text-white/50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                <span class="text-[12px] font-medium">Privacidade</span>
-             </div>
-             <span class="text-white/20 text-sm">›</span>
-          </button>
-       </div>
-    </div>
-
-    <!-- Coluna 2 -->
-    <div>
-       <h3 class="text-[13px] font-bold text-white mb-3 pl-1">Ferramentas</h3>
-       <div class="flex flex-col gap-3 pl-1">
-          <button class="flex items-center justify-between w-full group py-1" on:click={showBackupNote}>
-             <div class="flex items-center gap-2.5 text-white/70 group-hover:text-white transition-colors">
-                <svg class="w-[18px] h-[18px] text-white/50" viewBox="0 0 24 24" fill="currentColor"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
-                <span class="text-[12px] font-medium">Backup de dados</span>
-             </div>
-             <span class="text-white/20 text-sm">›</span>
-          </button>
-          <button class="flex items-center justify-between w-full group py-1" on:click={exportData}>
-             <div class="flex items-center gap-2.5 text-white/70 group-hover:text-white transition-colors">
-                <svg class="w-[18px] h-[18px] text-orange-400" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
-                <span class="text-[12px] font-medium">Exportar dados</span>
-             </div>
-             <span class="text-white/20 text-sm">›</span>
-          </button>
-          <button class="flex items-center justify-between w-full group py-1" on:click={() => window.location.href = 'mailto:leosergio.583@gmail.com'}>
-             <div class="flex items-center gap-2.5 text-white/70 group-hover:text-white transition-colors">
-                <svg class="w-[18px] h-[18px] text-white/50" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/></svg>
-                <span class="text-[12px] font-medium">Central de ajuda</span>
-             </div>
-             <span class="text-white/20 text-sm">›</span>
-          </button>
-          
-          <!-- Botões de Sair -->
-          <button class="flex items-center justify-between w-full group py-1 mt-2" on:click={handleSoftLogout}>
-             <div class="flex items-center gap-2.5 text-white/70 group-hover:text-orange-400 transition-colors">
-                <svg class="w-[18px] h-[18px] text-orange-500/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-                <span class="text-[12px] font-medium text-orange-400/80 group-hover:text-orange-400">Sair (Sem Resetar)</span>
-             </div>
-             <span class="text-orange-400/20 text-sm">›</span>
-          </button>
-          <button class="flex items-center justify-between w-full group py-1" on:click={handleLogout}>
-             <div class="flex items-center gap-2.5 text-white/70 group-hover:text-red-400 transition-colors">
-                <svg class="w-[18px] h-[18px] text-red-500/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"></path></svg>
-                <span class="text-[12px] font-medium text-red-400/80 group-hover:text-red-400">Sair da Conta (Reset)</span>
-             </div>
-             <span class="text-red-400/20 text-sm">›</span>
-          </button>
-       </div>
-    </div>
-  </div>
-
 </main>

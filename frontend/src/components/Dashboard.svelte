@@ -8,6 +8,7 @@
   import { onMount } from 'svelte';
   import { pushSync } from '../services/syncService.js';
   import { fetchGlobalRanking } from '../services/socialService.js';
+  import { updatePlayer } from '../repositories/playerRepository.js';
 
   const player = liveQuery(() => db.player.toCollection().first());
   const habits = liveQuery(() => db.habits.where('archivedAt').equals(null).toArray());
@@ -21,8 +22,6 @@
   $: currentLevel = $player?.level ?? 1;
   $: nextLevelXp = currentLevel * 100;
   $: progressPercent = Math.min(100, Math.round((totalXp / nextLevelXp) * 100));
-
-  import { updatePlayer } from '../repositories/playerRepository.js';
 
   onMount(async () => {
     const p = await db.player.toCollection().first();
@@ -64,8 +63,13 @@
   });
 
   // Calculate some stats
+  const achievementsQuery = liveQuery(() => db.unlockedAchievements.toArray());
+  const dailyQuestsQuery = liveQuery(() => db.dailyQuests.toArray());
+
   $: habitsCompleted = $completions?.length || 0;
   $: workoutsCompleted = $sessions?.length || 0;
+  $: achievementsCount = $achievementsQuery?.length || 0;
+  $: missionsCount = ($dailyQuestsQuery ?? []).filter(q => q.completed).length;
 
   // Helpers for timeline
   const timelineNodes = [
@@ -175,7 +179,7 @@
   <div class="grid grid-cols-4 gap-2 mt-4">
     <div class="bg-[#1C1C22]/80 border border-white/5 rounded-[16px] p-3 flex flex-col items-center justify-center text-center">
        <svg class="w-5 h-5 text-[#a855f7] mb-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
-       <span class="text-white text-[13px] font-bold leading-none mb-0.5">0</span>
+       <span class="text-white text-[13px] font-bold leading-none mb-0.5">{missionsCount}</span>
        <span class="text-[8px] text-white/50 uppercase tracking-wide">Missões</span>
     </div>
     <div class="bg-[#1C1C22]/80 border border-white/5 rounded-[16px] p-3 flex flex-col items-center justify-center text-center">
@@ -185,7 +189,7 @@
     </div>
     <div class="bg-[#1C1C22]/80 border border-white/5 rounded-[16px] p-3 flex flex-col items-center justify-center text-center">
        <svg class="w-5 h-5 text-yellow-500 mb-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
-       <span class="text-white text-[13px] font-bold leading-none mb-0.5">0</span>
+       <span class="text-white text-[13px] font-bold leading-none mb-0.5">{achievementsCount}</span>
        <span class="text-[8px] text-white/50 uppercase tracking-wide">Conquistas</span>
     </div>
     <div class="bg-[#1C1C22]/80 border border-white/5 rounded-[16px] p-3 flex flex-col items-center justify-center text-center">
@@ -264,47 +268,40 @@
      </button>
   </div>
 
-  <!-- 2x2 Grid -->
-  <div class="grid grid-cols-2 gap-2 mt-4">
-    <!-- Melhores Sequencias -->
-    <div class="bg-[#1C1C22]/80 border border-white/5 rounded-[20px] p-3 flex flex-col justify-between">
-       <div>
-         <div class="flex items-center gap-1.5 mb-2">
-            <svg class="w-3.5 h-3.5 text-orange-500 shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12,22A10,10,0,0,1,2.83,16c.45-.48.91-1,1.4-1.42A7,7,0,0,0,10,21.57c0-2.31-1.31-3.64-2.8-5.2C5.58,14.65,4,13,4,9.5A8,8,0,0,1,12,2a5,5,0,0,0,1,5c0,1-1,2-1,3,1.69-1.07,4-2,5-4a6.52,6.52,0,0,1,1,3.46c0,4-2.58,6-5,7a4.42,4.42,0,0,0,2.15-1.5,10,10,0,0,1-2.15,3Z"/></svg>
-            <span class="text-[10px] font-bold text-white leading-tight">Melhores seq.</span>
-         </div>
-         <h4 class="text-xl font-black text-white">{streak} dia</h4>
-         <p class="text-[8px] text-white/40">Maior sequência</p>
+  <!-- Atividade da Semana -->
+  <div class="bg-[#1C1C22]/80 border border-white/5 rounded-[24px] p-5 mt-4 relative overflow-hidden group">
+    <!-- Efeito de brilho de fundo -->
+    <div class="absolute -right-10 -top-10 w-32 h-32 bg-orange-500/10 blur-3xl rounded-full pointer-events-none group-hover:bg-orange-500/20 transition-all duration-500"></div>
+
+    <div class="flex items-center justify-between mb-5 relative z-10">
+       <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-full bg-orange-500/20 border border-orange-500/30 flex items-center justify-center">
+             <svg class="w-4 h-4 text-orange-500" viewBox="0 0 24 24" fill="currentColor"><path d="M12,22A10,10,0,0,1,2.83,16c.45-.48.91-1,1.4-1.42A7,7,0,0,0,10,21.57c0-2.31-1.31-3.64-2.8-5.2C5.58,14.65,4,13,4,9.5A8,8,0,0,1,12,2a5,5,0,0,0,1,5c0,1-1,2-1,3,1.69-1.07,4-2,5-4a6.52,6.52,0,0,1,1,3.46c0,4-2.58,6-5,7a4.42,4.42,0,0,0,2.15-1.5,10,10,0,0,1-2.15,3Z"/></svg>
+          </div>
+          <div>
+             <h3 class="text-[13px] font-bold text-white leading-tight">Sua Ofensiva</h3>
+             <p class="text-[9px] text-white/50">Mantenha a constância</p>
+          </div>
        </div>
-       <!-- Mini semana -->
-       <div class="flex justify-between mt-3">
-          {#each ['S','T','Q','Q','S','S','D'] as day, i}
-             <div class="flex flex-col items-center gap-0.5">
-                <div class="w-2.5 h-3.5 rounded-[2px] {i === 0 ? 'bg-[#a855f7] shadow-[0_0_5px_rgba(168,85,247,0.5)]' : 'bg-white/5'}"></div>
-                <span class="text-[7px] text-white/30">{day}</span>
-             </div>
-          {/each}
+       <div class="text-right">
+          <p class="text-[10px] text-white/40 uppercase tracking-widest font-bold">Sequência</p>
+          <p class="text-[16px] font-black text-orange-400 drop-shadow-[0_0_8px_rgba(249,115,22,0.4)]">{streak} dia{streak !== 1 ? 's' : ''}</p>
        </div>
     </div>
 
-
-
-    <!-- Conquistas Recentes -->
-    <div class="bg-[#1C1C22]/80 border border-white/5 rounded-[20px] p-3 flex flex-col justify-between col-span-2">
-       <div class="flex items-center justify-between mb-2">
-          <div class="flex items-center gap-1.5">
-             <svg class="w-3.5 h-3.5 text-[#a855f7] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
-             <span class="text-[10px] font-bold text-white leading-tight">Conquistas</span>
-          </div>
-          <span class="text-[9px] text-[#a855f7] font-medium cursor-pointer shrink-0 ml-1" on:click={() => navigate('quests', { tab: 'conquistas' })}>Ver</span>
-       </div>
-       <div class="flex items-start gap-1.5">
-          <svg class="w-5 h-5 text-white/20 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
-          <p class="text-[8px] text-white/40 leading-tight">Nenhuma ainda. Complete desafios!</p>
-       </div>
+    <div class="flex justify-between items-end gap-1.5 relative z-10">
+      {#each weekActivity as day}
+         <div class="flex flex-col items-center gap-2 flex-1">
+            <div class="w-full max-w-[36px] h-12 rounded-[10px] flex items-center justify-center transition-all duration-300 {day.trained ? 'bg-gradient-to-t from-orange-600 to-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.4)] border border-orange-400/50' : day.isToday ? 'bg-white/10 border border-white/20' : 'bg-surface border border-white/5'}">
+              {#if day.trained}
+                 <span class="text-white text-[15px] drop-shadow-md">🔥</span>
+              {/if}
+            </div>
+            <span class="text-[9px] font-bold uppercase tracking-wider {day.isToday ? 'text-orange-400' : day.trained ? 'text-white/80' : 'text-white/30'}">{day.label}</span>
+         </div>
+      {/each}
     </div>
   </div>
-
 
   <!-- ══════════════════════════════════════ -->
   <!-- 🏆 RANKING GLOBAL — Seção em Destaque -->

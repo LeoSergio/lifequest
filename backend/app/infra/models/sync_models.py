@@ -1,8 +1,8 @@
 from datetime import datetime, timezone
-from sqlalchemy import String, Integer, DateTime, Boolean, ForeignKey, Float
+from sqlalchemy import String, Integer, DateTime, Boolean, ForeignKey, Float, CheckConstraint, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from app.infra.database import Base
 
@@ -161,3 +161,27 @@ class UnlockedAchievementModel(SyncBase):
 
     achievement_id: Mapped[str] = mapped_column(String)
     unlocked_at: Mapped[str] = mapped_column(String)
+
+
+# ==========================================
+# 5. Social — Amizades
+# ==========================================
+class FriendshipModel(Base):
+    """
+    Representa uma solicitação/amizade entre dois usuários.
+    A amizade é direcional no banco (requester → addressee) mas
+    a query de amigos aceitos busca nas duas direções.
+    status: 'pending' | 'accepted' | 'blocked'
+    """
+    __tablename__ = "friendships"
+    __table_args__ = (
+        UniqueConstraint("requester_id", "addressee_id", name="uq_friendship_pair"),
+        CheckConstraint("requester_id <> addressee_id", name="ck_no_self_friendship"),
+    )
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    requester_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"), index=True)
+    addressee_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"), index=True)
+    status: Mapped[str] = mapped_column(String(20), default="pending")  # pending | accepted | blocked
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None))

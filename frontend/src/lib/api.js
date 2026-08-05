@@ -13,7 +13,12 @@ async function request(path, options = {}) {
     ...options
   });
   if (!res.ok) {
-    throw new Error(`API error ${res.status}: ${await res.text()}`);
+    let data = null;
+    try { data = await res.json(); } catch (_) {}
+    const err = new Error(`API error ${res.status}`);
+    err.status = res.status;
+    err.data = data;
+    throw err;
   }
   return res.json();
 }

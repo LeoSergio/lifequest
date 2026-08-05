@@ -92,7 +92,13 @@
           return; // A tela sairá do Onboarding automaticamente via liveQuery
         }
       } catch (err) {
-        errorMessage = 'Erro de conexão com o servidor. Verifique se o backend está rodando.';
+        if (err?.status === 401) {
+          errorMessage = 'E-mail ou senha incorretos. Verifique seus dados e tente novamente.';
+        } else if (err?.status === 400) {
+          errorMessage = err?.data?.detail || 'Dados inválidos. Verifique e tente novamente.';
+        } else {
+          errorMessage = 'Erro de conexão com o servidor. Verifique se o backend está rodando.';
+        }
         isLoading = false;
         return;
       }

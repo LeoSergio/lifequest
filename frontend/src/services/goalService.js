@@ -6,11 +6,11 @@
  */
 import { applyXp } from '../lib/gamification.js';
 import { isGoalAchieved } from '../lib/goals.js';
-import { addGoal, updateGoal } from '../repositories/goalRepository.js';
+import { addGoal, updateGoal, deleteGoal } from '../repositories/goalRepository.js';
 import { getPlayer, updatePlayer } from '../repositories/playerRepository.js';
 import { checkAchievements } from '../lib/achievements.js';
 
-export { addGoal };
+export { addGoal, deleteGoal };
 
 /**
  * Adiciona progresso a uma meta.

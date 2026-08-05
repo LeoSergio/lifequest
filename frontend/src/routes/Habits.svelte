@@ -1,10 +1,10 @@
 <script>
   import { successRate, habitStreak } from '../lib/habits.js';
   import { allHabitsQuery, allCompletionsQuery } from '../repositories/habitRepository.js';
-  import { completeHabit, addHabit, archiveHabit } from '../services/habitService.js';
+  import { completeHabit, addHabit, archiveHabit, deleteHabit } from '../services/habitService.js';
   import HabitCard from '../components/HabitCard.svelte';
   import { pushSync } from '../services/syncService.js';
-  import { showAlert } from '../lib/modal.js';
+  import { showAlert, showConfirm } from '../lib/modal.js';
 
   const allHabits = allHabitsQuery();
   const completions = allCompletionsQuery();
@@ -71,6 +71,23 @@
     await archiveHabit(id);
     // Push imediato: arquivamento vai para a nuvem agora
     pushSync().catch(() => {});
+  }
+
+  async function handleDelete(event) {
+    const habitId = event.detail;
+    const confirmDelete = await showConfirm({
+      title: 'Excluir Hábito',
+      message: 'Tem certeza que deseja excluir este hábito e todo o histórico dele? Essa ação não pode ser desfeita.',
+      icon: '🗑️',
+      type: 'danger',
+      confirmText: 'Excluir',
+      cancelText: 'Cancelar'
+    });
+
+    if (confirmDelete) {
+      await deleteHabit(habitId);
+      pushSync().catch(() => {});
+    }
   }
 </script>
 
@@ -143,7 +160,7 @@
     <div class="flex flex-col gap-3 mb-6">
       {#each filtered as habit (habit.id)}
         <div>
-          <HabitCard {habit} completions={$completions ?? []} on:complete={handleComplete} />
+          <HabitCard {habit} completions={$completions ?? []} on:complete={handleComplete} on:delete={handleDelete} />
           {#if !habit.archivedAt}
             <button class="text-[10px] text-white/30 mt-1 ml-1" on:click={() => handleArchive(habit.id)}>
               marcar hábito como concluído (arquivar)

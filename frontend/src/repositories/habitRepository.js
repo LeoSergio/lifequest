@@ -34,6 +34,11 @@ export async function archiveHabit(id) {
   await enqueue('upsert', 'habits', id, habit);
 }
 
+export async function deleteHabit(id) {
+  await db.habits.delete(id);
+  await enqueue('delete', 'habits', id, null);
+}
+
 export async function addCompletion(habitId, date) {
   const completion = { id: generateId(), habitId, date };
   await db.habitCompletions.add(completion);

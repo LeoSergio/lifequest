@@ -6,11 +6,11 @@
  */
 import { applyXp } from '../lib/gamification.js';
 import { completedToday, todayIso, weeklyCount } from '../lib/habits.js';
-import { addCompletion, addHabit, archiveHabit } from '../repositories/habitRepository.js';
+import { addCompletion, addHabit, archiveHabit, deleteHabit } from '../repositories/habitRepository.js';
 import { getPlayer, updatePlayer } from '../repositories/playerRepository.js';
 import { checkAchievements } from '../lib/achievements.js';
 
-export { addHabit, archiveHabit };
+export { addHabit, archiveHabit, deleteHabit };
 
 /**
  * Marca um hábito como concluído hoje e aplica o XP ao jogador.

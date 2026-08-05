@@ -10,6 +10,7 @@
   import { enqueue, pushSync } from '../services/syncService.js';
   import { updatePlayer } from '../repositories/playerRepository.js';
   import { API_BASE } from '../lib/api.js';
+  import { showAlert, showConfirm, showPrompt } from '../lib/modal.js';
   
   let currentTab = 'diarias'; // 'diarias', 'semanais', 'mensais', 'conquistas', 'loja'
   
@@ -104,11 +105,11 @@
       } else {
         const err = await response.text();
         console.error('[IA] Erro ao gerar missões:', response.status, err);
-        alert('Não foi possível contatar o Mestre do Jogo (IA). Tente novamente mais tarde.');
+        showAlert({ title: 'Mestre do Jogo indisponível', message: 'Não foi possível contatar a IA. Tente novamente mais tarde.', icon: '🧙', type: 'warning' });
       }
     } catch (e) {
       console.error('[IA] Erro de conexão:', e);
-      alert('Não foi possível contatar o Mestre do Jogo (IA). Verifique sua conexão.');
+      showAlert({ title: 'Sem conexão', message: 'Não foi possível contatar a IA. Verifique sua conexão.', icon: '📡', type: 'warning' });
     } finally {
       isLoadingQuests = false;
     }
@@ -156,11 +157,11 @@
       } else {
         const err = await response.text();
         console.error('[IA] Erro ao gerar missão épica:', response.status, err);
-        alert('Falha ao invocar o Chefão. Tente novamente.');
+        showAlert({ title: 'Falha ao invocar Chefão', message: 'Não foi possível conjurar a missão. Tente novamente.', icon: '🐲', type: 'warning' });
       }
     } catch (e) {
       console.error('[IA] Erro de conexão:', e);
-      alert('Falha ao invocar o Chefão. Verifique sua conexão.');
+      showAlert({ title: 'Sem conexão', message: 'Não foi possível invocar o Chefão. Verifique sua conexão.', icon: '📡', type: 'warning' });
     } finally {
       isLoadingEpic = false;
     }
@@ -197,12 +198,24 @@
     
     if (gotChest) {
       setTimeout(() => {
-        alert(`🎁 BAÚ DIÁRIO ABERTO! Você completou as 3 missões e ganhou ${coinsEarned} LifeCoins!`);
+        showAlert({
+          title: '🎁 Baú Diário Aberto!',
+          message: `Você completou as 3 missões e ganhou ${coinsEarned} LifeCoins!`,
+          icon: '💰',
+          type: 'success',
+          confirmText: 'Incrivel!',
+        });
       }, 300);
     }
     
     if (leveledUp) {
-      alert(`🎉 Level Up! Você alcançou o nível ${level}!`);
+      showAlert({
+        title: '🎉 Level Up!',
+        message: `Você alcançou o nível ${level}!`,
+        icon: '⭐',
+        type: 'success',
+        confirmText: 'Boa!',
+      });
     }
 
     // Push imediato: missão concluída e XP/coins vão para a nuvem agora
@@ -215,13 +228,25 @@
 
     let damage = 1;
     if (goal.unit.toLowerCase() !== 'dias' && goal.unit.toLowerCase() !== 'treinos' && goal.unit.toLowerCase() !== 'dias seguidos') {
-      const input = prompt(`Quanto de dano (${goal.unit}) você causou hoje ao ${goal.title}?`);
+      const input = await showPrompt({
+        title: `Atacar ${goal.title}`,
+        message: `Quanto de dano (${goal.unit}) você causou hoje?`,
+        icon: '⚔️',
+        placeholder: 'Ex: 5',
+      });
       if (!input) return;
       damage = parseInt(input);
       if (isNaN(damage) || damage <= 0) return;
     } else {
-      const confirmAttack = confirm(`Deseja realizar o ataque diário (1 ${goal.unit}) contra o ${goal.title}?`);
-      if (!confirmAttack) return;
+      const ok = await showConfirm({
+        title: `Atacar ${goal.title}`,
+        message: `Deseja realizar o ataque diário (1 ${goal.unit}) contra o Chefão?`,
+        icon: '⚔️',
+        type: 'default',
+        confirmText: 'Atacar!',
+        cancelText: 'Cancelar',
+      });
+      if (!ok) return;
     }
 
     const newValue = Math.min(goal.targetValue, goal.currentValue + damage);
@@ -241,17 +266,27 @@
         const newCoins = (p.coins || 0) + bossCoins;
         
         await updatePlayer(p.id, { level, xp, coins: newCoins });
-        if (leveledUp) alert(`Level Up! Nível ${level} alcançado!`);
+        if (leveledUp) showAlert({ title: `Level Up! Nível ${level}!`, icon: '⭐', type: 'success', confirmText: 'Boa!' });
       }
 
-      // Push imediato: chefão derrotado vai para a nuvem agora
       pushSync().catch(() => {});
 
-      alert(`🎉 CHEFÃO DERROTADO! Você ganhou ${goal.xpReward} XP e 💰 ${Math.floor(goal.xpReward / 5)} LifeCoins!`);
+      showAlert({
+        title: '🎉 Chefão Derrotado!',
+        message: `Você ganhou ${goal.xpReward} XP e 💰 ${Math.floor(goal.xpReward / 5)} LifeCoins!`,
+        icon: '🏆',
+        type: 'success',
+        confirmText: 'Incrivel!',
+      });
     } else {
-      // Push imediato: dano no chefão vai para a nuvem agora
       pushSync().catch(() => {});
-      alert(`💥 Pow! Você causou ${damage} de dano!`);
+      showAlert({
+        title: '💥 Golpe Certeiro!',
+        message: `Você causou ${damage} de dano ao Chefão!`,
+        icon: '⚔️',
+        type: 'default',
+        confirmText: 'Continuar',
+      });
     }
   }
 

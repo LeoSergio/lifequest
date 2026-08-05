@@ -4,6 +4,7 @@
   import { completeHabit, addHabit, archiveHabit } from '../services/habitService.js';
   import HabitCard from '../components/HabitCard.svelte';
   import { pushSync } from '../services/syncService.js';
+  import { showAlert } from '../lib/modal.js';
 
   const allHabits = allHabitsQuery();
   const completions = allCompletionsQuery();
@@ -43,7 +44,13 @@
   async function handleComplete(event) {
     const habit = event.detail;
     const result = await completeHabit(habit, $completions ?? []);
-    if (result?.leveledUp) alert(`Level up! Agora você é nível ${result.level} 🎉`);
+    if (result?.leveledUp) showAlert({
+      title: 'Level Up! 🎉',
+      message: `Agora você é nível ${result.level}!`,
+      icon: '⭐',
+      type: 'success',
+      confirmText: 'Boa!',
+    });
     // Push imediato: conclusão do hábito vai para a nuvem agora
     pushSync().catch(() => {});
   }

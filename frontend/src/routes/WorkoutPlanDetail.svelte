@@ -16,6 +16,7 @@
     finishWorkout
   } from '../services/workoutService.js';
   import { pushSync } from '../services/syncService.js';
+  import { showAlert } from '../lib/modal.js';
 
   export let planId; // recebido via navigate('workout-plan-detail', { planId })
 
@@ -144,9 +145,21 @@
       // Push imediato ao encerrar sessão
       pushSync().catch(() => {});
       if (leveledUp) {
-        alert(`Treino concluído! +${xpReward} XP — Level up! Agora você é nível ${level} 🎉`);
+        await showAlert({
+          title: `Level Up! 🎉`,
+          message: `Treino concluído! Você ganhou +${xpReward} XP e subiu para o nível ${level}!`,
+          icon: '🌟',
+          type: 'success',
+          confirmText: 'Incrivel!',
+        });
       } else {
-        alert(`Treino concluído! +${xpReward} XP 🔥`);
+        await showAlert({
+          title: 'Treino concluído! 🔥',
+          message: `+${xpReward} XP ganhos. Continue assim!`,
+          icon: '💪',
+          type: 'success',
+          confirmText: 'Boa!',
+        });
       }
     } finally {
       completing = false;

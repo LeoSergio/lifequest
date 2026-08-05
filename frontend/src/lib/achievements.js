@@ -1,6 +1,7 @@
 import { db } from '../db/db.js';
 import { generateId } from './id.js';
 import { enqueue } from '../services/syncService.js';
+import { showAlert } from './modal.js';
 
 export const ACHIEVEMENTS = [
   // Básicos
@@ -184,9 +185,15 @@ export async function checkAchievements() {
             let rewardText = [];
             if (ach.xp) rewardText.push(`+${ach.xp} XP`);
             if (ach.coins) rewardText.push(`+${ach.coins} Moedas`);
-            const rewardString = rewardText.length > 0 ? `\nRecompensas: ${rewardText.join(' | ')}` : '';
+            const rewardString = rewardText.length > 0 ? `Recompensas: ${rewardText.join(' | ')}` : '';
             
-            alert(`🏅 CONQUISTA DESBLOQUEADA!\n\n${ach.name}\n${ach.description}${rewardString}`);
+            showAlert({
+              title: '🏅 Conquista Desbloqueada!',
+              message: `${ach.name}\n${ach.description}${rewardString ? '\n\n' + rewardString : ''}`,
+              icon: ach.icon ?? '🏅',
+              type: 'success',
+              confirmText: 'Incrivel!',
+            });
         }, 500);
     }
   }

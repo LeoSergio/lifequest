@@ -17,10 +17,12 @@
   import NavBar from './components/NavBar.svelte';
   import BackgroundBlobs from './components/BackgroundBlobs.svelte';
   import SyncBadge from './components/SyncBadge.svelte';
+  import Modal from './components/Modal.svelte';
 
   const hasPlayer = liveQuery(async () => (await db.player.count()) > 0);
 </script>
 <BackgroundBlobs />
+<Modal />
 {#if $hasPlayer}
   <SyncBadge />
 {/if}

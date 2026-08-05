@@ -3,6 +3,7 @@
   import { db } from '../db/db.js';
   import { generateId } from '../lib/id.js';
   import { pushSync, enqueue } from '../services/syncService.js';
+  import { showAlert, showConfirm } from '../lib/modal.js';
   
   const player = liveQuery(() => db.player.toCollection().first());
   const inventory = liveQuery(() => db.inventory.toArray());
@@ -221,7 +222,13 @@
     if (item.category !== 'consumable') {
       const alreadyOwns = $inventory.some(i => i.itemId === item.id);
       if (alreadyOwns) {
-        alert('Você já possui este item!');
+        await showAlert({
+          title: 'Item já adquirido',
+          message: `Você já possui "${item.name}" no seu inventário.`,
+          icon: '✅',
+          type: 'info',
+          confirmText: 'Entendi',
+        });
         return;
       }
     }
@@ -234,17 +241,37 @@
     
     if (currentBalance < item.price) {
       if (isPro) {
-        const wantsToBuyPro = confirm(`Você não tem ${currencyName} suficientes! Faltam ${item.price - currentBalance} moedas.\n\nDeseja adquirir mais Moedas PRO ou assinar o LifeQuest Premium?`);
+        const wantsToBuyPro = await showConfirm({
+          title: 'Saldo insuficiente',
+          message: `Você não tem ${currencyName} suficientes! Faltam ${item.price - currentBalance} moedas.\n\nDeseja adquirir mais Moedas PRO ou assinar o LifeQuest Premium?`,
+          icon: '💎',
+          type: 'warning',
+          confirmText: 'Adquirir PRO',
+          cancelText: 'Cancelar',
+        });
         if (wantsToBuyPro) {
-          alert('Em breve: Redirecionando para a página de Pagamento/Assinatura Stripe...');
+          showAlert({ title: 'Em breve!', message: 'Redirecionando para a página de pagamento...', icon: '💳', type: 'info' });
         }
       } else {
-        alert(`Você não tem ${currencyName} suficientes! Faltam ${item.price - currentBalance} moedas.\nComplete missões para ganhar mais!`);
+        showAlert({
+          title: 'Saldo insuficiente',
+          message: `Você não tem ${currencyName} suficientes! Faltam ${item.price - currentBalance} moedas.\nComplete missões para ganhar mais!`,
+          icon: '💰',
+          type: 'warning',
+          confirmText: 'Entendi',
+        });
       }
       return;
     }
 
-    const confirmBuy = confirm(`Deseja comprar "${item.name}" por ${item.price} ${currencyName}?`);
+    const confirmBuy = await showConfirm({
+      title: `Comprar ${item.name}?`,
+      message: `Essa compra custará ${item.price} ${currencyName} do seu saldo.`,
+      icon: '🛒',
+      type: 'default',
+      confirmText: `Comprar por ${item.price}`,
+      cancelText: 'Cancelar',
+    });
     if (!confirmBuy) return;
 
     // Deduz moedas usando updatePlayer (que enfileira sync)
@@ -264,7 +291,13 @@
     // Push imediato: coins e item vão para a nuvem agora
     pushSync().catch(() => {});
 
-    alert(`🎉 Compra realizada com sucesso! Você adquiriu: ${item.name}`);
+    showAlert({
+      title: 'Compra realizada! 🎉',
+      message: `Você adquiriu: ${item.name}`,
+      icon: '🚀',
+      type: 'success',
+      confirmText: 'Incrivel!',
+    });
   }
 
   function getCurrency(category) {
@@ -297,7 +330,7 @@
       </div>
     </div>
     
-    <button on:click={() => alert('Em breve: Checkout para adquirir Moedas PRO ou Assinatura Premium.')} class="bg-purple-600 hover:bg-purple-500 text-white text-[11px] font-bold px-3 py-1.5 rounded-[12px] transition-all shadow-[0_0_10px_rgba(168,85,247,0.3)]">
+    <button on:click={() => showAlert({ title: 'Em breve!', message: 'Checkout para adquirir Moedas PRO ou Assinatura Premium.', icon: '💳', type: 'info', confirmText: 'Entendi' })} class="bg-purple-600 hover:bg-purple-500 text-white text-[11px] font-bold px-3 py-1.5 rounded-[12px] transition-all shadow-[0_0_10px_rgba(168,85,247,0.3)]">
       + Adquirir PRO
     </button>
   </div>

@@ -3,6 +3,7 @@
   import { db } from '../db/db.js';
   import { ACHIEVEMENTS } from '../lib/achievements.js';
   import { navigate } from '../lib/nav.js';
+  import { showAlert, showConfirm, showPrompt } from '../lib/modal.js';
 
   const player = liveQuery(() => db.player.toCollection().first());
   const unlockedAchievements = liveQuery(async () => {
@@ -69,15 +70,31 @@
   }
 
   async function handleLogout() {
-    if (confirm('Tem certeza que deseja sair e limpar todos os dados locais?')) {
-      await db.delete(); // Apaga o banco Dexie
+    const ok = await showConfirm({
+      title: 'Sair e resetar dados?',
+      message: 'Todos os dados locais serão apagados permanentemente. Esta ação não pode ser desfeita.',
+      icon: '🗑️',
+      type: 'danger',
+      confirmText: 'Sim, sair e apagar',
+      cancelText: 'Cancelar',
+    });
+    if (ok) {
+      await db.delete();
       localStorage.removeItem('token');
-      window.location.reload(); // Recarrega a página para voltar pro Onboarding
+      window.location.reload();
     }
   }
 
-  function handleSoftLogout() {
-    if (confirm('Deseja apenas deslogar da nuvem? (Seus dados locais serão mantidos)')) {
+  async function handleSoftLogout() {
+    const ok = await showConfirm({
+      title: 'Sair da nuvem?',
+      message: 'Você será deslogado, mas seus dados locais serão mantidos no dispositivo.',
+      icon: '☁️',
+      type: 'warning',
+      confirmText: 'Sair',
+      cancelText: 'Cancelar',
+    });
+    if (ok) {
       localStorage.removeItem('token');
       window.location.reload();
     }
@@ -85,19 +102,38 @@
 
   async function handleEditProfile() {
     if (!$player) return;
-    const newName = prompt('Qual o seu novo nome de herói?', $player.name);
-    if (newName && newName.trim()) {
-      await updatePlayer($player.id, { name: newName.trim() });
+    const newName = await showPrompt({
+      title: 'Editar perfil',
+      message: 'Qual será o seu novo nome de herói?',
+      icon: '✏️',
+      placeholder: 'Seu nome de herói',
+      defaultValue: $player.name,
+      confirmText: 'Salvar',
+    });
+    if (newName) {
+      await updatePlayer($player.id, { name: newName });
       pushSync().catch(() => {});
     }
   }
 
   function showPrivacyNote() {
-    alert('Privacidade e Segurança:\n\nO LifeQuest usa arquitetura Local-First. Isso significa que SEUS dados pertencem a VOCÊ. Suas informações sensíveis (como diário, finanças e metas) são armazenadas primariamente de forma segura no seu próprio dispositivo (IndexedDB). Apenas dados essenciais de estado são sincronizados com a nuvem sob criptografia de trânsito.');
+    showAlert({
+      title: 'Privacidade e Segurança',
+      message: 'O LifeQuest usa arquitetura Local-First. SEUS dados pertencem a VOCÊ.\n\nSuas informações são armazenadas de forma segura no seu dispositivo. Apenas dados essenciais são sincronizados com a nuvem sob criptografia de trânsito.',
+      icon: '🛡️',
+      type: 'info',
+      confirmText: 'Entendi',
+    });
   }
 
   function showBackupNote() {
-    alert('Como o backup funciona:\n\nA cada ação que você toma no LifeQuest, o aplicativo salva imediatamente no banco de dados do seu navegador. Em seguida, os dados entram em uma fila segura e são sincronizados em background com nossos servidores. Isso garante que você nunca perca nada, mesmo offline!');
+    showAlert({
+      title: 'Como o backup funciona',
+      message: 'A cada ação, o app salva imediatamente no banco local do navegador.\n\nEm seguida, os dados entram em uma fila segura e são sincronizados em background com nossos servidores — garantindo que você nunca perca nada, mesmo offline!',
+      icon: '☁️',
+      type: 'info',
+      confirmText: 'Entendi',
+    });
   }
 
   import jsPDF from 'jspdf';
@@ -145,7 +181,7 @@
       doc.save(`LifeQuest_Relatorio_${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (err) {
       console.error(err);
-      alert('Erro ao exportar PDF.');
+      showAlert({ title: 'Erro ao exportar', message: 'Não foi possível gerar o PDF. Tente novamente.', icon: '❌', type: 'danger' });
     }
   }
 </script>

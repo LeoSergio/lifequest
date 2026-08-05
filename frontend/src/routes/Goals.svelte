@@ -4,6 +4,7 @@
   import { addGoal, addProgress } from '../services/goalService.js';
   import GoalCard from '../components/GoalCard.svelte';
   import { pushSync } from '../services/syncService.js';
+  import { showAlert } from '../lib/modal.js';
 
   const allGoals = allGoalsQuery();
 
@@ -63,7 +64,13 @@
     // Push imediato: progresso (e possível achievedAt) vai para a nuvem agora
     pushSync().catch(() => {});
 
-    if (result.leveledUp) alert(`Level up! Agora você é nível ${result.level} 🎉`);
+    if (result.leveledUp) showAlert({
+      title: `Level Up! 🎉`,
+      message: `Agora você é nível ${result.level}!`,
+      icon: '⭐',
+      type: 'success',
+      confirmText: 'Boa!',
+    });
     if (result.achieved) celebrating = result.updatedGoal;
   }
 

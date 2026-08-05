@@ -3,6 +3,7 @@
   import { WEEKDAYS } from '../lib/constants.js';
   import { workoutPlansQuery } from '../repositories/workoutRepository.js';
   import { removePlan } from '../services/workoutService.js';
+  import { showConfirm } from '../lib/modal.js';
 
   const plans = workoutPlansQuery();
   let openMenuId = null;
@@ -34,7 +35,15 @@
 
   async function handleRemovePlan(id) {
     openMenuId = null;
-    if (!confirm('Remover este treino e todos os exercícios dele?')) return;
+    const ok = await showConfirm({
+      title: 'Excluir treino?',
+      message: 'Este treino e todos os exercícios dele serão removidos permanentemente.',
+      icon: '🗑️',
+      type: 'danger',
+      confirmText: 'Excluir',
+      cancelText: 'Cancelar',
+    });
+    if (!ok) return;
     await removePlan(id);
   }
 </script>

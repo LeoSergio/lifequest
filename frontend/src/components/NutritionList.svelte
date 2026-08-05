@@ -7,6 +7,7 @@
   import { suggestMeals } from '../services/mealAiService.js';
   import { db } from '../db/db.js';
   import Tesseract from 'tesseract.js';
+  import { showConfirm } from '../lib/modal.js';
 
   let name = '';
   let category = PANTRY_CATEGORIES[0];
@@ -71,7 +72,15 @@
   }
 
   async function handleClearPantry() {
-    if (!confirm('Tem certeza que quer limpar toda a dispensa?')) return;
+    const ok = await showConfirm({
+      title: 'Limpar dispensa?',
+      message: 'Todos os itens da dispensa serão removidos. Essa ação não pode ser desfeita.',
+      icon: '🗑️',
+      type: 'danger',
+      confirmText: 'Limpar tudo',
+      cancelText: 'Cancelar',
+    });
+    if (!ok) return;
     await db.pantryItems.clear();
   }
 

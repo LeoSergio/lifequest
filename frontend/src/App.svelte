@@ -18,6 +18,7 @@
   import BackgroundBlobs from './components/BackgroundBlobs.svelte';
   import SyncBadge from './components/SyncBadge.svelte';
   import Modal from './components/Modal.svelte';
+  import Ranking from './routes/Ranking.svelte';
 
   const hasPlayer = liveQuery(async () => (await db.player.count()) > 0);
 </script>
@@ -48,6 +49,8 @@
     <WorkoutPlanDetail planId={$nav.params.planId} isEditing={$nav.params.edit || false} isNew={$nav.params.isNew || false} />
   {:else if $nav.name === 'quests'}
     <Quests />
+  {:else if $nav.name === 'ranking'}
+    <Ranking />
   {:else if $nav.name === 'profile'}
     <Profile />
   {:else if $nav.name === 'stats'}

@@ -7,6 +7,7 @@
   import { navigate } from '../lib/nav.js';
   import { onMount } from 'svelte';
   import { pushSync } from '../services/syncService.js';
+  import { fetchGlobalRanking } from '../services/socialService.js';
 
   const player = liveQuery(() => db.player.toCollection().first());
   const habits = liveQuery(() => db.habits.where('archivedAt').equals(null).toArray());
@@ -50,6 +51,18 @@
     }
   });
 
+  onMount(async () => {
+    try {
+      const data = await fetchGlobalRanking();
+      rankingTop3 = data.slice(0, 3);
+      myRankEntry = data.find(r => r.is_me) ?? null;
+    } catch (e) {
+      console.warn('[Dashboard] Ranking indisponível:', e);
+    } finally {
+      rankingLoading = false;
+    }
+  });
+
   // Calculate some stats
   $: habitsCompleted = $completions?.length || 0;
   $: workoutsCompleted = $sessions?.length || 0;
@@ -61,6 +74,16 @@
     { level: 4, title: 'Guerreiro', xp: '450 XP', active: false },
     { level: 5, title: 'Guardião', xp: '800 XP', active: false }
   ];
+
+  // Ranking snapshot
+  let rankingTop3 = [];
+  let myRankEntry = null;
+  let rankingLoading = true;
+
+  function xpShort(xp) {
+    if (xp >= 1000) return `${(xp / 1000).toFixed(1)}k`;
+    return String(xp);
+  }
 </script>
 
 <style>
@@ -267,38 +290,116 @@
 
 
     <!-- Conquistas Recentes -->
-    <div class="bg-[#1C1C22]/80 border border-white/5 rounded-[20px] p-3 flex flex-col justify-between">
+    <div class="bg-[#1C1C22]/80 border border-white/5 rounded-[20px] p-3 flex flex-col justify-between col-span-2">
        <div class="flex items-center justify-between mb-2">
           <div class="flex items-center gap-1.5">
              <svg class="w-3.5 h-3.5 text-[#a855f7] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
              <span class="text-[10px] font-bold text-white leading-tight">Conquistas</span>
           </div>
-          <span class="text-[9px] text-[#a855f7] font-medium cursor-pointer shrink-0 ml-1">Ver</span>
+          <span class="text-[9px] text-[#a855f7] font-medium cursor-pointer shrink-0 ml-1" on:click={() => navigate('quests', { tab: 'conquistas' })}>Ver</span>
        </div>
        <div class="flex items-start gap-1.5">
           <svg class="w-5 h-5 text-white/20 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
           <p class="text-[8px] text-white/40 leading-tight">Nenhuma ainda. Complete desafios!</p>
        </div>
     </div>
+  </div>
 
-    <!-- Ranking Global -->
-    <div class="bg-[#1C1C22]/80 border border-white/5 rounded-[20px] p-3 flex flex-col justify-between">
-       <div class="flex items-center justify-between mb-2">
-          <div class="flex items-center gap-1.5">
-             <svg class="w-3.5 h-3.5 text-[#a855f7] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 22h20"/><path d="M6 18v-4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v4"/><path d="M12 12v6"/><path d="M8 12V8a4 4 0 0 1 8 0v4"/><circle cx="12" cy="8" r="4"/></svg>
-             <span class="text-[10px] font-bold text-white leading-tight">Ranking</span>
-          </div>
-          <span class="text-[9px] text-[#a855f7] font-medium cursor-pointer shrink-0 ml-1">Ver</span>
-       </div>
-       <div class="flex items-end justify-between gap-1.5 mt-auto">
-          <p class="text-[8px] text-white/40 leading-tight">Veja sua posição!</p>
-          <div class="flex items-end gap-[1px] opacity-40 shrink-0 pb-0.5">
-             <div class="w-[7px] h-[10px] bg-white/20 border border-white/30 rounded-t-[1px] flex items-center justify-center text-[4.5px]">2</div>
-             <div class="w-[7px] h-[14px] bg-white/20 border border-white/30 rounded-t-[1px] flex items-center justify-center text-[4.5px]">1</div>
-             <div class="w-[7px] h-[7px] bg-white/20 border border-white/30 rounded-t-[1px] flex items-center justify-center text-[4.5px]">3</div>
-          </div>
-       </div>
+
+  <!-- ══════════════════════════════════════ -->
+  <!-- 🏆 RANKING GLOBAL — Seção em Destaque -->
+  <!-- ══════════════════════════════════════ -->
+  <div class="mt-4 bg-gradient-to-br from-[#1C1C22]/90 to-[#1a1025]/90 border border-[#a855f7]/20 rounded-[24px] p-5 relative overflow-hidden shadow-[0_0_30px_rgba(168,85,247,0.08)]">
+    <!-- Glow de fundo decorativo -->
+    <div class="absolute -top-8 -right-8 w-32 h-32 bg-[#9333EA]/10 rounded-full blur-2xl pointer-events-none"></div>
+    <div class="absolute -bottom-6 -left-6 w-24 h-24 bg-[#a855f7]/8 rounded-full blur-2xl pointer-events-none"></div>
+
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-4 relative z-10">
+      <div class="flex items-center gap-2">
+        <div class="w-7 h-7 rounded-[10px] bg-[#9333EA]/20 border border-[#a855f7]/30 flex items-center justify-center">
+          <svg class="w-4 h-4 text-[#a855f7]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg>
+        </div>
+        <div>
+          <h3 class="text-[12px] font-bold text-white leading-none">Ranking Global</h3>
+          <p class="text-[9px] text-white/40 mt-0.5">Top jogadores do LifeQuest</p>
+        </div>
+      </div>
+      <button
+        class="text-[10px] font-bold text-[#a855f7] hover:text-[#c084fc] transition-colors flex items-center gap-1"
+        on:click={() => navigate('ranking')}
+      >
+        Ver tudo <span class="opacity-60">›</span>
+      </button>
     </div>
+
+    <!-- Top 3 -->
+    {#if rankingLoading}
+      <div class="flex items-center justify-center py-6 gap-3 relative z-10">
+        <div class="w-4 h-4 border-2 border-[#a855f7] border-t-transparent rounded-full animate-spin"></div>
+        <span class="text-[11px] text-white/30">Carregando ranking...</span>
+      </div>
+    {:else if rankingTop3.length === 0}
+      <p class="text-[11px] text-white/30 text-center py-4 relative z-10">Nenhum jogador ainda.</p>
+    {:else}
+      <!-- Pódio compacto -->
+      <div class="flex items-end justify-center gap-2 mb-4 relative z-10">
+        {#each rankingTop3 as entry, i}
+          {@const medals = ['🥇','🥈','🥉']}
+          {@const heights = ['h-[70px]','h-[56px]','h-[48px]']}
+          {@const orders = [1, 0, 2]}
+          {@const borderColors = ['border-yellow-400/60','border-slate-400/40','border-orange-700/40']}
+          {@const glows = ['shadow-[0_0_12px_rgba(234,179,8,0.35)]','shadow-[0_0_8px_rgba(148,163,184,0.2)]','shadow-[0_0_8px_rgba(180,83,9,0.2)]']}
+
+          <div
+            class="flex flex-col items-center gap-1.5 flex-1"
+            style="order: {orders[i]}"
+          >
+            <!-- Avatar -->
+            <div class="relative">
+              <div class="w-11 h-11 rounded-full overflow-hidden border-2 {borderColors[i]} bg-surface flex items-center justify-center text-xl {glows[i]} {entry.is_me ? 'ring-2 ring-[#a855f7] ring-offset-1 ring-offset-[#1a1025]' : ''}">
+                {#if entry.avatar?.startsWith('data:image')}
+                  <img src={entry.avatar} alt={entry.username} class="w-full h-full object-cover" />
+                {:else}
+                  <span class="text-lg">{entry.avatar || '👤'}</span>
+                {/if}
+              </div>
+              <span class="absolute -bottom-1 -right-1 text-sm leading-none">{medals[i]}</span>
+            </div>
+
+            <!-- Nome -->
+            <div class="text-center">
+              <p class="text-[10px] font-bold text-white truncate max-w-[60px]">{entry.username}</p>
+              <p class="text-[8px] text-white/40">Nível {entry.level}</p>
+            </div>
+
+            <!-- Barra de pódio -->
+            <div class="{heights[i]} w-full rounded-t-[6px] flex items-end justify-center pb-1.5 {i === 0 ? 'bg-gradient-to-t from-yellow-500/20 to-yellow-500/5 border border-yellow-500/20' : i === 1 ? 'bg-gradient-to-t from-slate-400/15 to-slate-400/5 border border-slate-400/15' : 'bg-gradient-to-t from-orange-700/15 to-orange-700/5 border border-orange-700/15'}">
+              <span class="text-[9px] font-black {i === 0 ? 'text-yellow-400' : i === 1 ? 'text-slate-300' : 'text-orange-500'}">{xpShort(entry.xp)}</span>
+            </div>
+          </div>
+        {/each}
+      </div>
+
+      <!-- Posição do usuário logado -->
+      {#if myRankEntry}
+        <div class="border-t border-white/5 pt-3 flex items-center gap-3 relative z-10">
+          <span class="text-[10px] font-black text-[#a855f7] w-6 text-center">#{myRankEntry.rank}</span>
+          <div class="w-7 h-7 rounded-full overflow-hidden border border-[#a855f7]/40 bg-surface flex items-center justify-center text-sm">
+            {#if myRankEntry.avatar?.startsWith('data:image')}
+              <img src={myRankEntry.avatar} alt="Você" class="w-full h-full object-cover" />
+            {:else}
+              <span>{myRankEntry.avatar || '👤'}</span>
+            {/if}
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-[11px] font-bold text-white leading-none">Sua posição</p>
+            <p class="text-[9px] text-white/40 mt-0.5">Nível {myRankEntry.level} · {xpShort(myRankEntry.xp)} XP</p>
+          </div>
+          <span class="text-[9px] font-bold text-[#a855f7] bg-[#a855f7]/10 px-2 py-0.5 rounded-full">Você</span>
+        </div>
+      {/if}
+    {/if}
   </div>
 
 </main>

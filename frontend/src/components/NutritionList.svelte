@@ -1,5 +1,6 @@
 <script>
   import { onMount } from 'svelte';
+  import { liveQuery } from 'dexie';
   import { PANTRY_CATEGORIES } from '../lib/constants.js';
   import { extractItemCandidates } from '../lib/receiptParser.js';
   import { pantryItemsQuery, addPantryItem, bulkAddPantryItems, removePantryItem } from '../repositories/pantryRepository.js';
@@ -7,7 +8,8 @@
   import { suggestMeals } from '../services/mealAiService.js';
   import { db } from '../db/db.js';
   import Tesseract from 'tesseract.js';
-  import { showConfirm } from '../lib/modal.js';
+  import { showConfirm, showAlert } from '../lib/modal.js';
+  import { isPro, getDailyUsage, incrementDailyUsage, FREE_LIMITS } from '../lib/pro.js';
 
   let name = '';
   let category = PANTRY_CATEGORIES[0];
@@ -35,6 +37,11 @@
   let playerGoal = 'manutencao';
   let showCustomRequest = false;
   let userRequest = '';
+
+  const player = liveQuery(() => db.player.toCollection().first());
+  $: aiDailyUsed = getDailyUsage('aiMeals');
+  $: aiDailyLimit = FREE_LIMITS.aiMealsPerDay;
+  $: aiLimitReached = $player ? (!isPro($player) && aiDailyUsed >= aiDailyLimit) : false;
 
   const items = pantryItemsQuery();
   $: grouped = groupByCategory($items ?? []);
@@ -126,6 +133,21 @@
   }
 
   async function handleAskAI(mealTypeId, customRequest = null) {
+    // Verifica limite diário para usuários free
+    if ($player && !isPro($player)) {
+      const used = getDailyUsage('aiMeals');
+      if (used >= FREE_LIMITS.aiMealsPerDay) {
+        await showAlert({
+          title: '💫 Limite diário atingido',
+          message: `Usuários gratuitos podem usar a IA de refeições ${FREE_LIMITS.aiMealsPerDay}x por dia.\n\nAssine o LifeQuest PRO para uso ilimitado!`,
+          icon: '💎',
+          type: 'warning',
+          confirmText: 'Entendi',
+        });
+        return;
+      }
+    }
+
     selectedMealType = mealTypeId;
     aiStatus = 'loading';
     aiSuggestions = [];
@@ -142,6 +164,9 @@
       });
       aiSuggestions = result.suggestions ?? [];
       aiStatus = 'done';
+      // Incrementa contador apenas após sucesso
+      incrementDailyUsage('aiMeals');
+      aiDailyUsed = getDailyUsage('aiMeals'); // atualiza reativo
     } catch (e) {
       console.error(e);
       aiError = 'Erro ao consultar IA. Verifique sua conexão.';
@@ -175,15 +200,25 @@
   <div class="grid grid-cols-4 gap-2 mb-4 relative z-10">
     {#each MEAL_TYPES as mt}
       <button
-        class="py-3 rounded-[12px] border flex flex-col items-center gap-1.5 transition-all {selectedMealType === mt.id && aiStatus !== 'idle' ? 'bg-[#9333EA]/20 border-[#a855f7]/50 text-white shadow-inner' : 'bg-[#1C1C22]/50 border-white/5 text-white/40 hover:bg-white/5 hover:text-white/60'}"
+        class="py-3 rounded-[12px] border flex flex-col items-center gap-1.5 transition-all {selectedMealType === mt.id && aiStatus !== 'idle' ? 'bg-[#9333EA]/20 border-[#a855f7]/50 text-white shadow-inner' : 'bg-[#1C1C22]/50 border-white/5 text-white/40 hover:bg-white/5 hover:text-white/60'} {aiLimitReached ? 'opacity-40 cursor-not-allowed' : ''}"
         on:click={() => handleAskAI(mt.id)}
-        disabled={aiStatus === 'loading'}
+        disabled={aiStatus === 'loading' || aiLimitReached}
       >
         <span class="text-xl filter drop-shadow-md">{mt.emoji}</span>
         <span class="text-[9px] font-bold leading-none">{mt.label}</span>
       </button>
     {/each}
   </div>
+
+  {#if aiLimitReached}
+    <div class="bg-purple-500/10 border border-purple-500/30 rounded-[16px] p-4 flex items-start gap-3 relative z-10">
+      <span class="text-2xl shrink-0">💎</span>
+      <div>
+        <p class="text-[11px] font-bold text-purple-300 mb-1">Limite diário atingido</p>
+        <p class="text-[10px] text-white/50 leading-relaxed">Usuários gratuitos têm <strong class="text-white/70">{aiDailyLimit} consulta/dia</strong>. Assine o PRO para uso ilimitado da IA.</p>
+      </div>
+    </div>
+  {/if}
 
   {#if aiStatus === 'loading'}
     <div class="flex flex-col items-center justify-center py-6 gap-3">

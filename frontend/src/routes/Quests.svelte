@@ -9,6 +9,7 @@
   import { nav } from '../lib/nav.js';
   import { enqueue, pushSync } from '../services/syncService.js';
   import { updatePlayer } from '../repositories/playerRepository.js';
+  import { generateChestReward, getTitleForLevel } from '../lib/levels.js';
   import { API_BASE } from '../lib/api.js';
   import { showAlert, showConfirm, showPrompt } from '../lib/modal.js';
   import { isPro, showProBenefits } from '../lib/pro.js';
@@ -252,13 +253,33 @@
     }
     
     if (leveledUp) {
-      showAlert({
-        title: '🎉 Level Up!',
-        message: `Você alcançou o nível ${level}!`,
-        icon: '⭐',
-        type: 'success',
-        confirmText: 'Boa!',
-      });
+      const isPlayerPro = isPro(p);
+      const chest = generateChestReward(level, isPlayerPro);
+      const titleInfo = getTitleForLevel(level);
+      
+      let rewardMsg = `Você alcançou o nível ${level} e se tornou um ${titleInfo.title}!\n\n`;
+      let newProCoins = p.proCoins || 0;
+      
+      if (chest.chestType) {
+        rewardMsg += `🎁 **Baú Aberto!**\n`;
+        if (chest.coins > 0) rewardMsg += `+${chest.coins} LifeCoins 🪙\n`;
+        if (chest.proCoins > 0) rewardMsg += `+${chest.proCoins} Pro Coins 💎\n`;
+        
+        newCoins += chest.coins;
+        newProCoins += chest.proCoins;
+      }
+      
+      await updatePlayer(p.id, { coins: newCoins, proCoins: newProCoins });
+
+      setTimeout(() => {
+        showAlert({
+          title: '🎉 LEVEL UP!',
+          message: rewardMsg,
+          icon: '⭐',
+          type: 'success',
+          confirmText: 'Aura!',
+        });
+      }, gotChest ? 2500 : 300); // Aguarda o baú diário fechar se tiver ganho
     }
 
     // Push imediato: missão concluída e XP/coins vão para a nuvem agora

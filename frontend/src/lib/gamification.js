@@ -1,8 +1,8 @@
-// Regra simples pra começar: cada nível exige 100 XP a mais que o anterior.
-// Nível 1 -> 2 precisa de 100 XP, nível 2 -> 3 precisa de 200 XP, etc.
-// Fica fácil de ajustar depois sem mexer em quem consome essa função.
+// Curva de XP com 'Early Wins' nos primeiros 5 níveis e crescimento exponencial depois.
 export function xpToNextLevel(level) {
-  return level * 100;
+  if (level < 5) return level * 50; // Lvl 1: 50, Lvl 2: 100, Lvl 3: 150, Lvl 4: 200
+  if (level < 15) return 200 + (level - 4) * 150; // Lvl 5: 350, Lvl 10: 1100
+  return 1700 + Math.floor(Math.pow(level - 14, 1.8) * 100); // Lvl 15+, curva íngreme
 }
 
 /**

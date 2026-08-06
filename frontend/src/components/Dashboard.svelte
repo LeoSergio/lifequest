@@ -2,6 +2,7 @@
   import { liveQuery } from 'dexie';
   import { db } from '../db/db.js';
   import { applyXp, xpToNextLevel } from '../lib/gamification.js';
+  import { getTitleForLevel, isMilestoneLevel, MAX_LEVEL, generateChestReward } from '../lib/levels.js';
   import { currentStreak, last7DaysActivity } from '../lib/metrics.js';
   import { completedToday, todayIso } from '../lib/habits.js';
   import { navigate } from '../lib/nav.js';
@@ -123,12 +124,74 @@
   $: missionsCount = ($dailyQuestsQuery ?? []).filter(q => q.completed).length;
 
   // Helpers for timeline
-  const timelineNodes = [
-    { level: 2, title: 'Iniciante', xp: null, active: true },
-    { level: 3, title: 'Aprendiz', xp: '200 XP', active: false },
-    { level: 4, title: 'Guerreiro', xp: '450 XP', active: false },
-    { level: 5, title: 'Guardião', xp: '800 XP', active: false }
+  let timelineOffset = 0;
+  $: timelineNodes = generateTimeline(currentLevel, $player, timelineOffset);
+  
+  $: nextRewardLevel = getNextRewardLevel(currentLevel, $player);
+  $: nextReward = generateChestReward(nextRewardLevel, isPro($player));
+  
+  function getNextRewardLevel(level, p) {
+     let l = level + 1;
+     while (l <= MAX_LEVEL) {
+        if (isMilestoneLevel(l) || (p && isPro(p))) return l;
+        l++;
+     }
+     return level;
+  }
+
+  const ICONS = [
+    "M14.5 17.5L3 6m0 0l3-3 11.5 11.5M3 6l4 4M17 14l3 3-3 3-3-3 3-3z", // 0 (fallback)
+    "M12 2c0 0-5 5-5 10a5 5 0 0 0 10 0c0-5-5-10-5-10zm0 13a3 3 0 0 1-3-3c0-2 3-5 3-5s3 3 3 5a3 3 0 0 1-3 3z", // 1 Fogo
+    "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zm0-4a6 6 0 1 0 0-12 6 6 0 0 0 0 12zm0-4a2 2 0 1 0 0-4 2 2 0 0 0 0 4z", // 2 Alvo
+    "M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20", // 3 Livro
+    "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z", // 4 Escudo
+    "M2 4l3 11h14l3-11-5 5-5-7-5 7-5-5z" // 5 Coroa
   ];
+
+  function generateTimeline(level, p, offset) {
+    if (!level) level = 1;
+    let nodes = [];
+    let startLevel = level + offset;
+    
+    // Mostra o nível atual + 3 próximos
+    // Se faltar espaço pro limite (ex: nível 66), puxa pra trás
+    if (startLevel > MAX_LEVEL - 3) {
+      startLevel = Math.max(1, MAX_LEVEL - 3);
+    }
+    if (startLevel < 1) startLevel = 1;
+    
+    for(let i = 0; i < 4; i++) {
+      const nodeLvl = startLevel + i;
+      if (nodeLvl > MAX_LEVEL) break;
+      
+      const titleInfo = getTitleForLevel(nodeLvl);
+      
+      let status = 'locked';
+      if (nodeLvl < level) status = 'completed';
+      if (nodeLvl === level) status = 'active';
+      
+      nodes.push({
+        level: nodeLvl,
+        title: titleInfo.title,
+        color: titleInfo.color,
+        xp: nodeLvl > level ? `${xpShort(xpToNextLevel(nodeLvl - 1))} XP` : null,
+        status: status,
+        active: nodeLvl <= level,
+        hasReward: nodeLvl > level && (isMilestoneLevel(nodeLvl) || (p && isPro(p))),
+        iconPath: ICONS[(nodeLvl % 5) + 1]
+      });
+    }
+    return nodes;
+  }
+
+  function scrollTimeline(direction) {
+    if (direction === 'next' && (currentLevel + timelineOffset + 3) < MAX_LEVEL) {
+      timelineOffset += 3;
+    } else if (direction === 'prev' && timelineOffset > 0) {
+      timelineOffset -= 3;
+      if (timelineOffset < 0) timelineOffset = 0;
+    }
+  }
 
   // Ranking snapshot
   let rankingTop3 = [];
@@ -267,35 +330,122 @@
   </div>
 
   <!-- Sua Jornada -->
-  <div class="bg-[#1C1C22]/80 border border-white/5 rounded-[24px] p-5 mt-4">
-    <h3 class="text-[13px] font-bold text-white mb-6">Sua Jornada</h3>
-    <div class="flex justify-between items-center relative px-1">
-       <!-- dashed line -->
-       <div class="absolute top-[18px] left-[10%] right-[15%] h-[1px] border-t border-dashed border-white/20 z-0"></div>
-       <div class="absolute top-[18px] left-[10%] w-1/4 h-[1px] border-t border-dashed border-[#a855f7] z-0"></div>
+  <div class="bg-[#111115] border border-white/5 rounded-[32px] p-5 mt-4 relative shadow-2xl overflow-hidden">
+    <!-- Glow de fundo sutil -->
+    <div class="absolute top-0 left-0 w-full h-32 bg-[#9333EA]/10 blur-[60px] pointer-events-none"></div>
+
+    <div class="flex items-start justify-between mb-10 relative z-10 px-2">
+       <div>
+         <h3 class="text-[16px] sm:text-[18px] font-bold text-white flex items-center gap-1.5">
+           Sua jornada e <span class="text-[#a855f7]">Recompensas</span>
+         </h3>
+         <p class="text-white/40 text-[11px] sm:text-[12px] mt-1.5 font-medium">Cada nível conquistado te aproxima da sua melhor versão.</p>
+       </div>
+       <div class="text-[11px] bg-[#1a1a24] border border-[#2a2a35] px-3 py-1.5 rounded-full text-white font-bold flex items-center gap-1.5 shadow-lg shrink-0">
+         <svg class="w-3.5 h-3.5 text-[#a855f7]" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+         Lvl {currentLevel}
+       </div>
+    </div>
+
+    <div class="flex justify-between items-center relative px-0 sm:px-2 mb-8">
+       <!-- linha base contínua fina -->
+       <div class="absolute top-[35px] left-[15%] right-[15%] h-[2px] bg-white/5 z-0"></div>
+       <!-- <div class="absolute top-[35px] left-[15%] w-1/4 h-[2px] bg-gradient-to-r from-[#a855f7] to-[#d8b4fe] shadow-[0_0_8px_#a855f7] z-0"></div> -->
        
+       <button class="relative z-10 w-8 h-8 rounded-full bg-[#181820] border border-white/10 flex items-center justify-center text-white/60 text-[14px] shrink-0 hover:bg-white/10 transition-all shadow-lg {timelineOffset === 0 ? 'opacity-0 pointer-events-none' : ''}" on:click={() => scrollTimeline('prev')}>
+         ‹
+       </button>
+
        {#each timelineNodes as node}
-         <div class="relative z-10 flex flex-col items-center gap-1.5 w-14">
-            {#if node.active}
-               <div class="w-9 h-10 flex items-center justify-center clip-hex bg-[#9333EA] text-white text-[13px] font-bold shadow-[0_0_15px_rgba(147,51,234,0.5)]">
-                 {node.level}
+         <div class="relative z-10 flex flex-col items-center w-[60px] sm:w-[70px] transition-all duration-300">
+            {#if node.status === 'active'}
+               <div class="relative">
+                 <div class="absolute inset-0 bg-[#a855f7] blur-xl opacity-30 rounded-full"></div>
+                 <div class="w-[70px] h-[80px] sm:w-[80px] sm:h-[90px] flex flex-col items-center justify-center clip-hex bg-[#121216] text-white border-[2px] border-[#a855f7] shadow-[0_0_20px_rgba(168,85,247,0.4)] relative z-10 pb-2 pt-2">
+                   <svg class="w-5 h-5 sm:w-6 sm:h-6 text-[#a855f7] mb-1 opacity-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                     <path d={node.iconPath} />
+                   </svg>
+                   <span class="text-[20px] sm:text-[24px] font-black leading-none">{node.level}</span>
+                 </div>
                </div>
-               <span class="text-[9px] text-white font-medium">{node.title}</span>
+               <div class="flex flex-col items-center mt-3 h-[60px]">
+                 <span class="text-[12px] sm:text-[13px] font-bold text-[#a855f7] text-center leading-tight tracking-wide drop-shadow-md whitespace-nowrap">{node.title}</span>
+                 <span class="text-[10px] text-white/40 mt-1 font-medium">{node.xp ? node.xp : ''}</span>
+                 {#if node.hasReward}
+                    <div class="mt-2 text-[20px] sm:text-[24px] drop-shadow-[0_0_15px_rgba(234,179,8,0.8)] animate-bounce" title="Recompensa disponivel!">🎁</div>
+                 {/if}
+               </div>
             {:else}
-               <div class="w-9 h-10 flex items-center justify-center clip-hex bg-[#1C1C22] text-white/40 border border-white/10 text-[13px] font-bold">
-                 {node.level}
+               <div class="w-[55px] h-[64px] sm:w-[60px] sm:h-[70px] flex flex-col items-center justify-center clip-hex bg-[#181820] text-white/80 border border-white/5 shadow-inner pb-1 pt-1 mt-2">
+                 <svg class="w-4 h-4 sm:w-5 sm:h-5 {node.color} mb-1 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                   <path d={node.iconPath} />
+                 </svg>
+                 <span class="text-[15px] sm:text-[17px] font-bold leading-none">{node.level}</span>
                </div>
-               <div class="flex flex-col items-center">
-                  <span class="text-[9px] text-white/40">{node.title}</span>
-                  {#if node.xp}<span class="text-[8px] text-white/30">{node.xp}</span>{/if}
+               <div class="flex flex-col items-center mt-3 h-[60px]">
+                  <span class="text-[10px] sm:text-[11px] {node.color} font-medium text-center leading-tight whitespace-nowrap opacity-90">{node.title}</span>
+                  <span class="text-[9px] sm:text-[10px] text-white/30 mt-1 font-medium">{node.xp ? node.xp : ''}</span>
+                  
+                  {#if node.status === 'completed'}
+                    <div class="mt-2 w-4 h-4 sm:w-5 sm:h-5 rounded-full border border-[#22c55e]/50 flex items-center justify-center bg-[#22c55e]/10">
+                      <svg class="w-2.5 h-2.5 sm:w-3 sm:h-3 text-[#22c55e]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                  {:else if node.hasReward}
+                    <div class="mt-2 text-[14px] sm:text-[16px] drop-shadow-[0_0_8px_rgba(234,179,8,0.4)] opacity-70 animate-bounce">🎁</div>
+                  {/if}
                </div>
             {/if}
          </div>
        {/each}
        
-       <button class="relative z-10 w-7 h-7 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/40 text-[10px] shrink-0 hover:bg-white/10 transition-colors">
+       <button class="relative z-10 w-8 h-8 rounded-full bg-[#181820] border border-white/10 flex items-center justify-center text-white/60 text-[14px] shrink-0 hover:bg-white/10 transition-all shadow-lg {(currentLevel + timelineOffset + 3) >= MAX_LEVEL ? 'opacity-0 pointer-events-none' : ''}" on:click={() => scrollTimeline('next')}>
          ›
        </button>
+    </div>
+
+    <!-- Bottom Reward Panel -->
+    <div class="bg-[#181820]/80 border border-white/5 rounded-[20px] p-4 flex flex-col md:flex-row md:items-center gap-4 relative z-10">
+      <div class="flex items-center gap-3 shrink-0">
+        <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-[14px] bg-[#a855f7]/10 border border-[#a855f7]/20 flex items-center justify-center shrink-0">
+          <svg class="w-5 h-5 sm:w-6 sm:h-6 text-[#a855f7]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="14" rx="2"/><path d="M12 5a3 3 0 1 0-3 3"/><path d="M15 5a3 3 0 1 0-3 3"/><path d="M12 5v3"/><path d="M12 8v14"/></svg>
+        </div>
+        <div>
+          <h4 class="text-white text-[13px] sm:text-[14px] font-bold leading-tight">Recompensa do próximo nível</h4>
+          <p class="text-[9px] sm:text-[10px] text-white/40 mt-1">Ao alcançar o nível {nextRewardLevel} você desbloqueia:</p>
+        </div>
+      </div>
+      
+      <div class="flex gap-2 overflow-x-auto pb-2 flex-1 scrollbar-hide pt-1">
+         {#if nextReward?.coins > 0}
+         <div class="bg-[#1C1C22] border border-white/5 rounded-[12px] p-2.5 flex items-center gap-2.5 shrink-0 min-w-[120px]">
+           <svg class="w-5 h-5 text-yellow-500" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+           <div>
+             <div class="text-[11px] font-bold text-white leading-none">+{nextReward.coins}</div>
+             <div class="text-[9px] text-white/40 mt-1">Lifecoins</div>
+           </div>
+         </div>
+         {/if}
+         
+         {#if nextReward?.proCoins > 0}
+         <div class="bg-[#1C1C22] border border-white/5 rounded-[12px] p-2.5 flex items-center gap-2.5 shrink-0 min-w-[120px]">
+           <svg class="w-5 h-5 text-cyan-400" viewBox="0 0 24 24" fill="currentColor"><path d="M2.2 11.5l9.1-9.1c.4-.4 1-.4 1.4 0l9.1 9.1c.4.4.4 1 0 1.4l-9.1 9.1c-.4.4-1 .4-1.4 0l-9.1-9.1c-.4-.4-.4-1 0-1.4z"/></svg>
+           <div>
+             <div class="text-[11px] font-bold text-white leading-none">+{nextReward.proCoins}</div>
+             <div class="text-[9px] text-white/40 mt-1">Pro Coins</div>
+           </div>
+         </div>
+         {/if}
+         
+         {#if isMilestoneLevel(nextRewardLevel)}
+         <div class="bg-[#1C1C22] border border-white/5 rounded-[12px] p-2.5 flex items-center gap-2.5 shrink-0 min-w-[130px]">
+           <svg class="w-5 h-5 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg>
+           <div>
+             <div class="text-[11px] font-bold text-white leading-none">Novo título</div>
+             <div class="text-[9px] text-white/40 mt-1">{getTitleForLevel(nextRewardLevel).title}</div>
+           </div>
+         </div>
+         {/if}
+      </div>
     </div>
   </div>
 

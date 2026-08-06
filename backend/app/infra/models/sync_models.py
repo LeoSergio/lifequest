@@ -63,6 +63,7 @@ class GoalModel(SyncBase):
     xp_reward: Mapped[int] = mapped_column(Integer, default=0)
     deadline: Mapped[str] = mapped_column(String) # ISO YYYY-MM-DD
     achieved_at: Mapped[str] = mapped_column(String, nullable=True)
+    is_epic: Mapped[bool] = mapped_column(Boolean, default=False)
 
 class DailyQuestModel(SyncBase):
     __tablename__ = "daily_quests"

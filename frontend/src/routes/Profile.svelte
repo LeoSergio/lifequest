@@ -199,17 +199,11 @@
 
 <main class="min-h-screen p-5 pb-28 max-w-md mx-auto flex flex-col bg-gradient-to-br from-[#140b2e] via-[#0a0a0c] to-[#050505]">
   
-  <!-- CABEÇALHO -->
-  <div class="flex justify-between items-start mb-10 mt-2">
-    <div>
-      <h1 class="text-3xl font-black text-white tracking-tight mb-1">Perfil</h1>
-      <p class="text-[13px] text-white/50">Sua jornada e estatísticas.</p>
-    </div>
-  </div>
+
 
   {#if $player}
     <!-- Avatar e Info (Lado a Lado) -->
-    <div class="flex items-center gap-5 mb-8">
+    <div class="flex items-center gap-5 mb-8 mt-6">
       <!-- Avatar -->
       <div class="relative shrink-0">
         <label class="block w-[100px] h-[100px] rounded-full border-2 border-[#9333EA] overflow-hidden cursor-pointer bg-[#0a0a0c] flex items-center justify-center text-5xl transition-transform hover:scale-105">

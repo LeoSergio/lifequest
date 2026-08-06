@@ -37,6 +37,7 @@
 
   import { updatePlayer } from '../repositories/playerRepository.js';
   import { pushSync } from '../services/syncService.js';
+  import { showProBenefits } from '../lib/pro.js';
 
   function handleImageUpload(e) {
     const file = e.target.files[0];
@@ -204,20 +205,11 @@
       <h1 class="text-3xl font-black text-white tracking-tight mb-1">Perfil</h1>
       <p class="text-[13px] text-white/50">Sua jornada e estatísticas.</p>
     </div>
-    <div class="flex items-center gap-3">
-      <div class="flex items-center gap-1.5 bg-green-500/10 border border-green-500/20 px-3 py-1.5 rounded-full">
-         <div class="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.6)]"></div>
-         <span class="text-[10px] font-bold text-green-500">Nuvem ok</span>
-      </div>
-      <button class="w-9 h-9 bg-transparent border border-white/10 rounded-[10px] flex items-center justify-center hover:bg-white/5 transition-colors text-white/60">
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
-      </button>
-    </div>
   </div>
 
   {#if $player}
     <!-- Avatar e Info (Lado a Lado) -->
-    <div class="flex items-start gap-5 mb-8">
+    <div class="flex items-center gap-5 mb-8">
       <!-- Avatar -->
       <div class="relative shrink-0">
         <label class="block w-[100px] h-[100px] rounded-full border-2 border-[#9333EA] overflow-hidden cursor-pointer bg-[#0a0a0c] flex items-center justify-center text-5xl transition-transform hover:scale-105">
@@ -241,7 +233,7 @@
       </div>
 
       <!-- Info -->
-      <div class="flex-1 flex flex-col pt-1">
+      <div class="flex-1 flex flex-col">
         <div class="flex items-center gap-2 mb-2 cursor-pointer group" on:click={handleEditProfile}>
           <h2 class="text-white text-[22px] font-black tracking-tight truncate">{$player.name || 'Aventureiro'}</h2>
           <svg class="w-3.5 h-3.5 text-white/30 group-hover:text-white transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
@@ -342,6 +334,23 @@
        </div>
     </div>
   {/if}
+
+  <!-- PRO BANNER -->
+  <div class="relative bg-gradient-to-r from-[#1C1C22] to-[#2D1B4E] border border-[#a855f7]/40 rounded-[20px] p-5 mb-8 overflow-hidden shadow-[0_0_20px_rgba(168,85,247,0.15)] group cursor-pointer" on:click={showProBenefits}>
+    <div class="absolute -right-4 -top-4 w-24 h-24 bg-[#a855f7]/20 rounded-full blur-2xl pointer-events-none group-hover:bg-[#a855f7]/40 transition-colors"></div>
+    <div class="relative z-10 flex items-center justify-between">
+      <div class="flex-1 pr-4">
+        <div class="flex items-center gap-2 mb-1.5">
+          <svg class="w-4 h-4 text-yellow-400" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/></svg>
+          <span class="text-[12px] font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-400 uppercase tracking-widest">LifeQuest PRO</span>
+        </div>
+        <p class="text-[11px] text-white/70 leading-snug">Desbloqueie treinos de I.A., métricas avançadas e temas exclusivos.</p>
+      </div>
+      <button class="shrink-0 bg-gradient-to-r from-yellow-500 to-orange-500 text-black font-black text-[11px] px-4 py-2 rounded-full uppercase tracking-wider shadow-[0_0_15px_rgba(234,179,8,0.3)] hover:scale-105 transition-transform">
+        Conhecer
+      </button>
+    </div>
+  </div>
 
   <!-- Configurações e Ferramentas -->
   <h3 class="text-[10px] font-black text-white/40 mb-3 uppercase tracking-widest">Configurações e Ferramentas</h3>

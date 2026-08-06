@@ -11,7 +11,7 @@
 <button
   on:click={manualSync}
   title="Clique para sincronizar manualmente"
-  class="fixed top-3 right-3 z-50 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold backdrop-blur-md border shadow-lg transition-all duration-300 active:scale-95 bg-[#1C1C22]/90 border-white/10 text-white/80 hover:bg-white/10"
+  class="hidden fixed top-3 right-3 z-50 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold backdrop-blur-md border shadow-lg transition-all duration-300 active:scale-95 bg-[#1C1C22]/90 border-white/10 text-white/80 hover:bg-white/10"
 >
   {#if $syncState.status === 'syncing'}
     <span class="w-2 h-2 rounded-full bg-blue-400 animate-ping"></span>

@@ -4,6 +4,8 @@
   import { generateId } from '../lib/id.js';
   import { pushSync, enqueue } from '../services/syncService.js';
   import { showAlert, showConfirm } from '../lib/modal.js';
+  import { navigate } from '../lib/nav.js';
+  import { isPro, showProBenefits } from '../lib/pro.js';
   
   const player = liveQuery(() => db.player.toCollection().first());
   const inventory = liveQuery(() => db.inventory.toArray());
@@ -316,7 +318,21 @@
 
 <div class="flex flex-col gap-5">
   
-  <div class="px-1 flex justify-between items-center mb-2">
+  {#if $player && !isPro($player)}
+    <!-- Lembrete PRO -->
+    <div class="bg-gradient-to-r from-[#2D1B4E] to-[#1C1C22] border border-[#a855f7]/40 rounded-[16px] p-3 flex items-center justify-between cursor-pointer hover:border-[#a855f7] transition-colors shadow-[0_0_15px_rgba(168,85,247,0.1)] mx-1" on:click={showProBenefits}>
+      <div class="flex items-center gap-2">
+        <svg class="w-4 h-4 text-yellow-400" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/></svg>
+        <div>
+          <p class="text-[11px] font-bold text-white leading-tight">Ganhe Pro Coins Mensais!</p>
+          <p class="text-[9px] text-white/50">Assine o PRO e ganhe moedas premium todo mês.</p>
+        </div>
+      </div>
+      <span class="text-[10px] text-[#a855f7] font-bold">Ver mais ›</span>
+    </div>
+  {/if}
+
+  <div class="px-1 flex justify-between items-center mb-2 mt-1">
     <div class="flex gap-2">
       <!-- LifeCoins Comuns -->
       <div class="bg-[#1C1C22]/80 border border-white/5 px-3 py-1.5 rounded-[12px] flex items-center gap-1.5 shadow-inner">

@@ -11,6 +11,7 @@
   import { updatePlayer } from '../repositories/playerRepository.js';
   import { API_BASE } from '../lib/api.js';
   import { showAlert, showConfirm, showPrompt } from '../lib/modal.js';
+  import { isPro, showProBenefits } from '../lib/pro.js';
   
   let currentTab = 'diarias'; // 'diarias', 'semanais', 'mensais', 'conquistas', 'loja'
   
@@ -384,6 +385,20 @@
     <h1 class="text-3xl font-black text-white tracking-tight mb-1">Missões</h1>
     <p class="text-[13px] text-white/50">Desafios do dia rendem XP extra.</p>
   </div>
+
+  {#if $player && !isPro($player) && currentTab !== 'loja'}
+    <!-- Lembrete PRO -->
+    <div class="bg-gradient-to-r from-[#2D1B4E] to-[#1C1C22] border border-[#a855f7]/40 rounded-[16px] p-3 mx-2 flex items-center justify-between cursor-pointer hover:border-[#a855f7] transition-colors shadow-[0_0_15px_rgba(168,85,247,0.1)]" on:click={showProBenefits}>
+      <div class="flex items-center gap-2">
+        <svg class="w-4 h-4 text-yellow-400" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/></svg>
+        <div>
+          <p class="text-[11px] font-bold text-white leading-tight">Mestre de Missões PRO</p>
+          <p class="text-[9px] text-white/50">Use a IA sem limites para criar desafios épicos.</p>
+        </div>
+      </div>
+      <span class="text-[10px] text-[#a855f7] font-bold">Ver mais ›</span>
+    </div>
+  {/if}
 
   <!-- Tabs -->
   <div class="flex flex-wrap gap-2 px-2 mb-2">

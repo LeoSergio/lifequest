@@ -1,3 +1,5 @@
+import { showAlert } from './modal.js';
+
 /**
  * Helper central para lógica de planos Free vs PRO.
  *
@@ -61,4 +63,14 @@ export function checkDailyLimit(feature, player) {
   const limit = FREE_LIMITS[`${feature}PerDay`] ?? FREE_LIMITS[feature] ?? 1;
   const used = getDailyUsage(feature);
   return { allowed: used < limit, used, limit };
+}
+
+export function showProBenefits() {
+  showAlert({
+    title: 'LifeQuest PRO 🌟',
+    message: 'Benefícios exclusivos para membros PRO:\n\n🤖 Treinos gerados por Inteligência Artificial\n📊 Métricas e gráficos avançados\n💎 Pro Coins mensais para gastar na loja\n🎨 Avatares e Temas exclusivos\n\nTorne-se PRO e acelere sua evolução!',
+    icon: '⭐',
+    confirmText: 'Assinar agora',
+    type: 'info'
+  });
 }

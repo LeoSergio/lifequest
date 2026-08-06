@@ -189,10 +189,20 @@
     <div class="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(250,204,21,0.3)]">
       <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10H12V2zM21.18 8.02c-1-2.3-2.85-4.17-5.16-5.18"/></svg>
     </div>
-    <div>
-      <h2 class="text-[13px] font-bold text-white leading-tight">Receitas da Nutricionista IA</h2>
+    <div class="flex-1">
+      <div class="flex justify-between items-start">
+        <h2 class="text-[13px] font-bold text-white leading-tight">Receitas da Nutricionista IA</h2>
+        {#if $player && !isPro($player)}
+          <span class="text-[8px] font-bold text-yellow-500 bg-yellow-500/10 border border-yellow-500/20 px-1.5 py-0.5 rounded-sm shrink-0 whitespace-nowrap">FREE: {aiDailyUsed}/{aiDailyLimit} hoje</span>
+        {:else if $player && isPro($player)}
+          <span class="text-[8px] font-bold text-[#a855f7] bg-[#a855f7]/10 border border-[#a855f7]/20 px-1.5 py-0.5 rounded-sm shrink-0 whitespace-nowrap">PRO (Ilimitado)</span>
+        {/if}
+      </div>
       <p class="text-[9px] text-white/50 mt-0.5 leading-relaxed">
         Baseadas na sua dispensa atual{todaysWorkoutName ? ` e no seu treino (${todaysWorkoutName})` : ''}.
+        {#if $player && !isPro($player)}
+          <br><span class="text-yellow-500/70">Restam {Math.max(0, aiDailyLimit - aiDailyUsed)} requisições hoje. Assine o PRO para uso ilimitado.</span>
+        {/if}
       </p>
     </div>
   </div>

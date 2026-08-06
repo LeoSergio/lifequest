@@ -9,6 +9,8 @@
   import { pushSync } from '../services/syncService.js';
   import { fetchGlobalRanking } from '../services/socialService.js';
   import { updatePlayer } from '../repositories/playerRepository.js';
+  import { showAlert } from '../lib/modal.js';
+  import { isPro, showProBenefits } from '../lib/pro.js';
 
   const player = liveQuery(() => db.player.toCollection().first());
   const habits = liveQuery(() => db.habits.where('archivedAt').equals(null).toArray());
@@ -24,6 +26,17 @@
   $: progressPercent = Math.min(100, Math.round((totalXp / nextLevelXp) * 100));
 
   onMount(async () => {
+    if (!sessionStorage.getItem('proWelcomeShown')) {
+      sessionStorage.setItem('proWelcomeShown', 'true');
+      showAlert({
+        title: '🌟 LifeQuest PRO Chegou!',
+        message: 'Acelere seus resultados com ferramentas premium:\n\n🤖 Inteligência Artificial montando seus treinos\n📊 Gráficos detalhados da sua evolução\n💰 Pro Coins mensais para usar na Loja\n🎨 Temas visuais e Avatares épicos\n\nSuba de nível de verdade com o PRO!',
+        icon: '⭐',
+        confirmText: 'Incrível',
+        type: 'info'
+      });
+    }
+
     const p = await db.player.toCollection().first();
     if (p) {
       const today = todayIso();
@@ -99,6 +112,20 @@
 <main class="min-h-screen p-4 pb-24 flex flex-col max-w-md mx-auto">
   
   {#if $player}
+    {#if !isPro($player)}
+      <!-- Lembrete PRO -->
+      <div class="bg-gradient-to-r from-[#2D1B4E] to-[#1C1C22] border border-[#a855f7]/40 rounded-[16px] p-3 mb-3 flex items-center justify-between cursor-pointer hover:border-[#a855f7] transition-colors shadow-[0_0_15px_rgba(168,85,247,0.1)] mt-2" on:click={showProBenefits}>
+        <div class="flex items-center gap-2">
+          <svg class="w-4 h-4 text-yellow-400" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/></svg>
+          <div>
+            <p class="text-[11px] font-bold text-white leading-tight">Torne-se PRO</p>
+            <p class="text-[9px] text-white/50">Desbloqueie todo o potencial do LifeQuest</p>
+          </div>
+        </div>
+        <span class="text-[10px] text-[#a855f7] font-bold">Ver mais ›</span>
+      </div>
+    {/if}
+
     <!-- Top Hero Card -->
     <div class="bg-[#1C1C22]/80 border border-white/5 rounded-[24px] p-5 relative overflow-hidden shadow-inner mt-2">
       <!-- Avatar and Info row -->

@@ -285,27 +285,27 @@
           </div>
        </div>
        
-       <!-- Ofensiva -->
-       <div class="bg-[#1C1C22]/40 border border-white/5 rounded-2xl p-4 flex flex-col justify-between aspect-square">
-          <div class="w-7 h-7 rounded-full bg-orange-500/10 flex items-center justify-center text-orange-400 mb-2">
-             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12,22A10,10,0,0,1,2.83,16c.45-.48.91-1,1.4-1.42A7,7,0,0,0,10,21.57c0-2.31-1.31-3.64-2.8-5.2C5.58,14.65,4,13,4,9.5A8,8,0,0,1,12,2a5,5,0,0,0,1,5c0,1-1,2-1,3,1.69-1.07,4-2,5-4a6.52,6.52,0,0,1,1,3.46c0,4-2.58,6-5,7a4.42,4.42,0,0,0,2.15-1.5,10,10,0,0,1-2.15,3Z"/></svg>
-          </div>
-          <div class="flex flex-col mt-auto">
-             <p class="text-2xl font-black text-white leading-none mb-1">{$player?.streak || 0} d</p>
-             <p class="text-[9px] text-white/70 uppercase tracking-widest font-bold leading-tight">Ofensiva</p>
-             <p class="text-[9px] text-white/40 leading-tight">atual</p>
-          </div>
-       </div>
-       
        <!-- LifeCoins -->
-       <div class="bg-[#1C1C22]/40 border border-white/5 rounded-2xl p-4 flex flex-col justify-between aspect-square">
-          <div class="w-7 h-7 rounded-full bg-yellow-500/10 flex items-center justify-center text-yellow-500 mb-2">
-             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 12A4 4 0 0 0 8 12M12 16v.01"/></svg>
+       <div class="bg-[#1C1C22]/40 border border-white/5 rounded-2xl p-4 flex flex-col justify-between aspect-square cursor-pointer hover:bg-white/5 transition-colors group" on:click={() => navigate('quests', { tab: 'loja' })}>
+          <div class="w-7 h-7 rounded-full bg-yellow-500/10 flex items-center justify-center text-[16px] mb-2 group-hover:scale-110 transition-transform drop-shadow-[0_0_8px_rgba(234,179,8,0.5)]">
+             🪙
           </div>
           <div class="flex flex-col mt-auto">
-             <p class="text-2xl font-black text-white leading-none mb-1">{$player?.coins || 0}</p>
+             <p class="text-2xl font-black text-yellow-500 leading-none mb-1">{$player?.coins || 0}</p>
              <p class="text-[9px] text-white/70 uppercase tracking-widest font-bold leading-tight">LifeCoins</p>
              <p class="text-[9px] text-white/40 leading-tight">disponíveis</p>
+          </div>
+       </div>
+
+       <!-- Pro Coins -->
+       <div class="bg-[#1C1C22]/40 border border-white/5 rounded-2xl p-4 flex flex-col justify-between aspect-square cursor-pointer hover:bg-white/5 transition-colors group" on:click={() => navigate('quests', { tab: 'loja' })}>
+          <div class="w-7 h-7 rounded-full bg-[#9333EA]/10 flex items-center justify-center text-[16px] mb-2 group-hover:scale-110 transition-transform drop-shadow-[0_0_8px_rgba(168,85,247,0.5)]">
+             💎
+          </div>
+          <div class="flex flex-col mt-auto">
+             <p class="text-2xl font-black text-[#a855f7] leading-none mb-1">{$player?.proCoins || 0}</p>
+             <p class="text-[9px] text-white/70 uppercase tracking-widest font-bold leading-tight">Pro Coins</p>
+             <p class="text-[9px] text-white/40 leading-tight">premium</p>
           </div>
        </div>
        

@@ -336,13 +336,13 @@
     <div class="flex gap-2">
       <!-- LifeCoins Comuns -->
       <div class="bg-[#1C1C22]/80 border border-white/5 px-3 py-1.5 rounded-[12px] flex items-center gap-1.5 shadow-inner">
-        <div class="w-2 h-2 rounded-full bg-slate-300 shadow-[0_0_8px_rgba(203,213,225,0.8)]"></div>
-        <span class="font-bold text-slate-300 text-[12px]">{$player?.coins || 0} <span class="hidden sm:inline">LifeCoins</span></span>
+        <span class="text-[14px]">🪙</span>
+        <span class="font-bold text-yellow-500 text-[12px]">{$player?.coins || 0} <span class="hidden sm:inline">LifeCoins</span></span>
       </div>
       <!-- Moedas PRO -->
       <div class="bg-[#1C1C22]/80 border border-purple-500/20 px-3 py-1.5 rounded-[12px] flex items-center gap-1.5 shadow-[0_0_10px_rgba(168,85,247,0.1)]">
-        <div class="w-2 h-2 rounded-full bg-purple-400 shadow-[0_0_8px_rgba(168,85,247,0.8)]"></div>
-        <span class="font-bold text-purple-400 text-[12px]">{$player?.proCoins || 0} <span class="hidden sm:inline">PRO</span></span>
+        <span class="text-[14px]">💎</span>
+        <span class="font-bold text-[#a855f7] text-[12px]">{$player?.proCoins || 0} <span class="hidden sm:inline">PRO</span></span>
       </div>
     </div>
     

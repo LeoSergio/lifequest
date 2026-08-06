@@ -19,6 +19,44 @@
 
   $: streak = $player?.streak || 0;
   $: weekActivity = $sessions ? last7DaysActivity($sessions) : [];
+  
+  // Lógica para o grid de Ofensiva (baseado na sequência atual)
+  $: streakActivity = (() => {
+    const dayLabels = ["D", "S", "T", "Q", "Q", "S", "S"];
+    const today = new Date();
+    const days = [];
+    const lastActive = $player?.lastActiveAt;
+    
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const iso = d.toISOString().slice(0, 10);
+      
+      let active = false;
+      if (streak > 0 && lastActive) {
+        const lastDate = new Date(lastActive);
+        lastDate.setHours(12, 0, 0, 0);
+        const targetDate = new Date(iso);
+        targetDate.setHours(12, 0, 0, 0);
+        
+        const diffTime = lastDate.getTime() - targetDate.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        // Se a data alvo é igual ou anterior ao lastActive, e a diferença é menor que a ofensiva
+        if (diffDays >= 0 && diffDays < streak) {
+          active = true;
+        }
+      }
+      
+      days.push({
+        date: iso,
+        label: dayLabels[d.getDay()],
+        active: active,
+        isToday: i === 0,
+      });
+    }
+    return days;
+  })();
 
   $: totalXp = $player?.xp ?? 0;
   $: currentLevel = $player?.level ?? 1;
@@ -175,8 +213,8 @@
       </div>
 
       <!-- Progress row -->
-      <div class="grid grid-cols-12 gap-3 items-center">
-         <div class="col-span-6 flex flex-col justify-center">
+      <div class="flex items-center gap-2 w-full justify-between">
+         <div class="flex-1 flex flex-col justify-center min-w-[120px] pr-2">
             <div class="flex justify-between items-end mb-1.5">
                <span class="text-[10px] text-white/80 font-medium">Seu progresso</span>
                <span class="text-[9px] text-white/50"><span class="text-[#a855f7] font-bold">{totalXp}</span> / {nextLevelXp} XP</span>
@@ -187,16 +225,18 @@
             <span class="text-[9px] text-white/40"><span class="text-[#a855f7] font-bold">{progressPercent}%</span> até o nível {currentLevel + 1}</span>
          </div>
          
-         <div class="col-span-3 flex flex-col items-center justify-center border-l border-white/5 h-full pt-1">
-            <svg class="w-5 h-5 text-orange-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]" viewBox="0 0 24 24" fill="currentColor"><path d="M12,22A10,10,0,0,1,2.83,16c.45-.48.91-1,1.4-1.42A7,7,0,0,0,10,21.57c0-2.31-1.31-3.64-2.8-5.2C5.58,14.65,4,13,4,9.5A8,8,0,0,1,12,2a5,5,0,0,0,1,5c0,1-1,2-1,3,1.69-1.07,4-2,5-4a6.52,6.52,0,0,1,1,3.46c0,4-2.58,6-5,7a4.42,4.42,0,0,0,2.15-1.5,10,10,0,0,1-2.15,3Z"/></svg>
-            <span class="text-[9px] text-white/50 mt-1">Streak</span>
-            <span class="text-[10px] font-bold text-white leading-tight">{streak} dia</span>
-         </div>
 
-         <div class="col-span-3 flex flex-col items-center justify-center border-l border-white/5 h-full pt-1">
-            <svg class="w-4 h-4 text-yellow-500 drop-shadow-[0_0_8px_rgba(234,179,8,0.5)] mb-1" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8C10.35 6 9 7.35 9 9s1.35 3 3 3 3-1.35 3-3-1.35-3-3-3zM7 21v-2c0-1.66 1.34-3 3-3h4c1.66 0 3 1.34 3 3v2H7z"/></svg>
+
+         <div class="flex flex-col items-center justify-center border-l border-white/5 h-full pl-2.5 cursor-pointer hover:bg-white/5 rounded-[8px] transition-colors px-1" on:click={() => navigate('quests', { tab: 'loja' })}>
+            <div class="text-[16px] drop-shadow-[0_0_8px_rgba(234,179,8,0.5)] mb-0.5">🪙</div>
             <span class="text-[9px] text-white/50">Moedas</span>
             <span class="text-[10px] font-bold text-yellow-500 leading-tight">{$player.coins || 0}</span>
+         </div>
+
+         <div class="flex flex-col items-center justify-center border-l border-white/5 h-full pl-2.5 cursor-pointer hover:bg-white/5 rounded-[8px] transition-colors px-1" on:click={() => navigate('quests', { tab: 'loja' })}>
+            <div class="text-[16px] drop-shadow-[0_0_8px_rgba(168,85,247,0.5)] mb-0.5">💎</div>
+            <span class="text-[9px] text-white/50">Pro Coins</span>
+            <span class="text-[10px] font-bold text-[#a855f7] leading-tight">{$player.proCoins || 0}</span>
          </div>
       </div>
     </div>
@@ -312,19 +352,19 @@
        </div>
        <div class="text-right">
           <p class="text-[10px] text-white/40 uppercase tracking-widest font-bold">Sequência</p>
-          <p class="text-[16px] font-black text-orange-400 drop-shadow-[0_0_8px_rgba(249,115,22,0.4)]">{streak} dia{streak !== 1 ? 's' : ''}</p>
+          <p class="text-[16px] font-black text-orange-400 drop-shadow-[0_0_8px_rgba(249,115,22,0.4)]">{streak} dia{streak !== 1 ? 's' : ''} {#if streak > 0}<span class="animate-pulse">🔥</span>{/if}</p>
        </div>
     </div>
 
     <div class="flex justify-between items-end gap-1.5 relative z-10">
-      {#each weekActivity as day}
+      {#each streakActivity as day}
          <div class="flex flex-col items-center gap-2 flex-1">
-            <div class="w-full max-w-[36px] h-12 rounded-[10px] flex items-center justify-center transition-all duration-300 {day.trained ? 'bg-gradient-to-t from-orange-600 to-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.4)] border border-orange-400/50' : day.isToday ? 'bg-white/10 border border-white/20' : 'bg-surface border border-white/5'}">
-              {#if day.trained}
+            <div class="w-full max-w-[36px] h-12 rounded-[10px] flex items-center justify-center transition-all duration-300 {day.active ? 'bg-gradient-to-t from-orange-600 to-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.4)] border border-orange-400/50' : day.isToday ? 'bg-white/10 border border-white/20' : 'bg-surface border border-white/5'}">
+              {#if day.active}
                  <span class="text-white text-[15px] drop-shadow-md">🔥</span>
               {/if}
             </div>
-            <span class="text-[9px] font-bold uppercase tracking-wider {day.isToday ? 'text-orange-400' : day.trained ? 'text-white/80' : 'text-white/30'}">{day.label}</span>
+            <span class="text-[9px] font-bold uppercase tracking-wider {day.isToday ? 'text-orange-400' : day.active ? 'text-white/80' : 'text-white/30'}">{day.label}</span>
          </div>
       {/each}
     </div>

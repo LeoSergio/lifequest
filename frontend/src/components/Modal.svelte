@@ -6,7 +6,11 @@
   $: state = $modalState;
 
   let inputValue = '';
-  $: if (state?.kind === 'prompt') inputValue = state.defaultValue ?? '';
+  modalState.subscribe(val => {
+    if (val?.kind === 'prompt') {
+      inputValue = val.defaultValue ?? '';
+    }
+  });
 
   function close(result) {
     const resolve = state?.resolve;

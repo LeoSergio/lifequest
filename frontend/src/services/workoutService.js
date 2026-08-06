@@ -16,7 +16,7 @@ import {
   startSession,
   updateSet
 } from '../repositories/workoutRepository.js';
-import { getPlayer, updatePlayer } from '../repositories/playerRepository.js';
+import { getPlayer } from '../repositories/playerRepository.js';
 import { checkAchievements } from '../lib/achievements.js';
 
 export { removePlan, removeExerciseLink };
@@ -81,14 +81,12 @@ export async function finishWorkout({ activeSession, exercises, activeSets, setI
 
   await finishSession(activeSession.id);
 
-  // XP proporcional ao tamanho do treino, com um piso mínimo
-  const xpReward = Math.max(30, exercises.length * 15);
+  // XP não é concedido por treinos: apenas missões e conquistas geram XP.
+  // (Treinos são auto-relatados — a conclusão das missões semanais é que recompensa o jogador.)
+  const xpReward = 0;
 
   const player = await getPlayer();
-  const { level, xp, leveledUp } = applyXp(player.level, player.xp, xpReward);
-  await updatePlayer(player.id, { level, xp });
-
   await checkAchievements();
 
-  return { xpReward, leveledUp, level };
+  return { xpReward, leveledUp: false, level: player?.level ?? 1 };
 }

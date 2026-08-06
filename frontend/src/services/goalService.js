@@ -1,13 +1,11 @@
 /**
  * Service de metas — use cases da funcionalidade de Goals.
  *
- * Centraliza as regras de negócio: quando uma meta é alcançada,
- * como aplicar XP e garantir que o XP extra é concedido apenas uma vez.
+ * Metas registram progresso e conquistas, mas NÃO concedem XP.
+ * XP vem exclusivamente de missões diárias e conquistas automáticas do sistema.
  */
-import { applyXp } from '../lib/gamification.js';
 import { isGoalAchieved } from '../lib/goals.js';
 import { addGoal, updateGoal, deleteGoal } from '../repositories/goalRepository.js';
-import { getPlayer, updatePlayer } from '../repositories/playerRepository.js';
 import { checkAchievements } from '../lib/achievements.js';
 
 export { addGoal, deleteGoal };
@@ -32,6 +30,7 @@ export async function addProgress(goal, amount) {
 
   await updateGoal(goal.id, updates);
 
+  // XP não é concedido por metas: apenas missões e conquistas geram XP.
   if (!wasAchieved && nowAchieved) {
     await checkAchievements();
   }

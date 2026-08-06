@@ -131,4 +131,11 @@ db.version(9).stores({
   syncQueue: '++id, entity, entityId, action, timestamp'
 });
 
+// Versão 10: adiciona índice 'isEpic' às goals para separar metas épicas de metas normais.
+// Goals criadas antes dessa versão não terão isEpic=true e não aparecem como Chefões.
+db.version(10).stores({
+  goals: '++id, title, targetValue, currentValue, unit, reward, xpReward, deadline, achievedAt, createdAt, isEpic'
+});
+
 export default db;
+

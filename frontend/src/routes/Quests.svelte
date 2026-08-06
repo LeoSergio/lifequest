@@ -41,8 +41,17 @@
     return await db.dailyQuests.where('date').equals(today).toArray();
   });
 
-  // Metas (para servirem como Boss Fights Mensais/Épicas)
-  const goals = liveQuery(() => db.goals.toArray());
+  // APENAS Missões Épicas (goals com isEpic = true)
+  const goals = liveQuery(() => db.goals.filter(g => g.isEpic === true).toArray());
+
+  // Limites de missões épicas
+  $: activeEpicCount = $goals ? $goals.filter(g => !g.achievedAt).length : 0;
+  $: completedEpicCount = $goals ? $goals.filter(g => !!g.achievedAt).length : 0;
+  $: totalEpicCount = $goals ? $goals.length : 0;
+  // Pode pedir nova missão épica se:
+  // 1. Não tem nenhuma ainda (primeira invocação)
+  // 2. Tem pelo menos 1 completada E menos de 2 ativas
+  $: canRequestEpic = activeEpicCount < 2 && (totalEpicCount === 0 || completedEpicCount > 0);
 
   // Conquistas Desbloqueadas
   const unlockedAchievements = liveQuery(async () => {
@@ -68,6 +77,15 @@
   $: weekDone    = weekCount >= WEEKLY_GOAL;
   $: weekUsed    = false; // TODO: persistir uso da roleta semanal no Dexie
 
+  // Retorna os títulos de missões usadas nos últimos 7 dias (para evitar repetição)
+  async function getRecentQuestTitles() {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const cutoffDate = sevenDaysAgo.toISOString().slice(0, 10);
+    const recent = await db.dailyQuests.where('date').above(cutoffDate).toArray();
+    return recent.map(q => q.title);
+  }
+
   // Função para pedir novas missões para a IA
   async function fetchDailyQuests() {
     if (!$player) return;
@@ -75,6 +93,8 @@
     
     try {
       const token = localStorage.getItem('access_token');
+      const recentTitles = await getRecentQuestTitles();
+
       const response = await fetch(`${API_BASE}/ai/quests/daily`, {
         method: 'POST',
         headers: {
@@ -83,7 +103,8 @@
         },
         body: JSON.stringify({
           player_level: $player.level,
-          focus_areas: ["saúde", "desenvolvimento pessoal", "organização"]
+          focus_areas: ["saúde", "desenvolvimento pessoal", "organização"],
+          recent_quest_titles: recentTitles
         })
       });
       
@@ -91,6 +112,9 @@
         const data = await response.json();
         const today = todayIso();
         
+        // Remove missões antigas de hoje antes de adicionar novas (evita duplicatas)
+        await db.dailyQuests.where('date').equals(today).delete();
+
         for (const q of data.quests) {
           await db.dailyQuests.add({
             id: generateId(),
@@ -118,6 +142,20 @@
   // Função para pedir um Chefão (Missão Épica) para a IA
   async function fetchEpicQuest() {
     if (!$player) return;
+
+    // Limite: máximo 2 missões épicas ativas
+    if (activeEpicCount >= 2) {
+      showAlert({ title: 'Limite atingido', message: 'Você já tem 2 Chefões ativos! Complete pelo menos um antes de invocar outro.', icon: '🐲', type: 'warning' });
+      return;
+    }
+    // Se tem 1 ativa e nenhuma completada ainda, pode invocar a segunda livremente
+    // Se tem 1 ativa e pelo menos 1 completada, também pode
+    // Regra: só pode pedir nova se canRequestEpic for true
+    if (!canRequestEpic) {
+      showAlert({ title: 'Aguarde', message: 'Complete pelo menos uma missão épica antes de invocar um novo Chefão!', icon: '⚔️', type: 'warning' });
+      return;
+    }
+
     isLoadingEpic = true;
     
     try {
@@ -139,8 +177,8 @@
         const now = new Date();
         const deadline = new Date();
         deadline.setDate(now.getDate() + epic.deadline_days);
-        
-        await db.goals.add({
+
+        const newGoal = {
           id: generateId(),
           title: epic.title,
           targetValue: epic.target_value,
@@ -150,10 +188,14 @@
           xpReward: epic.xp_reward,
           deadline: deadline.toISOString().slice(0, 10),
           achievedAt: null,
-          createdAt: now.toISOString()
-        });
-
+          createdAt: now.toISOString(),
+          isEpic: true  // marca como missão épica
+        };
+        await db.goals.add(newGoal);
+        await enqueue('upsert', 'goals', newGoal.id, newGoal);
         pushSync().catch(() => {});
+
+        showAlert({ title: '🐲 Chefão Invocado!', message: `"${epic.title}" apareceu! Derrote-o antes do prazo!`, icon: '⚔️', type: 'success', confirmText: 'Vamos lá!' });
       } else {
         const err = await response.text();
         console.error('[IA] Erro ao gerar missão épica:', response.status, err);
@@ -261,19 +303,17 @@
     if (newValue >= goal.targetValue) {
       const p = await db.player.toCollection().first();
       if (p) {
-        const { level, xp, leveledUp } = applyXp(p.level, p.xp, goal.xpReward);
+        // XP não é concedido por missões épicas (auto-reportadas): apenas missões diárias e conquistas geram XP.
         const bossCoins = Math.floor(goal.xpReward / 5);
         const newCoins = (p.coins || 0) + bossCoins;
-        
-        await updatePlayer(p.id, { level, xp, coins: newCoins });
-        if (leveledUp) showAlert({ title: `Level Up! Nível ${level}!`, icon: '⭐', type: 'success', confirmText: 'Boa!' });
+        await updatePlayer(p.id, { coins: newCoins });
       }
 
       pushSync().catch(() => {});
 
       showAlert({
         title: '🎉 Chefão Derrotado!',
-        message: `Você ganhou ${goal.xpReward} XP e 💰 ${Math.floor(goal.xpReward / 5)} LifeCoins!`,
+        message: `Missão épica concluída! Você ganhou 💰 ${Math.floor(goal.xpReward / 5)} LifeCoins!`,
         icon: '🏆',
         type: 'success',
         confirmText: 'Incrivel!',
@@ -590,13 +630,25 @@
       {/if}
 
       <div class="mt-4 flex flex-col items-center p-4 bg-surface/50 border border-white/5 rounded-2xl">
-        <p class="text-xs text-white/50 mb-3 text-center">Quer um novo desafio? O Mestre do Jogo pode conjurar um Chefão baseado no seu nível.</p>
+        <p class="text-xs text-white/50 mb-1 text-center">Quer um novo desafio épico? Você pode ter até <strong class="text-white/70">2 Chefões ativos</strong> ao mesmo tempo.</p>
+        <p class="text-[10px] text-white/40 mb-3 text-center">
+          {activeEpicCount}/2 ativos · {completedEpicCount} derrotados
+        </p>
         <button 
           on:click={fetchEpicQuest}
-          disabled={isLoadingEpic}
-          class="w-full bg-danger/20 text-danger border border-danger/30 font-bold text-sm px-4 py-3 rounded-xl hover:bg-danger/30 transition-colors disabled:opacity-50"
+          disabled={isLoadingEpic || !canRequestEpic}
+          class="w-full font-bold text-sm px-4 py-3 rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed
+            {canRequestEpic ? 'bg-danger/20 text-danger border border-danger/30 hover:bg-danger/30' : 'bg-white/5 text-white/30 border border-white/10'}"
         >
-          {isLoadingEpic ? 'Conjurando...' : '🧙‍♂️ Invocar Chefão com IA'}
+          {#if isLoadingEpic}
+            Conjurando...
+          {:else if activeEpicCount >= 2}
+            🔒 Derrote um Chefão primeiro
+          {:else if totalEpicCount > 0 && completedEpicCount === 0}
+            ⚔️ Complete uma missão épica primeiro
+          {:else}
+            🧙‍♂️ Invocar Chefão com IA
+          {/if}
         </button>
       </div>
     </div>

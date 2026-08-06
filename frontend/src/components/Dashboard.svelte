@@ -1,7 +1,7 @@
 <script>
   import { liveQuery } from 'dexie';
   import { db } from '../db/db.js';
-  import { applyXp } from '../lib/gamification.js';
+  import { applyXp, xpToNextLevel } from '../lib/gamification.js';
   import { currentStreak, last7DaysActivity } from '../lib/metrics.js';
   import { completedToday, todayIso } from '../lib/habits.js';
   import { navigate } from '../lib/nav.js';
@@ -20,7 +20,7 @@
 
   $: totalXp = $player?.xp ?? 0;
   $: currentLevel = $player?.level ?? 1;
-  $: nextLevelXp = currentLevel * 100;
+  $: nextLevelXp = xpToNextLevel(currentLevel);
   $: progressPercent = Math.min(100, Math.round((totalXp / nextLevelXp) * 100));
 
   onMount(async () => {

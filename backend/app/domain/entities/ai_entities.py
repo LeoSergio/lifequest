@@ -67,6 +67,7 @@ class DailyQuestEntity(BaseModel):
 class DailyQuestsRequest(BaseModel):
     player_level: int
     focus_areas: list[str] = []
+    recent_quest_titles: list[str] = []  # títulos de missões recentes para evitar repetição
 
 
 class DailyQuestsResponseEntity(BaseModel):

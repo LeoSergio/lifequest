@@ -1,13 +1,11 @@
 /**
  * Service de hábitos — use cases da funcionalidade de hábitos.
  *
- * Orquestra as regras de negócio (quando pode marcar, aplicar XP,
- * verificar level up) sem saber nada sobre a UI.
+ * Hábitos registram completões e verificam conquistas, mas NÃO concedem XP.
+ * XP vem exclusivamente de missões diárias e conquistas automáticas do sistema.
  */
-import { applyXp } from '../lib/gamification.js';
 import { completedToday, todayIso, weeklyCount } from '../lib/habits.js';
 import { addCompletion, addHabit, archiveHabit, deleteHabit } from '../repositories/habitRepository.js';
-import { getPlayer, updatePlayer } from '../repositories/playerRepository.js';
 import { checkAchievements } from '../lib/achievements.js';
 
 export { addHabit, archiveHabit, deleteHabit };
@@ -25,6 +23,7 @@ export async function completeHabit(habit, completions) {
 
   await addCompletion(habit.id, todayIso());
 
+  // XP não é concedido por hábitos: apenas missões e conquistas geram XP.
   await checkAchievements();
   return { leveledUp: false, level: 0 };
 }

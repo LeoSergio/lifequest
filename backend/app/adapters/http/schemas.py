@@ -59,6 +59,7 @@ class MissionResponseSchema(BaseModel):
 class DailyQuestsRequestSchema(BaseModel):
     player_level: int
     focus_areas: list[str] = []
+    recent_quest_titles: list[str] = []  # títulos recentes para evitar repetição
 
 
 class DailyQuestItemSchema(BaseModel):

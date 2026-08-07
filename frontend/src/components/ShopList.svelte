@@ -381,11 +381,11 @@
           {:else}
             <div class="bg-black/30 px-2.5 py-1 rounded-lg flex items-center gap-1">
               {#if getCurrency(item.category) === 'proCoins'}
-                 <div class="w-1.5 h-1.5 rounded-full bg-purple-400"></div>
-                 <span class="text-[11px] font-black text-purple-400">{item.price}</span>
+                 <span class="text-[12px] drop-shadow-[0_0_8px_rgba(168,85,247,0.5)]">💎</span>
+                 <span class="text-[11px] font-black text-[#a855f7]">{item.price}</span>
               {:else}
-                 <div class="w-1.5 h-1.5 rounded-full bg-slate-300"></div>
-                 <span class="text-[11px] font-black text-slate-300">{item.price}</span>
+                 <span class="text-[12px] drop-shadow-[0_0_8px_rgba(234,179,8,0.5)]">🪙</span>
+                 <span class="text-[11px] font-black text-yellow-500">{item.price}</span>
               {/if}
             </div>
           {/if}
@@ -401,7 +401,7 @@
         {#if item.category === 'consumable' || !hasItem(item.id)}
           <button 
             on:click={() => buyItem(item)}
-            class="w-full text-[12px] font-bold py-3 rounded-[16px] transition-all active:scale-95 {getBalance(item.category) >= item.price ? (getCurrency(item.category) === 'proCoins' ? 'bg-purple-600 text-white hover:bg-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.3)]' : 'bg-slate-300 text-black hover:bg-white shadow-[0_0_15px_rgba(203,213,225,0.3)]') : 'bg-transparent text-white/30 cursor-not-allowed border border-white/10'}"
+            class="w-full text-[12px] font-bold py-3 rounded-[16px] transition-all active:scale-95 flex items-center justify-center gap-1.5 {getBalance(item.category) >= item.price ? (getCurrency(item.category) === 'proCoins' ? 'bg-purple-600 text-white hover:bg-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.3)]' : 'bg-yellow-500 text-black hover:bg-yellow-400 shadow-[0_0_15px_rgba(234,179,8,0.3)]') : 'bg-transparent text-white/30 cursor-not-allowed border border-white/10'}"
           >
             {getBalance(item.category) >= item.price ? 'Comprar' : 'Sem saldo'}
           </button>

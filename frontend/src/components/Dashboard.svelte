@@ -35,13 +35,11 @@
       
       let active = false;
       if (streak > 0 && lastActive) {
-        const lastDate = new Date(lastActive);
-        lastDate.setHours(12, 0, 0, 0);
-        const targetDate = new Date(iso);
-        targetDate.setHours(12, 0, 0, 0);
+        const lastDate = new Date(lastActive + 'T12:00:00');
+        const targetDate = new Date(iso + 'T12:00:00');
         
         const diffTime = lastDate.getTime() - targetDate.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
         
         // Se a data alvo é igual ou anterior ao lastActive, e a diferença é menor que a ofensiva
         if (diffDays >= 0 && diffDays < streak) {
@@ -462,23 +460,23 @@
         <span class="text-white/20 text-sm group-hover:text-white/50">›</span>
      </button>
 
-     <button class="flex items-center justify-between px-5 py-3.5 group hover:bg-white/5 transition-colors border-b border-white/5" on:click={() => navigate('quests', { tab: 'loja' })}>
-        <div class="flex items-center gap-3">
-           <svg class="w-[20px] h-[20px] text-[#a855f7]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 12A4 4 0 0 0 8 12M12 16v.01"/></svg>
-           <div class="text-left">
-              <h4 class="text-[12px] font-bold text-white mb-0.5">Personalização</h4>
-              <p class="text-[10px] text-white/40">Visite a loja para temas e avatares</p>
-           </div>
-        </div>
-        <span class="text-white/20 text-sm group-hover:text-white/50">›</span>
-     </button>
-
-     <button class="flex items-center justify-between px-5 py-3.5 group hover:bg-white/5 transition-colors" on:click={() => navigate('quests', { tab: 'conquistas' })}>
+     <button class="flex items-center justify-between px-5 py-3.5 group hover:bg-white/5 transition-colors border-b border-white/5" on:click={() => navigate('quests', { tab: 'conquistas' })}>
         <div class="flex items-center gap-3">
            <svg class="w-[20px] h-[20px] text-yellow-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
            <div class="text-left">
               <h4 class="text-[12px] font-bold text-white mb-0.5">Ver as conquistas</h4>
               <p class="text-[10px] text-white/40">Acompanhe suas medalhas e troféus</p>
+           </div>
+        </div>
+        <span class="text-white/20 text-sm group-hover:text-white/50">›</span>
+     </button>
+
+     <button class="flex items-center justify-between px-5 py-3.5 group hover:bg-white/5 transition-colors" on:click={() => navigate('quests', { tab: 'loja' })}>
+        <div class="flex items-center gap-3">
+           <svg class="w-[20px] h-[20px] text-[#a855f7]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 12A4 4 0 0 0 8 12M12 16v.01"/></svg>
+           <div class="text-left">
+              <h4 class="text-[12px] font-bold text-white mb-0.5">Loja do LifeQuest</h4>
+              <p class="text-[10px] text-white/40">Gaste suas moedas em recompensas</p>
            </div>
         </div>
         <span class="text-white/20 text-sm group-hover:text-white/50">›</span>

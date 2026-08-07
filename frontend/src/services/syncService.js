@@ -153,7 +153,12 @@ export async function pullSync() {
             await db[table].delete(localId);
           } else {
             delete camelRecord.deleted;
-            await db[table].put(camelRecord);
+            const existing = await db[table].get(localId);
+            if (existing) {
+              await db[table].update(localId, camelRecord);
+            } else {
+              await db[table].put(camelRecord);
+            }
           }
         }
       }

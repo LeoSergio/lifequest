@@ -7,6 +7,9 @@ class Settings(BaseSettings):
     # Groq = provedor principal (baixa latência). Gemini = fallback/multimodal.
     groq_api_key: str = ""
     gemini_api_key: str = ""
+    
+    # Credenciais Sociais
+    google_client_id: str = "228718930815-9b532nkd4ikhdtl3v72mtgch9ujabltm.apps.googleusercontent.com"
 
     # Em produção, defina CORS_ORIGINS como JSON no Railway:
     # ["https://seu-app.vercel.app"]

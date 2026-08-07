@@ -35,7 +35,7 @@
     { title: 'Treinar', icon: '💪', cadence: 'weekly', weeklyTarget: 4, xpReward: 20 }
   ];
 
-  const GOOGLE_CLIENT_ID = "228718930815-9b532nkd4ikhdtl3v72mtgch9ujabltm.apps.googleusercontent.com";
+  const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "228718930815-9b532nkd4ikhdtl3v72mtgch9ujabltm.apps.googleusercontent.com";
 
   async function handleGoogleCredentialResponse(response) {
     if (!response.credential) return;

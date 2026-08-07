@@ -7,6 +7,7 @@ import uuid
 from app.infra.database import get_db_session
 from app.infra.models.user_model import UserModel
 from app.infra.security import get_password_hash, verify_password, create_access_token
+from app.infra.config import settings
 from app.auth_schemas import UserCreate, UserLogin, UserResponse, Token, GoogleLogin
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
@@ -76,7 +77,7 @@ async def login(user_credentials: UserLogin, db: AsyncSession = Depends(get_db_s
 
 @router.post("/google", response_model=Token)
 async def login_google(google_data: GoogleLogin, db: AsyncSession = Depends(get_db_session)):
-    client_id = "228718930815-9b532nkd4ikhdtl3v72mtgch9ujabltm.apps.googleusercontent.com"
+    client_id = settings.google_client_id
     
     try:
         # Validate Google token

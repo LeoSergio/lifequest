@@ -2,6 +2,10 @@ import App from './App.svelte';
 import './styles/app.css';
 import { db } from './db/db.js';
 import { startSyncWorker } from './services/syncService.js';
+import { inject } from '@vercel/analytics';
+
+// Injeta o Vercel Analytics (apenas em produção/quando deployado na Vercel)
+inject();
 
 // Aguarda o Dexie abrir e migrar o banco antes de registrar os hooks de sync.
 // Sem isso, setupSyncHooks() pode tentar acessar tabelas que ainda estão

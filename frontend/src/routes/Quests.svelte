@@ -70,7 +70,7 @@
     startOfWeek.setHours(0, 0, 0, 0);
     const startIso = startOfWeek.toISOString().slice(0, 10);
     const all = await db.workoutSessions.toArray();
-    return all.filter(s => s.finishedAt && s.finishedAt.slice(0, 10) >= startIso);
+    return all.filter(s => s.finishedAt && !s.isRestDay && s.finishedAt.slice(0, 10) >= startIso);
   });
 
   const WEEKLY_GOAL = 4; // meta de treinos por semana

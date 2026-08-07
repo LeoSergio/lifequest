@@ -45,7 +45,7 @@
 
     const sessions = await db.workoutSessions.toArray();
     totalSessions   = sessions.length;
-    finishedSessions = sessions.filter(s => !!s.finishedAt).length;
+    finishedSessions = sessions.filter(s => !!s.finishedAt && !s.isRestDay).length;
 
     // Tempo médio de sessão (em min)
     const durations = sessions
@@ -62,7 +62,7 @@
     startOfWeek.setDate(now.getDate() - ((dayOfWeek + 6) % 7)); // segunda
     startOfWeek.setHours(0, 0, 0, 0);
     const startIso = startOfWeek.toISOString().slice(0, 10);
-    trainedThisWeek = sessions.filter(s => s.finishedAt && s.finishedAt.slice(0, 10) >= startIso).length;
+    trainedThisWeek = sessions.filter(s => s.finishedAt && !s.isRestDay && s.finishedAt.slice(0, 10) >= startIso).length;
 
     // Sets / reps / carga
     const sets = await db.sessionSets.toArray();

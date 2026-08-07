@@ -239,7 +239,7 @@
   // ---------- Consistência ----------
   const sessions = liveQuery(() => db.workoutSessions.toArray());
   $: calendarColumns = $sessions ? weeklyCalendar($sessions, 9) : [];
-  $: totalTrained = $sessions ? new Set($sessions.filter((s) => s.finishedAt).map((s) => s.finishedAt.slice(0, 10))).size : 0;
+  $: totalTrained = $sessions ? new Set($sessions.filter((s) => s.finishedAt && !s.isRestDay).map((s) => s.finishedAt.slice(0, 10))).size : 0;
   $: streak = $sessions ? currentStreak($sessions) : 0;
 </script>
 

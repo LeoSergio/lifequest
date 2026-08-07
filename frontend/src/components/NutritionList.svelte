@@ -51,7 +51,7 @@
     if (player?.goal) playerGoal = player.goal;
     const today = new Date().toISOString().slice(0, 10);
     const sessions = await db.workoutSessions.toArray();
-    const todaySession = sessions.find(s => s.finishedAt?.slice(0, 10) === today);
+    const todaySession = sessions.find(s => s.finishedAt?.slice(0, 10) === today && !s.isRestDay);
     if (todaySession) {
       const plan = await db.workoutPlans.get(todaySession.workoutPlanId);
       todaysWorkoutName = plan?.name ?? null;

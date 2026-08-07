@@ -73,7 +73,7 @@ export async function checkAchievements() {
   if (!unlockedIds.has('madrugador')) {
     const sessions = await db.workoutSessions.toArray();
     const hasEarly = sessions.some(s => {
-      if (!s.finishedAt) return false;
+      if (!s.finishedAt || s.isRestDay) return false;
       const date = new Date(s.finishedAt);
       return date.getHours() < 6;
     });
@@ -85,7 +85,7 @@ export async function checkAchievements() {
       const now = new Date();
       const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
       const recentWorkouts = await db.workoutSessions.filter(s => {
-          if (!s.finishedAt) return false;
+          if (!s.finishedAt || s.isRestDay) return false;
           return new Date(s.finishedAt) > sevenDaysAgo;
       }).count();
       
@@ -124,7 +124,7 @@ export async function checkAchievements() {
   if (!unlockedIds.has('rotina_matinal_15') || !unlockedIds.has('clube_5am_100')) {
       const sessions = await db.workoutSessions.toArray();
       const morningSessions = sessions.filter(s => {
-          if (!s.finishedAt) return false;
+          if (!s.finishedAt || s.isRestDay) return false;
           return new Date(s.finishedAt).getHours() < 6;
       }).length;
       if (morningSessions >= 15 && !unlockedIds.has('rotina_matinal_15')) newUnlocks.push('rotina_matinal_15');
@@ -142,7 +142,7 @@ export async function checkAchievements() {
   if (!unlockedIds.has('tonelagem_10k')) {
       const now = new Date();
       const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const recentSessions = await db.workoutSessions.filter(s => s.finishedAt && new Date(s.finishedAt) > sevenDaysAgo).toArray();
+      const recentSessions = await db.workoutSessions.filter(s => s.finishedAt && !s.isRestDay && new Date(s.finishedAt) > sevenDaysAgo).toArray();
       const sessionIds = recentSessions.map(s => s.id);
       
       const recentSets = await db.sessionSets.where('workoutSessionId').anyOf(sessionIds).toArray();

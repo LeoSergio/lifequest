@@ -27,7 +27,7 @@
 
   const completedWorkoutsCount = liveQuery(async () => {
     const sessions = await db.workoutSessions.toArray();
-    return sessions.filter(s => !!s.finishedAt).length;
+    return sessions.filter(s => !!s.finishedAt && !s.isRestDay).length;
   });
 
   const volumeTotal = liveQuery(async () => {
@@ -202,11 +202,11 @@
 
 
   {#if $player}
-    <!-- Avatar e Info (Lado a Lado) -->
-    <div class="flex items-center gap-5 mb-8 mt-6">
+    <!-- Avatar e Info (Vertical) -->
+    <div class="flex flex-col items-center gap-4 mb-8 mt-6">
       <!-- Avatar -->
       <div class="relative shrink-0">
-        <label class="block w-[100px] h-[100px] rounded-full border-2 border-[#9333EA] overflow-hidden cursor-pointer bg-[#0a0a0c] flex items-center justify-center text-5xl transition-transform hover:scale-105">
+        <label class="block w-[100px] h-[100px] rounded-full border-2 border-[#9333EA] overflow-hidden cursor-pointer bg-[#0a0a0c] flex items-center justify-center text-5xl transition-transform hover:scale-105 mx-auto">
           {#if $player?.avatar}
              {#if $player.avatar.startsWith('data:image')}
                <img src={$player.avatar} alt="Avatar" class="w-full h-full object-cover" />
@@ -220,27 +220,27 @@
         </label>
         
         <!-- Botão Câmera -->
-        <label class="absolute bottom-0 right-0 bg-[#0a0a0c] border border-white/20 text-white w-9 h-9 rounded-full flex items-center justify-center cursor-pointer hover:bg-white/10 transition-colors shadow-lg">
+        <label class="absolute bottom-0 right-0 bg-[#0a0a0c] border border-white/20 text-white w-9 h-9 rounded-full flex items-center justify-center cursor-pointer hover:bg-white/10 transition-colors shadow-lg translate-x-1">
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
           <input type="file" accept="image/*" class="hidden" on:change={handleImageUpload} />
         </label>
       </div>
 
       <!-- Info -->
-      <div class="flex-1 flex flex-col">
-        <div class="flex items-center gap-2 mb-2 cursor-pointer group" on:click={handleEditProfile}>
-          <h2 class="text-white text-[22px] font-black tracking-tight truncate">{$player.name || 'Aventureiro'}</h2>
-          <svg class="w-3.5 h-3.5 text-white/30 group-hover:text-white transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+      <div class="flex flex-col items-center w-full">
+        <div class="flex items-center justify-center gap-2 mb-2 cursor-pointer group" on:click={handleEditProfile}>
+          <h2 class="text-white text-[24px] font-black tracking-tight text-center">{$player.name || 'Aventureiro'}</h2>
+          <svg class="w-4 h-4 text-white/30 group-hover:text-white transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
         </div>
         
         <div class="mb-4">
-           <span class="bg-[#1C1C22]/80 text-[#c084fc] text-[9px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest border border-[#a855f7]/30 inline-block">
+           <span class="bg-[#1C1C22]/80 text-[#c084fc] text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest border border-[#a855f7]/30 inline-block text-center shadow-[0_0_10px_rgba(168,85,247,0.15)]">
              NÍVEL {$player.level} • INICIANTE
            </span>
         </div>
 
         <!-- Barra de Progresso -->
-        <div class="bg-[#1C1C22]/40 border border-white/5 rounded-2xl p-4">
+        <div class="bg-[#1C1C22]/40 border border-white/5 rounded-2xl p-4 w-full">
           <div class="flex justify-between items-end mb-2">
             <span class="text-[10px] text-white/90 font-medium">Próximo Nível</span>
             <span class="text-[9px] text-white/50"><span class="text-[#c084fc] font-bold">{$player.xp}</span> / {nextLevelXp} XP</span>

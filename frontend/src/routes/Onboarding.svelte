@@ -3,7 +3,6 @@
   import { generateId } from '../lib/id.js';
   import { GOALS } from '../lib/constants.js';
   import { api } from '../lib/api.js';
-  import { onMount, tick } from 'svelte';
 
   // Onboarding em 3 passos curtos: nome, objetivo, métricas básicas.
   // Nada de quiz nem chamada de IA — o app funciona 100% offline desde o
@@ -13,6 +12,11 @@
   const totalSteps = 3;
 
   let name = '';
+  let email = '';
+  let password = '';
+  let authMode = 'login';
+  let showPassword = false;
+  let rememberMe = true;
   let errorMessage = '';
   let successMessage = '';
   let isLoading = false;
@@ -41,7 +45,6 @@
       const data = await api.loginGoogle(response.credential);
       
       const { pullSync } = await import('../services/syncService.js');
-      // Set token temporarily for pullSync to work
       localStorage.setItem('access_token', data.access_token);
       await pullSync();
 
@@ -51,7 +54,6 @@
         // Novo usuário pelo Google, avança pro onboarding
         name = data.name || 'Herói';
         pendingToken = data.access_token;
-        // Limpa o token pra não dar conflito no meio do onboarding
         localStorage.removeItem('access_token'); 
         step = 2;
       } else {
@@ -93,9 +95,68 @@
     successMessage = '';
 
     if (step === 1) {
-      // Step 1 is now exclusively handled by handleGoogleCredentialResponse (or Apple)
-      // They won't click "next" manually for step 1 anymore.
-      return;
+      if (authMode === 'register' && (!name.trim() || !email.trim() || !password)) return;
+      if (authMode === 'login' && (!email.trim() || !password)) return;
+
+      isLoading = true;
+      try {
+        if (authMode === 'register') {
+          // Chamada para a API de Registro
+          await api.register({ name: name.trim(), email: email.trim(), password });
+
+          // Auto-login após o registro para já salvar o token provisoriamente
+          const loginData = await api.login({ email: email.trim(), password });
+          pendingToken = loginData.access_token;
+
+          isLoading = false;
+          successMessage = 'Cadastrado com sucesso!';
+          setTimeout(() => {
+            successMessage = '';
+            step += 1;
+          }, 1500);
+          return;
+        } else if (authMode === 'login') {
+          // Chamada para a API de Login
+          const data = await api.login({ email: email.trim(), password });
+          localStorage.setItem('access_token', data.access_token);
+          
+          // IMPORTANTE: Trazemos os dados da nuvem para o dispositivo local.
+          // O pullSync pode já trazer o registro "player" salvo na nuvem.
+          const { pullSync } = await import('../services/syncService.js');
+          await pullSync();
+
+          // Só cria um player local se o pullSync NÃO trouxe nenhum da nuvem.
+          // Isso evita sobrescrever os dados (level, xp, hábitos, etc.) que
+          // acabaram de ser restaurados.
+          const existingPlayer = await db.player.toCollection().first();
+          if (!existingPlayer) {
+            const rawName = data.name || email.split('@')[0];
+            const finalName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
+            
+            await db.player.add({
+              name: finalName,
+              goal: 'health',
+              level: data.level || 1,
+              xp: data.xp || 0,
+              coins: data.coins || 0,
+              streak: data.streak_days || 0,
+              createdAt: new Date().toISOString()
+            });
+          }
+          
+          return; // A tela sairá do Onboarding automaticamente via liveQuery
+        }
+      } catch (err) {
+        if (err?.status === 401) {
+          errorMessage = 'E-mail ou senha incorretos. Verifique seus dados e tente novamente.';
+        } else if (err?.status === 400) {
+          errorMessage = err?.data?.detail || 'Dados inválidos. Verifique e tente novamente.';
+        } else {
+          errorMessage = 'Erro de conexão com o servidor. Verifique se o backend está rodando.';
+        }
+        isLoading = false;
+        return;
+      }
     }
 
     if (step === 2 && !goal) return;
@@ -287,43 +348,149 @@
         </div>
 
         <div class="text-center mb-7">
-          <h1 class="text-[28px] font-bold mb-2">Seu <span class="text-primary">progresso</span></h1>
-          <p class="text-[14px] text-white/60 leading-relaxed px-4">Faça login com sua conta preferida para sincronizar seus treinos e conquistas.</p>
+          <h1 class="text-[28px] font-bold mb-2">Proteja seu <span class="text-primary">progresso</span></h1>
+          <p class="text-[14px] text-white/60 leading-relaxed px-4">Faça login para continuar acompanhando seus treinos, hábitos e conquistas.</p>
         </div>
 
-        <div class="w-full flex flex-col items-center gap-3.5 mb-6 max-w-[300px] mx-auto">
-          <div class="w-full flex justify-center" use:googleLoginAction></div>
+        <!-- Tabs -->
+        <div class="w-full flex rounded-xl border border-white/5 bg-surface/50 p-1 mb-6">
+          <button 
+            type="button"
+            class="flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 relative transition-colors {authMode === 'login' ? 'text-primary' : 'text-white/40 hover:text-white/70'}"
+            on:click={() => authMode = 'login'}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+            Entrar
+            {#if authMode === 'login'}
+              <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-[3px] bg-primary rounded-t-full shadow-[0_-2px_10px_rgba(124,92,255,0.5)]"></div>
+            {/if}
+          </button>
           
           <button 
-            type="button" 
-            class="w-full h-[40px] bg-white text-black flex items-center justify-center gap-2 rounded-[4px] font-medium text-[14px] border border-[#dadce0] hover:bg-gray-50 transition-colors shadow-sm relative"
+            type="button"
+            class="flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 relative transition-colors {authMode === 'register' ? 'text-primary' : 'text-white/40 hover:text-white/70'}"
+            on:click={() => authMode = 'register'}
           >
-            <svg class="w-5 h-5 absolute left-3" viewBox="0 0 384 512" fill="currentColor">
-              <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/>
-            </svg>
-            <span class="font-roboto flex-1 text-center font-medium text-[#3c4043] tracking-[0.25px]">Continuar com Apple</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+            Cadastrar
+            {#if authMode === 'register'}
+              <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-[3px] bg-primary rounded-t-full shadow-[0_-2px_10px_rgba(124,92,255,0.5)]"></div>
+            {/if}
           </button>
         </div>
 
-        <!-- Mensagem de Erro/Loading -->
-        {#if isLoading}
-          <div class="text-white/60 text-xs text-center mt-1 mb-1 animate-fade-in flex items-center gap-2 justify-center">
-            <svg class="animate-spin h-4 w-4 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            Conectando...
-          </div>
-        {/if}
+        <div class="w-full flex justify-center mb-6 max-w-[300px] mx-auto" use:googleLoginAction></div>
+        
+        <div class="w-full flex items-center gap-4 mb-5">
+          <div class="flex-1 h-px bg-white/10"></div>
+          <span class="text-[11px] text-white/40 uppercase tracking-widest font-medium">Ou use e-mail</span>
+          <div class="flex-1 h-px bg-white/10"></div>
+        </div>
 
-        {#if errorMessage}
-          <div class="text-red-400 text-xs text-center mt-1 mb-1 animate-fade-in bg-red-500/10 py-2.5 rounded-xl border border-red-500/20 px-4 w-[280px]">
-            {errorMessage}
+        <form on:submit|preventDefault={next} class="w-full flex flex-col gap-4 text-left">
+          {#if authMode === 'register'}
+            <!-- Nome -->
+            <div class="relative animate-fade-in">
+              <div class="absolute left-4 top-1/2 -translate-y-1/2 text-primary">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              </div>
+              <input
+                class="w-full bg-surface/40 border border-white/5 rounded-xl pl-11 pr-4 py-4 text-sm focus:border-primary focus:bg-surface/80 focus:outline-none transition-all placeholder:text-white/30 text-white"
+                placeholder="Seu nome"
+                bind:value={name}
+                required={authMode === 'register'}
+              />
+            </div>
+          {/if}
+
+          <!-- E-mail -->
+          <div class="relative animate-fade-in">
+            <div class="absolute left-4 top-1/2 -translate-y-1/2 text-primary">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </div>
+            <input
+              type="email"
+              class="w-full bg-surface/40 border border-white/5 rounded-xl pl-11 pr-4 py-4 text-sm focus:border-primary focus:bg-surface/80 focus:outline-none transition-all placeholder:text-white/30 text-white"
+              placeholder="Seu e-mail"
+              bind:value={email}
+              required
+            />
           </div>
-        {/if}
+
+          <!-- Senha -->
+          <div class="relative animate-fade-in">
+            <div class="absolute left-4 top-1/2 -translate-y-1/2 text-primary">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
+            <input
+              type={showPassword ? "text" : "password"}
+              class="w-full bg-surface/40 border border-white/5 rounded-xl pl-11 pr-11 py-4 text-sm focus:border-primary focus:bg-surface/80 focus:outline-none transition-all placeholder:text-white/30 text-white"
+              placeholder="Sua senha"
+              value={password}
+              on:input={(e) => password = e.currentTarget.value}
+              required
+            />
+            <button 
+              type="button"
+              class="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
+              on:click={() => showPassword = !showPassword}
+            >
+              {#if showPassword}
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              {:else}
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              {/if}
+            </button>
+          </div>
+
+          <!-- Lembrar de mim e Esqueci a senha -->
+          {#if authMode === 'login'}
+            <div class="flex justify-between items-center mt-1 animate-fade-in">
+              <label class="flex items-center gap-2.5 cursor-pointer group select-none">
+                <div class="w-[18px] h-[18px] rounded-[5px] border flex items-center justify-center transition-colors {rememberMe ? 'bg-primary border-primary' : 'border-white/20 group-hover:border-white/40'}">
+                  {#if rememberMe}
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  {/if}
+                </div>
+                <input type="checkbox" bind:checked={rememberMe} class="hidden" />
+                <span class="text-[14px] text-white/60 group-hover:text-white/90 transition-colors">Lembrar de mim</span>
+              </label>
+
+              <button type="button" class="text-[14px] text-primary hover:text-primary/80 transition-colors">
+                Esqueci minha senha
+              </button>
+            </div>
+          {/if}
+
+          <!-- Mensagem de Erro -->
+          {#if errorMessage}
+            <div class="text-red-400 text-xs text-center mt-1 mb-1 animate-fade-in bg-red-500/10 py-2.5 rounded-xl border border-red-500/20">
+              {errorMessage}
+            </div>
+          {/if}
+
+          <!-- Mensagem de Sucesso -->
+          {#if successMessage}
+            <div class="text-green-400 text-xs text-center mt-1 mb-1 animate-fade-in bg-green-500/10 py-2.5 rounded-xl border border-green-500/20">
+              {successMessage}
+            </div>
+          {/if}
+
+          <!-- Submit Button -->
+          <button 
+            type="submit" 
+            class="w-full bg-primary flex items-center justify-center gap-2 text-white rounded-xl py-4 font-bold shadow-[0_4px_20px_rgba(124,92,255,0.4)] transition-transform active:scale-95 mt-3 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={(authMode === 'register' && !name.trim()) || !email.trim() || !password || isLoading}
+          >
+            <span class="text-base">{isLoading ? 'Aguarde...' : (authMode === 'login' ? 'Entrar' : 'Cadastrar')}</span>
+            {#if authMode === 'login' && !isLoading}
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            {/if}
+          </button>
+        </form>
 
         <!-- Trust Card -->
-        <div class="w-full bg-surface/40 border border-white/5 rounded-xl p-4 mt-6 flex items-center gap-4 animate-fade-in max-w-[280px]">
+        <div class="w-full bg-surface/40 border border-white/5 rounded-xl p-4 mt-6 flex items-center gap-4 animate-fade-in">
           <div class="w-[42px] h-[42px] rounded-xl border border-primary/30 bg-primary/10 flex items-center justify-center text-primary shrink-0">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><rect x="9" y="10" width="6" height="6" rx="1.5" ry="1.5"/><path d="M12 10v2"/></svg>
           </div>

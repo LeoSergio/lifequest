@@ -23,7 +23,8 @@ export default defineConfig({
       },
       workbox: {
         // Local-first: cachear o app shell, nunca dados pessoais (estes ficam só no IndexedDB)
-        globPatterns: ['**/*.{js,css,html,svg,png,ico}']
+        globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
+        globStrict: false
       }
     })
   ],

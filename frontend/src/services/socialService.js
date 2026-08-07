@@ -23,6 +23,11 @@ async function apiFetch(path, options = {}) {
 // ── Ranking ──────────────────────────────────────────────────
 export const fetchGlobalRanking  = () => apiFetch('/social/ranking/global');
 export const fetchFriendsRanking = () => apiFetch('/social/ranking/friends');
+export const fetchRankingVisibility = () => apiFetch('/social/ranking/visibility');
+export const setRankingVisibility = (visible) => apiFetch('/social/ranking/visibility', {
+  method: 'POST',
+  body: JSON.stringify({ visible })
+});
 
 // ── Busca de usuários ─────────────────────────────────────────
 export const searchUsers = (q) => apiFetch(`/social/search?q=${encodeURIComponent(q)}`);

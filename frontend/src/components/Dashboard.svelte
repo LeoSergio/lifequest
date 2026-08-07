@@ -8,7 +8,11 @@
   import { navigate } from '../lib/nav.js';
   import { onMount } from 'svelte';
   import { pushSync } from '../services/syncService.js';
-  import { fetchGlobalRanking } from '../services/socialService.js';
+  import {
+    fetchGlobalRanking,
+    fetchRankingVisibility,
+    setRankingVisibility
+  } from '../services/socialService.js';
   import { updatePlayer } from '../repositories/playerRepository.js';
   import { showAlert } from '../lib/modal.js';
   import { isPro, showProBenefits } from '../lib/pro.js';
@@ -102,15 +106,45 @@
 
   onMount(async () => {
     try {
-      const data = await fetchGlobalRanking();
-      rankingTop3 = data.slice(0, 3);
-      myRankEntry = data.find(r => r.is_me) ?? null;
+      const visibilityRes = await fetchRankingVisibility();
+      
+      if (visibilityRes.visible === null) {
+        rankingConsentStatus = 'prompt';
+        rankingLoading = false;
+      } else if (visibilityRes.visible === false) {
+        rankingConsentStatus = 'denied';
+        rankingLoading = false;
+      } else {
+        rankingConsentStatus = 'granted';
+        const data = await fetchGlobalRanking();
+        rankingTop3 = data.slice(0, 3);
+        myRankEntry = data.find(r => r.is_me) ?? null;
+      }
     } catch (e) {
       console.warn('[Dashboard] Ranking indisponível:', e);
     } finally {
       rankingLoading = false;
     }
   });
+
+  async function handleDashboardConsent(choice) {
+    rankingLoading = true;
+    try {
+      await setRankingVisibility(choice);
+      if (choice) {
+        rankingConsentStatus = 'granted';
+        const data = await fetchGlobalRanking();
+        rankingTop3 = data.slice(0, 3);
+        myRankEntry = data.find(r => r.is_me) ?? null;
+      } else {
+        rankingConsentStatus = 'denied';
+      }
+    } catch(e) {
+      console.warn(e);
+    } finally {
+      rankingLoading = false;
+    }
+  }
 
   // Calculate some stats
   const achievementsQuery = liveQuery(() => db.unlockedAchievements.toArray());
@@ -195,6 +229,7 @@
   let rankingTop3 = [];
   let myRankEntry = null;
   let rankingLoading = true;
+  let rankingConsentStatus = 'loading'; // 'loading' | 'prompt' | 'granted' | 'denied'
 
   function xpShort(xp) {
     if (xp >= 1000) return `${(xp / 1000).toFixed(1)}k`;
@@ -550,6 +585,21 @@
       <div class="flex items-center justify-center py-6 gap-3 relative z-10">
         <div class="w-4 h-4 border-2 border-[#a855f7] border-t-transparent rounded-full animate-spin"></div>
         <span class="text-[11px] text-white/30">Carregando ranking...</span>
+      </div>
+    {:else if rankingConsentStatus === 'prompt' || rankingConsentStatus === 'denied'}
+      <div class="flex flex-col items-center py-5 gap-3 relative z-10 text-center px-4 border border-[#a855f7]/20 rounded-2xl bg-[#9333EA]/5 mt-2">
+        <span class="text-2xl">{rankingConsentStatus === 'prompt' ? '🌍' : '👻'}</span>
+        <p class="text-[11px] text-white/60 leading-relaxed font-medium">
+          {rankingConsentStatus === 'prompt' 
+            ? 'Ative seu perfil público para ver os Top Jogadores e participar do Ranking Global.' 
+            : 'Você está no Modo Fantasma. Oculte-se nas sombras ou participe do Ranking.'}
+        </p>
+        <button 
+          class="mt-1 px-5 py-2 rounded-xl bg-gradient-to-r from-[#9333EA] to-[#c084fc] text-white font-bold text-[11px] hover:scale-105 transition-all shadow-[0_0_15px_rgba(147,51,234,0.3)]"
+          on:click={() => handleDashboardConsent(true)}
+        >
+          Participar do Ranking
+        </button>
       </div>
     {:else if rankingTop3.length === 0}
       <p class="text-[11px] text-white/30 text-center py-4 relative z-10">Nenhum jogador ainda.</p>

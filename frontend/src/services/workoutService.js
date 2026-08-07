@@ -81,12 +81,11 @@ export async function finishWorkout({ activeSession, exercises, activeSets, setI
 
   await finishSession(activeSession.id);
 
-  // XP não é concedido por treinos: apenas missões e conquistas geram XP.
-  // (Treinos são auto-relatados — a conclusão das missões semanais é que recompensa o jogador.)
-  const xpReward = 0;
+  // Concede um valor de XP fixo por concluir o treino.
+  const xpReward = 50;
+  const { leveledUp, level } = await applyXp(xpReward, "Treino concluído");
 
-  const player = await getPlayer();
   await checkAchievements();
 
-  return { xpReward, leveledUp: false, level: player?.level ?? 1 };
+  return { xpReward, leveledUp, level };
 }

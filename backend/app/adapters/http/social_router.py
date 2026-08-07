@@ -108,7 +108,7 @@ async def global_ranking(
     current_user_id: Optional[str] = Depends(get_current_user_id_optional),
 ):
     """Top 100 usuários ordenados por nível → XP → streak. Auth opcional."""
-    stmt = select(UserModel).order_by(
+    stmt = select(UserModel).where(UserModel.ranking_visible == True).order_by(
         UserModel.level.desc(),
         UserModel.xp.desc(),
         UserModel.streak_days.desc(),
@@ -138,6 +138,38 @@ async def global_ranking(
     return entries
 
 
+class RankingVisibilityBody(BaseModel):
+    visible: bool
+
+@router.get("/ranking/visibility")
+async def get_ranking_visibility(
+    db: AsyncSession = Depends(get_db_session),
+    current_user_id: str = Depends(get_current_user_id),
+):
+    uid = UUID(current_user_id)
+    result = await db.execute(select(UserModel).where(UserModel.id == uid))
+    user = result.scalars().first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    return {"visible": user.ranking_visible}
+
+@router.post("/ranking/visibility")
+async def set_ranking_visibility(
+    body: RankingVisibilityBody,
+    db: AsyncSession = Depends(get_db_session),
+    current_user_id: str = Depends(get_current_user_id),
+):
+    uid = UUID(current_user_id)
+    result = await db.execute(select(UserModel).where(UserModel.id == uid))
+    user = result.scalars().first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    
+    user.ranking_visible = body.visible
+    await db.flush()
+    return {"visible": user.ranking_visible}
+
+
 @router.get("/ranking/friends", response_model=List[RankingEntry])
 async def friends_ranking(
     db: AsyncSession = Depends(get_db_session),
@@ -164,7 +196,10 @@ async def friends_ranking(
     friend_ids.add(uid)
 
     # Busca perfis e ordena
-    users_stmt = select(UserModel).where(UserModel.id.in_(friend_ids)).order_by(
+    users_stmt = select(UserModel).where(
+        UserModel.id.in_(friend_ids),
+        UserModel.ranking_visible == True
+    ).order_by(
         UserModel.level.desc(),
         UserModel.xp.desc(),
         UserModel.streak_days.desc(),
@@ -199,6 +234,7 @@ async def search_users(
     stmt = select(UserModel).where(
         UserModel.username.ilike(f"%{q}%"),
         UserModel.id != UUID(current_user_id),
+        UserModel.ranking_visible == True
     ).limit(20)
 
     result = await db.execute(stmt)

@@ -5,7 +5,7 @@ Este modelo representa a Tabela real no PostgreSQL.
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
-from sqlalchemy import String, Integer, DateTime
+from sqlalchemy import String, Integer, DateTime, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.infra.database import Base
@@ -30,6 +30,7 @@ class UserModel(Base):
     streak_days: Mapped[int] = mapped_column(Integer, default=0)
     avatar: Mapped[str] = mapped_column(String, nullable=True)
     last_active_date: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    ranking_visible: Mapped[bool] = mapped_column(Boolean, nullable=True)
     
     # Metadados
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))

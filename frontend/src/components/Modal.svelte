@@ -83,7 +83,8 @@
       <input
         type={state.inputType ?? 'text'}
         class="modal-input"
-        bind:value={inputValue}
+        value={inputValue}
+        on:input={(e) => inputValue = e.target.value}
         placeholder={state.placeholder ?? ''}
         autofocus
         on:keydown={(e) => e.key === 'Enter' && close(inputValue.trim() || null)}

@@ -8,14 +8,24 @@
     sendFriendRequest,
     acceptFriendRequest,
     removeFriend,
+    fetchRankingVisibility,
+    setRankingVisibility
   } from '../services/socialService.js';
   import { showAlert, showConfirm } from '../lib/modal.js';
+  import { liveQuery } from 'dexie';
+  import { db } from '../db/db.js';
+  import { isPro, showProBenefits } from '../lib/pro.js';
+
+  const player = liveQuery(() => db.player.toCollection().first());
 
   // ── State ──────────────────────────────────────────────────
   let tab = 'global'; // 'global' | 'friends'
   let ranking = [];
   let status = 'loading'; // 'loading' | 'done' | 'error'
   let lastUpdated = null;
+  let rankingConsentStatus = 'loading'; // 'loading' | 'prompt' | 'granted' | 'denied'
+
+  $: userIsPro = $player ? isPro($player) : false;
 
   // Busca de amigos
   let searchQuery = '';
@@ -49,10 +59,41 @@
     }
   }
 
-  onMount(() => {
-    loadRanking();
-    loadPendingRequests();
+  onMount(async () => {
+    try {
+      const res = await fetchRankingVisibility();
+      if (res.visible === null) {
+        rankingConsentStatus = 'prompt';
+        status = 'done';
+      } else if (res.visible === false) {
+        rankingConsentStatus = 'denied';
+        status = 'done';
+      } else {
+        rankingConsentStatus = 'granted';
+        loadRanking();
+        loadPendingRequests();
+      }
+    } catch(e) {
+      status = 'error';
+    }
   });
+
+  async function handleConsentChoice(choice) {
+    status = 'loading';
+    try {
+      await setRankingVisibility(choice);
+      if (choice) {
+        rankingConsentStatus = 'granted';
+        await loadRanking();
+        loadPendingRequests();
+      } else {
+        rankingConsentStatus = 'denied';
+        status = 'done';
+      }
+    } catch(e) {
+      status = 'error';
+    }
+  }
 
   // Recarrega quando muda de tab
   function switchTab(newTab) {
@@ -155,25 +196,71 @@
 
 <main class="min-h-screen p-4 pb-24 max-w-md mx-auto">
 
+  {#if rankingConsentStatus === 'loading'}
+    <div class="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+      <div class="w-8 h-8 border-[3px] border-[#a855f7] border-t-transparent rounded-full animate-spin"></div>
+      <p class="text-[13px] text-white/40">Carregando preferências...</p>
+    </div>
+  {:else if rankingConsentStatus === 'prompt'}
+    <div class="flex flex-col items-center justify-center min-h-[70vh] text-center px-4">
+      <div class="w-20 h-20 bg-[#9333EA]/20 rounded-full flex items-center justify-center mb-6 border border-[#a855f7]/30">
+        <span class="text-4xl">🌍</span>
+      </div>
+      <h2 class="text-2xl font-black text-white mb-2">Entrar no Ranking?</h2>
+      <p class="text-[13px] text-white/50 mb-8 leading-relaxed">
+        Para ver o Ranking Global e seus amigos (caso seja Premium), você precisará exibir o seu perfil publicamente.<br><br>
+        Você topa o desafio?
+      </p>
+      <div class="flex gap-4 w-full max-w-[280px]">
+        <button class="flex-1 py-3 rounded-2xl bg-white/5 border border-white/10 text-white/70 font-bold text-sm hover:bg-white/10 transition-colors" on:click={() => handleConsentChoice(false)}>
+          Não, obrigado
+        </button>
+        <button class="flex-1 py-3 rounded-2xl bg-gradient-to-r from-[#9333EA] to-[#c084fc] text-white font-black text-sm shadow-[0_0_20px_rgba(147,51,234,0.4)] hover:scale-105 transition-all" on:click={() => handleConsentChoice(true)}>
+          Sim, bora!
+        </button>
+      </div>
+    </div>
+  {:else if rankingConsentStatus === 'denied'}
+    <div class="flex flex-col items-center justify-center min-h-[70vh] text-center px-4">
+      <span class="text-5xl opacity-40 mb-4">👻</span>
+      <h2 class="text-xl font-black text-white mb-2">Modo Fantasma</h2>
+      <p class="text-[13px] text-white/50 mb-6 leading-relaxed max-w-[280px]">
+        Você optou por não participar do ranking. Seus dados estão ocultos e você não pode ver os outros jogadores.
+      </p>
+      <button class="px-6 py-3 rounded-2xl bg-[#9333EA]/20 border border-[#a855f7]/30 text-[#a855f7] font-bold text-sm hover:bg-[#9333EA]/40 transition-colors" on:click={() => handleConsentChoice(true)}>
+        Mudei de ideia, participar
+      </button>
+    </div>
+  {:else}
+
   <!-- Cabeçalho -->
   <div class="flex justify-between items-start mb-6 mt-4">
     <div>
       <h1 class="text-3xl font-black text-white tracking-tight mb-1">Ranking</h1>
       <p class="text-[13px] text-white/50">Compare-se com o mundo e seus amigos.</p>
     </div>
-    <button
-      class="w-10 h-10 bg-white/5 border border-white/10 rounded-[12px] flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-30"
-      on:click={loadRanking}
-      disabled={status === 'loading'}
-      title="Atualizar ranking"
-    >
-      <svg class="w-4 h-4 {status === 'loading' ? 'animate-spin' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-        <path d="M3 3v5h5"/>
-        <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
-        <path d="M16 16h5v5"/>
-      </svg>
-    </button>
+    <div class="flex gap-2">
+      <button
+        class="w-10 h-10 bg-white/5 border border-white/10 rounded-[12px] flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+        on:click={() => handleConsentChoice(false)}
+        title="Sair do Ranking (Modo Fantasma)"
+      >
+        👻
+      </button>
+      <button
+        class="w-10 h-10 bg-white/5 border border-white/10 rounded-[12px] flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-30"
+        on:click={loadRanking}
+        disabled={status === 'loading'}
+        title="Atualizar ranking"
+      >
+        <svg class="w-4 h-4 {status === 'loading' ? 'animate-spin' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+          <path d="M3 3v5h5"/>
+          <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+          <path d="M16 16h5v5"/>
+        </svg>
+      </button>
+    </div>
   </div>
 
   <!-- Tabs -->
@@ -184,17 +271,28 @@
     >
       🌍 Global
     </button>
-    <button
-      class="flex-1 py-2.5 rounded-full font-bold text-[12px] transition-all {tab === 'friends' ? 'bg-[#9333EA] text-white shadow-[0_0_15px_rgba(147,51,234,0.3)]' : 'bg-white/5 border border-white/10 text-white/50 hover:bg-white/10 hover:text-white/80'} relative"
-      on:click={() => switchTab('friends')}
-    >
-      👥 Amigos
-      {#if pendingRequests.length > 0}
-        <span class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[8px] font-black text-white flex items-center justify-center shadow-[0_0_8px_rgba(239,68,68,0.6)]">
-          {pendingRequests.length}
-        </span>
-      {/if}
-    </button>
+    
+    {#if userIsPro}
+      <button
+        class="flex-1 py-2.5 rounded-full font-bold text-[12px] transition-all {tab === 'friends' ? 'bg-[#9333EA] text-white shadow-[0_0_15px_rgba(147,51,234,0.3)]' : 'bg-white/5 border border-white/10 text-white/50 hover:bg-white/10 hover:text-white/80'} relative"
+        on:click={() => switchTab('friends')}
+      >
+        👥 Amigos
+        {#if pendingRequests.length > 0}
+          <span class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[8px] font-black text-white flex items-center justify-center shadow-[0_0_8px_rgba(239,68,68,0.6)]">
+            {pendingRequests.length}
+          </span>
+        {/if}
+      </button>
+    {:else}
+      <button
+        class="flex-1 py-2.5 rounded-full font-bold text-[12px] bg-white/5 border border-white/10 text-white/30 cursor-pointer relative overflow-hidden"
+        on:click={showProBenefits}
+      >
+        <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[10px]">🔒</span>
+        👥 Amigos
+      </button>
+    {/if}
   </div>
 
   <!-- ──────────────────── Tab: Amigos ──────────────────── -->
@@ -426,6 +524,7 @@
     {#if lastUpdated}
       <p class="text-center text-[10px] text-white/20 mt-5">Atualizado {timeAgo(lastUpdated)}</p>
     {/if}
+  {/if}
   {/if}
 
 </main>

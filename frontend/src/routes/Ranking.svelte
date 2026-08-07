@@ -308,7 +308,7 @@
           {#each pendingRequests as req (req.id)}
             <div class="bg-[#1C1C22]/80 border border-[#a855f7]/20 rounded-2xl px-4 py-3 flex items-center gap-3">
               <div class="w-10 h-10 rounded-full border border-[#a855f7]/30 bg-surface flex items-center justify-center text-lg shrink-0">
-                {#if req.avatar?.startsWith('data:image')}
+                {#if req.avatar?.startsWith('data:image') || req.avatar?.startsWith('http')}
                   <img src={req.avatar} alt={req.username} class="w-full h-full object-cover rounded-full" />
                 {:else}
                   <span>{req.avatar || '👤'}</span>
@@ -356,7 +356,7 @@
             {@const btn = friendBtnState(entry)}
             <div class="bg-[#1C1C22]/80 border border-white/5 rounded-2xl px-4 py-3 flex items-center gap-3">
               <div class="w-9 h-9 rounded-full border border-white/10 bg-surface flex items-center justify-center text-base shrink-0">
-                {#if entry.avatar?.startsWith('data:image')}
+                {#if entry.avatar?.startsWith('data:image') || entry.avatar?.startsWith('http')}
                   <img src={entry.avatar} alt={entry.username} class="w-full h-full object-cover rounded-full" />
                 {:else}
                   <span>{entry.avatar || '👤'}</span>
@@ -443,7 +443,7 @@
             <!-- Avatar -->
             <div class="relative">
               <div class="{sizes[0]} rounded-full overflow-hidden border-[3px] {borders[idx]} bg-surface flex items-center justify-center text-2xl {glows[idx]} {entry.is_me ? 'ring-2 ring-[#a855f7] ring-offset-2 ring-offset-[#0f0f14]' : ''}">
-                {#if entry.avatar?.startsWith('data:image')}
+                {#if entry.avatar?.startsWith('data:image') || entry.avatar?.startsWith('http')}
                   <img src={entry.avatar} alt={entry.username} class="w-full h-full object-cover" />
                 {:else}
                   <span>{entry.avatar || '👤'}</span>
@@ -485,7 +485,7 @@
           <span class="text-[13px] font-black text-white/40 w-7 text-center shrink-0 relative z-10">{entry.rank}</span>
 
           <div class="w-10 h-10 rounded-full overflow-hidden border border-white/10 bg-surface flex items-center justify-center text-lg shrink-0 relative z-10">
-            {#if entry.avatar?.startsWith('data:image')}<img src={entry.avatar} alt={entry.username} class="w-full h-full object-cover" />{:else}<span>{entry.avatar || '👤'}</span>{/if}
+            {#if entry.avatar?.startsWith('data:image') || entry.avatar?.startsWith('http')}<img src={entry.avatar} alt={entry.username} class="w-full h-full object-cover" />{:else}<span>{entry.avatar || '👤'}</span>{/if}
           </div>
 
           <div class="flex-1 min-w-0 relative z-10">

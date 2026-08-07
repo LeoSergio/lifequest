@@ -108,8 +108,8 @@ async def login_google(google_data: GoogleLogin, db: AsyncSession = Depends(get_
             await db.flush()
             await db.refresh(user)
             
-        # Update avatar if different
-        elif picture and user.avatar != picture:
+        # Atualiza a foto apenas se for vazia ou se já for uma URL (Google), preservando uploads customizados (base64)
+        elif picture and (not user.avatar or user.avatar.startswith("http")):
             user.avatar = picture
             await db.commit()
             

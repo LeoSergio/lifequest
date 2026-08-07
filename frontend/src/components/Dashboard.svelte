@@ -268,7 +268,7 @@
           <div class="relative shrink-0">
             <div class="w-[72px] h-[72px] rounded-full border-[2px] border-[#9333EA] shadow-[0_0_20px_rgba(147,51,234,0.4)] overflow-hidden bg-surface flex items-center justify-center text-3xl">
               {#if $player?.avatar}
-                 {#if $player.avatar.startsWith('data:image')}
+                 {#if $player.avatar.startsWith('data:image') || $player.avatar.startsWith('http')}
                    <img src={$player.avatar} alt="Avatar" class="w-full h-full object-cover" />
                  {:else}
                    <span>{$player.avatar}</span>
@@ -620,7 +620,7 @@
             <!-- Avatar -->
             <div class="relative">
               <div class="w-11 h-11 rounded-full overflow-hidden border-2 {borderColors[i]} bg-surface flex items-center justify-center text-xl {glows[i]} {entry.is_me ? 'ring-2 ring-[#a855f7] ring-offset-1 ring-offset-[#1a1025]' : ''}">
-                {#if entry.avatar?.startsWith('data:image')}
+                {#if entry.avatar?.startsWith('data:image') || entry.avatar?.startsWith('http')}
                   <img src={entry.avatar} alt={entry.username} class="w-full h-full object-cover" />
                 {:else}
                   <span class="text-lg">{entry.avatar || '👤'}</span>
@@ -648,7 +648,7 @@
         <div class="border-t border-white/5 pt-3 flex items-center gap-3 relative z-10">
           <span class="text-[10px] font-black text-[#a855f7] w-6 text-center">#{myRankEntry.rank}</span>
           <div class="w-7 h-7 rounded-full overflow-hidden border border-[#a855f7]/40 bg-surface flex items-center justify-center text-sm">
-            {#if myRankEntry.avatar?.startsWith('data:image')}
+            {#if myRankEntry.avatar?.startsWith('data:image') || myRankEntry.avatar?.startsWith('http')}
               <img src={myRankEntry.avatar} alt="Você" class="w-full h-full object-cover" />
             {:else}
               <span>{myRankEntry.avatar || '👤'}</span>

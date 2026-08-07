@@ -208,7 +208,7 @@
       <div class="relative shrink-0">
         <label class="block w-[100px] h-[100px] rounded-full border-2 border-[#9333EA] overflow-hidden cursor-pointer bg-[#0a0a0c] flex items-center justify-center text-5xl transition-transform hover:scale-105 mx-auto">
           {#if $player?.avatar}
-             {#if $player.avatar.startsWith('data:image')}
+             {#if $player.avatar.startsWith('data:image') || $player.avatar.startsWith('http')}
                <img src={$player.avatar} alt="Avatar" class="w-full h-full object-cover" />
              {:else}
                <span class="text-4xl text-[#9333EA]">{$player.avatar}</span>

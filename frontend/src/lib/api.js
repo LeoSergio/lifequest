@@ -33,6 +33,9 @@ export const api = {
   login: (payload) =>
     request('/auth/login', { method: 'POST', body: JSON.stringify(payload) }),
 
+  loginGoogle: (credential) =>
+    request('/auth/google', { method: 'POST', body: JSON.stringify({ credential }) }),
+
   // ── IA ────────────────────────────────────────────────────────────────────
   generateArchetype: (answers) =>
     request('/ai/onboarding/archetype', { method: 'POST', body: JSON.stringify({ answers }) }),

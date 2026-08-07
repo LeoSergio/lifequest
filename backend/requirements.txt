@@ -10,6 +10,8 @@ alembic==1.13.3
 bcrypt==4.2.0
 passlib[bcrypt]==1.7.4
 PyJWT==2.8.0
+google-auth==2.34.0
+requests==2.32.3
 
 # Testes (não instalados em prod, mas não causam problema)
 pytest==8.3.3

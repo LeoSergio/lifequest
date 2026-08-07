@@ -56,6 +56,7 @@ export function showConfirm({
  * @param {string} [opts.defaultValue]
  * @param {string} [opts.confirmText]
  * @param {string} [opts.cancelText]
+ * @param {string} [opts.inputType]
  * @returns {Promise<string|null>} — null se cancelado
  */
 export function showPrompt({
@@ -66,8 +67,9 @@ export function showPrompt({
   defaultValue = '',
   confirmText = 'Salvar',
   cancelText = 'Cancelar',
+  inputType = 'text',
 }) {
   return new Promise((resolve) => {
-    modalState.set({ kind: 'prompt', title, message, icon, placeholder, defaultValue, confirmText, cancelText, resolve });
+    modalState.set({ kind: 'prompt', title, message, icon, placeholder, defaultValue, confirmText, cancelText, inputType, resolve });
   });
 }

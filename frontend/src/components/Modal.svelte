@@ -81,6 +81,7 @@
     <!-- Input (prompt) -->
     {#if state.kind === 'prompt'}
       <input
+        type={state.inputType ?? 'text'}
         class="modal-input"
         bind:value={inputValue}
         placeholder={state.placeholder ?? ''}

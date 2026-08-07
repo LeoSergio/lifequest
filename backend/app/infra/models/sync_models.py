@@ -106,9 +106,10 @@ class WorkoutPlanExerciseModel(SyncBase):
 class WorkoutSessionModel(SyncBase):
     __tablename__ = "workout_sessions"
 
-    workout_plan_id: Mapped[str] = mapped_column(String, index=True)
+    workout_plan_id: Mapped[str] = mapped_column(String, index=True, nullable=True)
     started_at: Mapped[str] = mapped_column(String)
     finished_at: Mapped[str] = mapped_column(String, nullable=True)
+    is_rest_day: Mapped[bool] = mapped_column(Boolean, default=False)
 
 class SessionSetModel(SyncBase):
     __tablename__ = "session_sets"

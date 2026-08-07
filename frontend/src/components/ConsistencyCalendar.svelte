@@ -7,6 +7,7 @@
 
   function levelColor(day) {
     if (day.isFuture) return 'bg-white/5';
+    if (day.type === 'rest') return 'bg-blue-500/40 flex items-center justify-center text-[7px]';
     if (!day.trained) return 'bg-white/10';
     return day.isToday ? 'bg-xp' : 'bg-primary';
   }
@@ -34,7 +35,9 @@
       {#each columns as col}
         <div class="flex flex-col gap-1">
           {#each col.days as day}
-            <div class="w-[14px] h-[14px] rounded {levelColor(day)}" title={day.date}></div>
+            <div class="w-[14px] h-[14px] rounded {levelColor(day)}" title={day.date}>
+              {#if day.type === 'rest'}💤{/if}
+            </div>
           {/each}
         </div>
       {/each}

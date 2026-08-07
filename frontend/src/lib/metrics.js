@@ -37,9 +37,14 @@ export function currentStreak(sessions) {
 
 /** Últimos 7 dias, marcando quais tiveram treino concluído — pro calendário estilo Duolingo. */
 export function last7DaysActivity(sessions) {
-  const trainedDays = new Set(
-    sessions.filter((s) => s.finishedAt).map((s) => s.finishedAt.slice(0, 10)),
-  );
+  const trainedDays = new Map();
+  sessions.filter((s) => s.finishedAt).forEach((s) => {
+    const iso = s.finishedAt.slice(0, 10);
+    if (!trainedDays.has(iso) || (trainedDays.get(iso) === 'rest' && !s.isRestDay)) {
+      trainedDays.set(iso, s.isRestDay ? 'rest' : 'workout');
+    }
+  });
+
   const dayLabels = ["D", "S", "T", "Q", "Q", "S", "S"];
   const today = new Date();
   const days = [];
@@ -52,6 +57,7 @@ export function last7DaysActivity(sessions) {
       date: iso,
       label: dayLabels[d.getDay()],
       trained: trainedDays.has(iso),
+      type: trainedDays.get(iso) || 'missed',
       isToday: i === 0,
     });
   }
@@ -65,9 +71,14 @@ export function last7DaysActivity(sessions) {
  * semana começa na segunda-feira, igual ao resto do app (ver startOfWeek).
  */
 export function weeklyCalendar(sessions, weeks = 9) {
-  const trainedDays = new Set(
-    sessions.filter((s) => s.finishedAt).map((s) => s.finishedAt.slice(0, 10)),
-  );
+  const trainedDays = new Map();
+  sessions.filter((s) => s.finishedAt).forEach((s) => {
+    const iso = s.finishedAt.slice(0, 10);
+    if (!trainedDays.has(iso) || (trainedDays.get(iso) === 'rest' && !s.isRestDay)) {
+      trainedDays.set(iso, s.isRestDay ? 'rest' : 'workout');
+    }
+  });
+
   const monthLabels = [
     "jan",
     "fev",
@@ -99,6 +110,7 @@ export function weeklyCalendar(sessions, weeks = 9) {
       days.push({
         date: iso,
         trained: trainedDays.has(iso),
+        type: trainedDays.get(iso) || 'missed',
         isToday: iso === today,
         isFuture: iso > today,
       });

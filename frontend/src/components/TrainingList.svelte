@@ -3,10 +3,15 @@
   import { WEEKDAYS } from '../lib/constants.js';
   import { workoutPlansQuery } from '../repositories/workoutRepository.js';
   import { removePlan } from '../services/workoutService.js';
-  import { showConfirm } from '../lib/modal.js';
+  import { showConfirm, showAlert, showPrompt } from '../lib/modal.js';
+  import { db } from '../db/db.js';
+  import { generateId } from '../lib/id.js';
+  import { enqueue, pushSync } from '../services/syncService.js';
+  import RestDayModal from './RestDayModal.svelte';
 
   const plans = workoutPlansQuery();
   let openMenuId = null;
+  let showRestDayModal = false;
 
   function weekdayLabel(plan) {
     // Novo formato: weekday é uma string JSON (ex: '["seg","qua"]')
@@ -46,6 +51,43 @@
     if (!ok) return;
     await removePlan(id);
   }
+
+  function logRestDay() {
+    showRestDayModal = true;
+  }
+
+  async function handleRestDayConfirm(event) {
+    const selectedDate = event.detail; // 'YYYY-MM-DD'
+    showRestDayModal = false;
+
+    const sessions = await db.workoutSessions.toArray();
+    const sessionsSelectedDay = sessions.filter(s => s.finishedAt && s.finishedAt.startsWith(selectedDate));
+    
+    if (sessionsSelectedDay.length > 0) {
+      if (sessionsSelectedDay.some(s => s.isRestDay)) {
+        showAlert({ title: 'Já registrado!', message: `Você já registrou um dia de descanso em ${selectedDate.split('-').reverse().join('/')}.`, icon: '💤', confirmText: 'Ok' });
+        return;
+      }
+      if (sessionsSelectedDay.some(s => !s.isRestDay)) {
+        showAlert({ title: 'Treino já registrado', message: `Você treinou no dia ${selectedDate.split('-').reverse().join('/')}, o descanso não pode ser aplicado.`, icon: '💪', confirmText: 'Ok' });
+        return;
+      }
+    }
+
+    const session = {
+      id: generateId(),
+      workoutPlanId: null,
+      startedAt: `${selectedDate}T12:00:00.000Z`,
+      finishedAt: `${selectedDate}T12:00:00.000Z`,
+      isRestDay: true
+    };
+
+    await db.workoutSessions.add(session);
+    await enqueue('upsert', 'workoutSessions', session.id, session);
+    pushSync().catch(() => {});
+
+    showAlert({ title: 'Descanso Registrado', message: 'Dia de descanso contabilizado na sua constância!', icon: '💤', type: 'success', confirmText: 'Excelente' });
+  }
 </script>
 
 <div class="flex justify-between items-center mb-4">
@@ -58,10 +100,18 @@
   </button>
 </div>
 
-<button class="text-[10px] text-[#a855f7] mb-6 flex items-center gap-1 font-bold hover:text-[#c084fc] transition-colors" on:click={() => navigate('training-metrics')}>
-  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
-  VER MÉTRICAS DE DESEMPENHO
-</button>
+<div class="flex justify-between items-center mb-6 bg-[#1C1C22]/80 border border-white/5 rounded-[12px] p-2 shadow-inner">
+  <button class="text-[10px] text-[#a855f7] flex items-center gap-1 font-bold hover:text-[#c084fc] transition-colors px-2 py-1.5" on:click={() => navigate('training-metrics')}>
+    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+    VER MÉTRICAS DE DESEMPENHO
+  </button>
+  
+  <div class="w-px h-6 bg-white/10 mx-1"></div>
+
+  <button class="text-[10px] text-blue-400 flex items-center gap-1.5 font-bold hover:text-blue-300 transition-colors px-2 py-1.5" on:click={logRestDay}>
+    <span class="text-[12px] leading-none drop-shadow-md">💤</span> DIA DE DESCANSO
+  </button>
+</div>
 
 {#if $plans === undefined}
   <p class="text-xs text-white/40 text-center py-6">Carregando...</p>
@@ -117,3 +167,9 @@
     {/each}
   </div>
 {/if}
+
+<RestDayModal 
+  show={showRestDayModal} 
+  on:close={() => showRestDayModal = false} 
+  on:confirm={handleRestDayConfirm} 
+/>

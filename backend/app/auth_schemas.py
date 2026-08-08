@@ -32,3 +32,4 @@ class Token(BaseModel):
     xp: int = 0
     streak_days: int = 0
     coins: int = 0
+    is_new_user: bool = False

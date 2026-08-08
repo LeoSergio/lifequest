@@ -44,20 +44,26 @@
     try {
       const data = await api.loginGoogle(response.credential);
       
-      const { pullSync } = await import('../services/syncService.js');
-      localStorage.setItem('access_token', data.access_token);
-      await pullSync();
-
-      const existingPlayer = await db.player.toCollection().first();
-      
-      if (!existingPlayer) {
-        // Novo usuário pelo Google, avança pro onboarding
+      if (data.is_new_user) {
+        // Novo usuário pelo Google, avança pro onboarding (e NÃO faz pullSync agora)
         name = data.name || 'Herói';
         pendingToken = data.access_token;
-        localStorage.removeItem('access_token'); 
         step = 2;
       } else {
-        // Usuário antigo, já tem dados, o app vai carregar sozinho
+        const { pullSync } = await import('../services/syncService.js');
+        localStorage.setItem('access_token', data.access_token);
+        await pullSync();
+
+        const existingPlayer = await db.player.toCollection().first();
+        if (!existingPlayer) {
+          // Fallback caso seja usuário antigo mas sem player criado (raro)
+          name = data.name || 'Herói';
+          pendingToken = data.access_token;
+          localStorage.removeItem('access_token'); 
+          step = 2;
+        } else {
+          // Usuário antigo, já tem dados, o app vai carregar sozinho
+        }
       }
     } catch (err) {
       errorMessage = err?.data?.detail || 'Erro ao entrar com Google.';

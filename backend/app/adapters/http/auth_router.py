@@ -94,7 +94,9 @@ async def login_google(google_data: GoogleLogin, db: AsyncSession = Depends(get_
         result = await db.execute(select(UserModel).where(UserModel.email == email))
         user = result.scalars().first()
         
+        is_new_user = False
         if not user:
+            is_new_user = True
             # Create new user for Google login
             base_username = name.lower().replace(" ", "") if name else email.split("@")[0]
             unique_username = f"{base_username}_{str(uuid.uuid4())[:4]}"
@@ -123,7 +125,8 @@ async def login_google(google_data: GoogleLogin, db: AsyncSession = Depends(get_
             "level": user.level,
             "xp": user.xp,
             "streak_days": user.streak_days,
-            "coins": user.coins
+            "coins": user.coins,
+            "is_new_user": is_new_user
         }
         
     except ValueError as e:

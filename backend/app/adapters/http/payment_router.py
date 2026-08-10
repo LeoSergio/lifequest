@@ -44,9 +44,9 @@ async def create_subscription(
                 "unit_price": 4.99
             }
         ],
-        "payer": {
-            # O ideal é pegar o email do user no banco de dados
-        },
+        # "payer": {
+        #     # O ideal é pegar o email do user no banco de dados
+        # },
         "back_urls": {
             "success": f"{frontend_url}?payment=success",
             "failure": f"{frontend_url}?payment=failure",
@@ -60,12 +60,22 @@ async def create_subscription(
 
     try:
         preference_response = mp_sdk.preference().create(preference_data)
+        
+        # O MP não levanta exceção no SDK, ele retorna um dict com 'status'
+        if preference_response.get("status") not in (200, 201):
+            error_msg = preference_response.get("response", {})
+            print("MERCADOPAGO ERROR:", error_msg)
+            raise HTTPException(status_code=500, detail=f"Erro do Mercado Pago: {error_msg}")
+            
         preference = preference_response["response"]
         
         # init_point é o link para onde você deve redirecionar o usuário
         return {"checkout_url": preference["init_point"]}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao gerar pagamento: {str(e)}")
+        if isinstance(e, HTTPException):
+            raise e
+        print("EXCEPTION:", e)
+        raise HTTPException(status_code=500, detail=f"Erro interno ao gerar pagamento: {str(e)}")
 
 
 @router.post("/webhook")

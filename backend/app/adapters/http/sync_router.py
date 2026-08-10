@@ -95,12 +95,18 @@ async def _apply_event(event: SyncEvent, db: AsyncSession, user_id: str) -> None
         
         if "name" in event.payload:
             new_name = event.payload["name"]
-            # Verifica se o username já existe para OUTRO usuário
-            name_check = await db.execute(
-                select(UserModel.id).where(UserModel.username == new_name, UserModel.id != UUID(user_id))
-            )
-            if not name_check.scalars().first():
-                update_values["username"] = new_name
+            
+            original_new_name = new_name
+            counter = 1
+            while True:
+                name_check = await db.execute(
+                    select(UserModel.id).where(UserModel.username == new_name, UserModel.id != UUID(user_id))
+                )
+                if not name_check.scalars().first():
+                    update_values["username"] = new_name
+                    break
+                new_name = f"{original_new_name}{counter}"
+                counter += 1
 
         stmt = update(UserModel).where(UserModel.id == UUID(user_id)).values(**update_values)
         await db.execute(stmt)

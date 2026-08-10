@@ -8,7 +8,7 @@ import json
 
 from app.infra.database import get_db_session
 from app.infra.models.user_model import UserModel
-from app.adapters.http.auth_router import get_current_user_id
+from app.adapters.http.sync_router import get_current_user_id
 from app.infra.config import settings
 
 router = APIRouter(prefix="/payments", tags=["payments"])

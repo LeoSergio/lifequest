@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import update
+from sqlalchemy.future import select
 from uuid import UUID
 import mercadopago
 from datetime import datetime, timedelta, timezone
@@ -33,6 +34,11 @@ async def create_subscription(
     # usamos uma Preference comum com validade de 30 dias (Passe PRO Mensal).
     # O usuário pode comprar novamente quando expirar, ou podemos migrar para preapproval completo.
     
+    # Busca o e-mail do usuário no banco para reduzir bloqueios de anti-fraude do MP
+    result = await db.execute(select(UserModel).where(UserModel.id == UUID(user_id)))
+    user = result.scalars().first()
+    payer_email = user.email if user else "cliente@lifequest.com"
+
     preference_data = {
         "items": [
             {
@@ -44,9 +50,9 @@ async def create_subscription(
                 "unit_price": 4.99
             }
         ],
-        # "payer": {
-        #     # O ideal é pegar o email do user no banco de dados
-        # },
+        "payer": {
+            "email": payer_email
+        },
         "back_urls": {
             "success": f"{frontend_url}?payment=success",
             "failure": f"{frontend_url}?payment=failure",

@@ -11,7 +11,7 @@ bcrypt==4.2.0
 passlib[bcrypt]==1.7.4
 PyJWT==2.8.0
 google-auth==2.34.0
-requests==2.32.3
+requests>=2.33.0
 mercadopago>=3.2.0
 
 # Testes (não instalados em prod, mas não causam problema)

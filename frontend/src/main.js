@@ -7,6 +7,16 @@ import { inject } from '@vercel/analytics';
 // Injeta o Vercel Analytics (apenas em produção/quando deployado na Vercel)
 inject();
 
+// Atualiza o app automaticamente assim que uma nova versão do Service Worker assumir o controle
+if ('serviceWorker' in navigator) {
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (refreshing) return;
+    refreshing = true;
+    window.location.reload();
+  });
+}
+
 // Aguarda o Dexie abrir e migrar o banco antes de registrar os hooks de sync.
 // Sem isso, setupSyncHooks() pode tentar acessar tabelas que ainda estão
 // sendo criadas/migradas, e os hooks nunca disparam.

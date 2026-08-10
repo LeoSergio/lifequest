@@ -2,6 +2,16 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": null,
+  "headers": [
+    {
+      "source": "/sw.js",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }]
+    },
+    {
+      "source": "/index.html",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }]
+    }
+  ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "https://lifequest-production-adfd.up.railway.app/$1" },
     { "source": "/(.*)", "destination": "/index.html" }

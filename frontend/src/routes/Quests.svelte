@@ -141,9 +141,13 @@
     }
   }
 
-  // Função para pedir um Chefão (Missão Épica) para a IA
   async function fetchEpicQuest() {
     if (!$player) return;
+
+    if ($player.level < 5) {
+      showAlert({ title: 'Nível Insuficiente', message: 'Você precisa alcançar o Nível 5 para enfrentar missões épicas (Chefões).', icon: '🔒', type: 'warning' });
+      return;
+    }
 
     // Limite: máximo 2 missões épicas ativas
     if (activeEpicCount >= 2) {
@@ -296,10 +300,11 @@
         title: `Atacar ${goal.title}`,
         message: `Quanto de dano (${goal.unit}) você causou hoje?`,
         icon: '⚔️',
-        placeholder: 'Ex: 5',
+        placeholder: 'Ex: 5 ou 2.5',
       });
       if (!input) return;
-      damage = parseInt(input);
+      // Aceita float pois o usuário pode relatar km ou medidas decimais
+      damage = parseFloat(input.replace(',', '.'));
       if (isNaN(damage) || damage <= 0) return;
     } else {
       const ok = await showConfirm({
@@ -672,12 +677,14 @@
         </p>
         <button 
           on:click={fetchEpicQuest}
-          disabled={isLoadingEpic || !canRequestEpic}
+          disabled={isLoadingEpic || !canRequestEpic || ($player && $player.level < 5)}
           class="w-full font-bold text-sm px-4 py-3 rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed
-            {canRequestEpic ? 'bg-danger/20 text-danger border border-danger/30 hover:bg-danger/30' : 'bg-white/5 text-white/30 border border-white/10'}"
+            {canRequestEpic && $player && $player.level >= 5 ? 'bg-danger/20 text-danger border border-danger/30 hover:bg-danger/30' : 'bg-white/5 text-white/30 border border-white/10'}"
         >
           {#if isLoadingEpic}
             Conjurando...
+          {:else if $player && $player.level < 5}
+            🔒 Desbloqueia no Nível 5
           {:else if activeEpicCount >= 2}
             🔒 Derrote um Chefão primeiro
           {:else if totalEpicCount > 0 && completedEpicCount === 0}

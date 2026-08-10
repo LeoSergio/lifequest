@@ -56,8 +56,8 @@ class GoalModel(SyncBase):
     __tablename__ = "goals"
 
     title: Mapped[str] = mapped_column(String)
-    target_value: Mapped[int] = mapped_column(Integer)
-    current_value: Mapped[int] = mapped_column(Integer, default=0)
+    target_value: Mapped[float] = mapped_column(Float)
+    current_value: Mapped[float] = mapped_column(Float, default=0.0)
     unit: Mapped[str] = mapped_column(String)
     reward: Mapped[str] = mapped_column(String, nullable=True)
     xp_reward: Mapped[int] = mapped_column(Integer, default=0)

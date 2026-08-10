@@ -29,8 +29,8 @@ Retorne SOMENTE em formato JSON com o seguinte schema exato:
 {
   "title": "string (Nome épico da missão. Ex: O Dragão do Esquecimento - Leia e Cresça)",
   "description": "string (Descrição épica do desafio, incentivando o jogador a escolher seu livro)",
-  "target_value": int (Valor numérico total. Ex: 300 para páginas, 30 para dias),
-  "unit": "string (Unidade de medida. Ex: páginas, dias, km, sessões),
+  "target_value": float (Valor numérico total. Pode ser decimal. Ex: 300 para páginas, 30.5 para km),
+  "unit": "string (Unidade de medida. Ex: páginas, dias, km, sessões)",
   "xp_reward": int (Alta recompensa, entre 500 e 1500 dependendo do nível),
   "deadline_days": int (Quantos dias o jogador tem. Ex: 30)
 }

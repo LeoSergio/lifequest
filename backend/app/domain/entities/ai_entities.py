@@ -81,7 +81,7 @@ class EpicQuestRequest(BaseModel):
 class EpicQuestEntity(BaseModel):
     title: str
     description: str
-    target_value: int
+    target_value: float
     unit: str
     xp_reward: int
     deadline_days: int

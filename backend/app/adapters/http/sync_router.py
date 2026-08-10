@@ -83,15 +83,26 @@ async def _apply_event(event: SyncEvent, db: AsyncSession, user_id: str) -> None
     inválido/malformado — o chamador decide o que fazer com isso.
     """
     if event.entity == "player" and event.action == "upsert" and event.payload:
-        stmt = update(UserModel).where(UserModel.id == UUID(user_id)).values(
-            level=event.payload.get("level", 1),
-            xp=event.payload.get("xp", 0),
-            coins=event.payload.get("coins", 0),
-            pro_coins=event.payload.get("proCoins", 0),
-            streak_days=event.payload.get("streak", 0),
-            avatar=event.payload.get("avatar"),
-            updated_at=datetime.now(timezone.utc).replace(tzinfo=None)
-        )
+        update_values = {
+            "level": event.payload.get("level", 1),
+            "xp": event.payload.get("xp", 0),
+            "coins": event.payload.get("coins", 0),
+            "pro_coins": event.payload.get("proCoins", 0),
+            "streak_days": event.payload.get("streak", 0),
+            "avatar": event.payload.get("avatar"),
+            "updated_at": datetime.now(timezone.utc).replace(tzinfo=None)
+        }
+        
+        if "name" in event.payload:
+            new_name = event.payload["name"]
+            # Verifica se o username já existe para OUTRO usuário
+            name_check = await db.execute(
+                select(UserModel.id).where(UserModel.username == new_name, UserModel.id != UUID(user_id))
+            )
+            if not name_check.scalars().first():
+                update_values["username"] = new_name
+
+        stmt = update(UserModel).where(UserModel.id == UUID(user_id)).values(**update_values)
         await db.execute(stmt)
         return
 

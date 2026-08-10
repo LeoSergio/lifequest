@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     
     # Credenciais Sociais
     google_client_id: str = "228718930815-9b532nkd4ikhdtl3v72mtgch9ujabltm.apps.googleusercontent.com"
+    
+    # Mercado Pago
+    mercadopago_access_token: str = ""
 
     # Em produção, defina CORS_ORIGINS como JSON no Railway:
     # ["https://seu-app.vercel.app"]

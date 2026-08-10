@@ -274,6 +274,8 @@ async def pull_sync(
             "avatar": user.avatar,
             "coins": getattr(user, 'coins', 0) or 0,
             "proCoins": getattr(user, 'pro_coins', 0) or 0,
+            "isPro": getattr(user, 'is_pro', False),
+            "proExpiresAt": getattr(user, 'pro_expires_at').isoformat() + "Z" if getattr(user, 'pro_expires_at', None) else None,
             "createdAt": user.created_at.isoformat() + "Z" if user.created_at else None
         }]
 

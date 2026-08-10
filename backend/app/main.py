@@ -6,6 +6,7 @@ from app.adapters.http.ai_router import router as ai_router
 from app.adapters.http.auth_router import router as auth_router
 from app.adapters.http.sync_router import router as sync_router
 from app.adapters.http.social_router import router as social_router
+from app.adapters.http.payment_router import router as payment_router
 
 app = FastAPI(
     title="LifeQuest Backend",
@@ -26,6 +27,7 @@ app.include_router(ai_router)
 app.include_router(auth_router)
 app.include_router(sync_router)
 app.include_router(social_router)
+app.include_router(payment_router)
 
 
 @app.get("/health")

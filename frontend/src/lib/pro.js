@@ -65,12 +65,39 @@ export function checkDailyLimit(feature, player) {
   return { allowed: used < limit, used, limit };
 }
 
-export function showProBenefits() {
-  showAlert({
+export async function showProBenefits() {
+  const { showConfirm } = await import('./modal.js');
+  const ok = await showConfirm({
     title: 'LifeQuest PRO 🌟',
-    message: 'Benefícios exclusivos para membros PRO:\n\n🤖 Treinos gerados por Inteligência Artificial\n📊 Métricas e gráficos avançados\n💎 Pro Coins mensais para gastar na loja\n🎨 Avatares e Temas exclusivos\n\nTorne-se PRO e acelere sua evolução!',
+    message: 'Benefícios exclusivos para membros PRO:\n\n🤖 Treinos gerados por I.A.\n📊 Métricas avançadas\n💎 Pro Coins para a loja\n🎨 Avatares e Temas exclusivos\n\nTorne-se PRO por apenas R$ 4,99/mês!',
     icon: '⭐',
-    confirmText: 'Assinar agora',
+    confirmText: 'Assinar (R$ 4,99)',
+    cancelText: 'Voltar',
     type: 'info'
   });
+
+  if (ok) {
+    try {
+      const token = localStorage.getItem('access_token');
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const res = await fetch(`${apiBase}/payments/subscribe`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!res.ok) throw new Error('Falha ao iniciar pagamento');
+      
+      const response = await res.json();
+      if (response.checkout_url) {
+        window.location.href = response.checkout_url;
+      }
+    } catch (err) {
+      console.error(err);
+      const { showAlert } = await import('./modal.js');
+      showAlert({ title: 'Erro', message: 'Não foi possível iniciar o pagamento. Tente novamente mais tarde.', type: 'danger' });
+    }
+  }
 }

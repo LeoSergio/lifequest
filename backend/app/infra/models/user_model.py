@@ -32,6 +32,10 @@ class UserModel(Base):
     last_active_date: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     ranking_visible: Mapped[bool] = mapped_column(Boolean, nullable=True)
     
+    # PRO Subscription
+    is_pro: Mapped[bool] = mapped_column(Boolean, default=False)
+    pro_expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    
     # Metadados
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None))

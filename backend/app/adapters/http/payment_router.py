@@ -52,11 +52,14 @@ async def create_subscription(
             "failure": f"{frontend_url}?payment=failure",
             "pending": f"{frontend_url}?payment=pending"
         },
-        "auto_return": "approved",
         "external_reference": user_id,  # IMPORTANTE: Enviamos o user_id para o MP
         # Configuração do Webhook. Em produção, use sua URL (ex: https://api.lifequest.com/payments/webhook)
         # "notification_url": "https://sua-url-backend.com/payments/webhook"
     }
+
+    # O Mercado Pago rejeita auto_return se a URL for localhost (http).
+    if frontend_url.startswith("https://"):
+        preference_data["auto_return"] = "approved"
 
     try:
         preference_response = mp_sdk.preference().create(preference_data)

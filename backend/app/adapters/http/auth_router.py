@@ -30,7 +30,15 @@ async def register(user: UserCreate, db: AsyncSession = Depends(get_db_session))
     base_username = user.name.lower().replace(" ", "")
     unique_username = base_username
     
-    # Loop simples para garantir username único (ou apenas pegamos um try-except)
+    # Loop simples para garantir username único
+    counter = 1
+    while True:
+        check = await db.execute(select(UserModel.id).where(UserModel.username == unique_username))
+        if not check.scalars().first():
+            break
+        unique_username = f"{base_username}{counter}"
+        counter += 1
+    
     new_user = UserModel(
         email=user.email,
         username=unique_username,

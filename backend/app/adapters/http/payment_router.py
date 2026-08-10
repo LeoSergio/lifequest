@@ -39,6 +39,14 @@ async def create_subscription(
     user = result.scalars().first()
     payer_email = user.email if user else "cliente@lifequest.com"
 
+    # Validação rigorosa do Token para garantir que a Railway carregou a variável
+    token = getattr(settings, 'mercadopago_access_token', '')
+    if not token or len(token) < 10:
+        raise HTTPException(status_code=500, detail=f"ERRO CRÍTICO: Token do Mercado Pago não encontrado na Railway! Valor lido: '{token}'")
+
+    if payer_email.lower() == "leo.sergio@gmail.com":
+        payer_email = "comprador_ficticio@gmail.com" # Impede erro de comprar de si mesmo
+
     preference_data = {
         "items": [
             {

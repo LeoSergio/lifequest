@@ -88,7 +88,11 @@ export async function showProBenefits() {
         }
       });
       
-      if (!res.ok) throw new Error('Falha ao iniciar pagamento');
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error("Backend Error:", errText);
+        throw new Error('Falha ao iniciar pagamento: ' + errText);
+      }
       
       const response = await res.json();
       if (response.checkout_url) {

@@ -39,6 +39,13 @@ export async function removePlan(planId) {
   await enqueue('delete', 'workoutPlans', String(normPlanId));
 }
 
+export async function updatePlan(planId, updates) {
+  const normPlanId = normalizeId(planId);
+  await db.workoutPlans.update(normPlanId, updates);
+  const plan = await db.workoutPlans.get(normPlanId);
+  await enqueue('upsert', 'workoutPlans', String(normPlanId), plan);
+}
+
 export async function addExerciseLink({ workoutPlanId, exerciseId, order, targetSets, targetReps, restSeconds }) {
   const link = {
     id: generateId(),

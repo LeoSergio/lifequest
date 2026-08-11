@@ -14,12 +14,13 @@ import {
   removePlan,
   saveSet,
   startSession,
+  updatePlan,
   updateSet
 } from '../repositories/workoutRepository.js';
 import { getPlayer } from '../repositories/playerRepository.js';
 import { checkAchievements } from '../lib/achievements.js';
 
-export { removePlan, removeExerciseLink };
+export { removePlan, removeExerciseLink, updatePlan };
 
 export async function addExerciseToPlan({ planId, catalog, exerciseName, muscleGroup, equipment, targetSets, targetReps, restSeconds }) {
   const exerciseId = await findOrCreateExercise(catalog, exerciseName, muscleGroup, equipment);

@@ -166,7 +166,7 @@ async def set_ranking_visibility(
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
     
     user.ranking_visible = body.visible
-    await db.flush()
+    await db.commit()
     return {"visible": user.ranking_visible}
 
 
@@ -359,7 +359,7 @@ async def send_friend_request(
         status="pending",
     )
     db.add(friendship)
-    await db.flush()
+    await db.commit()
     return {"message": "Solicitação enviada!", "friendship_id": str(friendship.id)}
 
 
@@ -384,7 +384,7 @@ async def accept_friend_request(
 
     friendship.status = "accepted"
     friendship.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
-    await db.flush()
+    await db.commit()
     return {"message": "Amizade aceita!"}
 
 
@@ -410,5 +410,5 @@ async def remove_friend(
         raise HTTPException(status_code=404, detail="Amizade não encontrada")
 
     await db.delete(friendship)
-    await db.flush()
+    await db.commit()
     return {"message": "Removido com sucesso"}

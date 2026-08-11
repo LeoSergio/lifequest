@@ -73,11 +73,20 @@
     return all.filter(s => s.finishedAt && !s.isRestDay && s.finishedAt.slice(0, 10) >= startIso);
   });
 
+  $: startIso = (() => {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - ((dayOfWeek + 6) % 7));
+    startOfWeek.setHours(0, 0, 0, 0);
+    return startOfWeek.toISOString().slice(0, 10);
+  })();
+
   const WEEKLY_GOAL = 4; // meta de treinos por semana
   $: weekCount   = $weekSessions ? $weekSessions.length : 0;
   $: weekPct     = Math.min(100, Math.round((weekCount / WEEKLY_GOAL) * 100));
   $: weekDone    = weekCount >= WEEKLY_GOAL;
-  $: weekUsed    = false; // TODO: persistir uso da roleta semanal no Dexie
+  $: weekUsed    = $player && $player.lastWeeklyRoulette === startIso;
 
   // Retorna os títulos de missões usadas nos últimos 7 dias (para evitar repetição)
   async function getRecentQuestTitles() {
@@ -359,44 +368,62 @@
 
   async function spinRoulette() {
     if (isSpinning) return;
+    
+    // Verificação dupla por segurança
+    const pInfo = await db.player.toCollection().first();
+    if (pInfo && pInfo.lastWeeklyRoulette === startIso) {
+      showAlert({ title: 'Já girou', message: 'Você já resgatou a roleta desta semana!', icon: '🎰', type: 'warning' });
+      showRoulette = false;
+      return;
+    }
+
     isSpinning = true;
     
-    let spins = 12 + Math.floor(Math.random() * 8);
-    let speed = 150;
-    
-    for (let i = 0; i < spins; i++) {
-      currentRouletteIndex = (currentRouletteIndex + 1) % rouletteItems.length;
-      await new Promise(r => setTimeout(r, speed));
-      speed += 25;
-    }
-    
-    const prize = rouletteItems[currentRouletteIndex];
-    roulettePrize = prize;
-    
-    const p = await db.player.toCollection().first();
-    if (prize.type === 'coins') {
-      if (p) await updatePlayer(p.id, { coins: (p.coins || 0) + prize.value });
-    } else if (prize.type === 'xp') {
-      if (p) {
-        const { level, xp } = applyXp(p.level, p.xp, prize.value);
-        await updatePlayer(p.id, { level, xp });
+    try {
+      let spins = 12 + Math.floor(Math.random() * 8);
+      let speed = 150;
+      
+      for (let i = 0; i < spins; i++) {
+        currentRouletteIndex = (currentRouletteIndex + 1) % rouletteItems.length;
+        await new Promise(r => setTimeout(r, speed));
+        speed += 25;
       }
-    } else if (prize.type === 'item') {
-      const invItem = {
-        id: generateId(),
-        itemId: prize.itemId,
-        category: 'consumable',
-        name: prize.name,
-        purchasedAt: new Date().toISOString()
-      };
-      await db.inventory.add(invItem);
-      await enqueue('upsert', 'inventory', invItem.id, invItem);
-    }
-    
-    isSpinning = false;
+      
+      const prize = rouletteItems[currentRouletteIndex];
+      roulettePrize = prize;
+      
+      const p = await db.player.toCollection().first();
+      const updates = { lastWeeklyRoulette: startIso };
 
-    // Push imediato: prêmio da roleta vai para a nuvem agora
-    pushSync().catch(() => {});
+      if (prize.type === 'coins') {
+        if (p) updates.coins = (p.coins || 0) + prize.value;
+      } else if (prize.type === 'xp') {
+        if (p) {
+          const { level, xp } = applyXp(p.level, p.xp, prize.value);
+          updates.level = level;
+          updates.xp = xp;
+        }
+      } else if (prize.type === 'item') {
+        const invItem = {
+          id: generateId(),
+          itemId: prize.itemId,
+          category: 'consumable',
+          name: prize.name,
+          purchasedAt: new Date().toISOString()
+        };
+        await db.inventory.add(invItem);
+        await enqueue('upsert', 'inventory', invItem.id, invItem);
+      }
+      
+      if (p) await updatePlayer(p.id, updates);
+
+    } catch (e) {
+      console.error('[Roleta] Erro ao girar:', e);
+    } finally {
+      isSpinning = false;
+      // Push imediato: prêmio da roleta e status de uso vão para a nuvem agora
+      pushSync().catch(() => {});
+    }
   }
   
   function closeRoulette() {
@@ -603,15 +630,21 @@
         </div>
 
         <button
-          on:click={() => { if (weekDone) showRoulette = true; }}
-          disabled={!weekDone}
+          on:click={() => { if (weekDone && !weekUsed) showRoulette = true; }}
+          disabled={!weekDone || weekUsed}
           class="w-full font-black py-2.5 rounded-xl active:scale-95 transition-all flex items-center justify-center gap-2 text-sm relative z-10
-            {weekDone
+            {(weekDone && !weekUsed)
               ? 'bg-gradient-to-r from-yellow-600 to-yellow-500 text-black shadow-[0_0_15px_rgba(234,179,8,0.3)]'
               : 'bg-white/5 text-white/30 border border-white/10 cursor-not-allowed'}"
         >
           <span>🎰</span>
-          {weekDone ? 'GIRAR ROLETA SEMANAL!' : `Faltam ${WEEKLY_GOAL - weekCount} treino${WEEKLY_GOAL - weekCount !== 1 ? 's' : ''}`}
+          {#if weekUsed}
+            ROLETA JÁ RESGATADA
+          {:else if weekDone}
+            GIRAR ROLETA SEMANAL!
+          {:else}
+            Faltam {WEEKLY_GOAL - weekCount} treino{WEEKLY_GOAL - weekCount !== 1 ? 's' : ''}
+          {/if}
         </button>
       </div>
     </div>

@@ -125,3 +125,27 @@ class MealSuggestionItemSchema(BaseModel):
 
 class MealSuggestionResponseSchema(BaseModel):
     suggestions: list[MealSuggestionItemSchema]
+
+
+# ── Workout Plan Generation ───────────────────────────────────────────────────────────
+
+class WorkoutPlanGenerationRequestSchema(BaseModel):
+    goal: str                    # ex: "hipertrofia de peito e tríceps"
+    equipment: list[str] = []    # ex: ["barra", "halteres"]
+    level: str = "intermediario" # iniciante | intermediario | avancado
+    days_per_week: int = 3
+    session_duration_min: int = 60
+
+
+class GeneratedExerciseSchema(BaseModel):
+    name: str
+    muscle_group: str
+    equipment: str
+    sets: int
+    rest_seconds: int
+
+
+class WorkoutPlanGenerationResponseSchema(BaseModel):
+    plan_name: str
+    exercises: list[GeneratedExerciseSchema]
+    rationale: str

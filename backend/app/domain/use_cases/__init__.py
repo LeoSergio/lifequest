@@ -4,6 +4,7 @@ from app.domain.use_cases import (
     generate_mission,
     calibrate_workout,
     suggest_meals,
+    generate_workout_plan,
 )
 
 __all__ = [
@@ -12,4 +13,5 @@ __all__ = [
     "generate_mission",
     "calibrate_workout",
     "suggest_meals",
+    "generate_workout_plan",
 ]

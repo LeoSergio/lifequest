@@ -17,6 +17,7 @@ from app.domain.entities.ai_entities import (
     WorkoutCalibrationRequest,
     DailyQuestsRequest,
     EpicQuestRequest,
+    WorkoutPlanGenerationRequest,
 )
 from app.domain.use_cases import (
     calibrate_workout,
@@ -26,6 +27,7 @@ from app.domain.use_cases import (
     suggest_meals,
     generate_daily_quests,
     generate_epic_quest,
+    generate_workout_plan,
 )
 from app.infra.ai_client import ai_provider
 from app.adapters.http.schemas import (
@@ -42,6 +44,8 @@ from app.adapters.http.schemas import (
     DailyQuestsResponseSchema,
     EpicQuestRequestSchema,
     EpicQuestResponseSchema,
+    WorkoutPlanGenerationRequestSchema,
+    WorkoutPlanGenerationResponseSchema,
 )
 
 router = APIRouter(prefix="/ai", tags=["ai"])
@@ -120,3 +124,14 @@ async def suggest_meals_endpoint(payload: MealSuggestionRequestSchema):
         user_request=payload.user_request,
     )
     return MealSuggestionResponseSchema(**data)
+
+
+@router.post("/workouts/generate-plan", response_model=WorkoutPlanGenerationResponseSchema)
+async def generate_workout_plan_endpoint(payload: WorkoutPlanGenerationRequestSchema):
+    """Gera uma ficha de treino completa baseada no objetivo e perfil do usuário."""
+    request_entity = WorkoutPlanGenerationRequest(**payload.model_dump())
+    result = await generate_workout_plan.generate_workout_plan(
+        request=request_entity,
+        ai_provider=ai_provider,
+    )
+    return result

@@ -102,3 +102,27 @@ class WorkoutCalibrationEntity(BaseModel):
     suggested_reps: str
     suggested_weight_kg: float | None = None
     rationale: str
+
+
+# ---------- Geração de Ficha de Treino ----------
+
+class GeneratedExerciseEntity(BaseModel):
+    name: str
+    muscle_group: str
+    equipment: str
+    sets: int
+    rest_seconds: int
+
+
+class WorkoutPlanGenerationRequest(BaseModel):
+    goal: str                    # ex: "hipertrofia de peito e tríceps"
+    equipment: list[str]         # ex: ["barra", "halteres"]
+    level: str                   # iniciante | intermediario | avancado
+    days_per_week: int           # ex: 3
+    session_duration_min: int    # ex: 60
+
+
+class WorkoutPlanGenerationEntity(BaseModel):
+    plan_name: str
+    exercises: list[GeneratedExerciseEntity]
+    rationale: str

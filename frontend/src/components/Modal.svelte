@@ -75,7 +75,7 @@
     <!-- Texto -->
     <h2 id="modal-title" class="modal-title">{state.title}</h2>
     {#if state.message}
-      <p class="modal-message">{state.message}</p>
+      <p class="modal-message">{@html state.message}</p>
     {/if}
 
     <!-- Input (prompt) -->

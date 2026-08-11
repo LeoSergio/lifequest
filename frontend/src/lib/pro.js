@@ -68,12 +68,39 @@ export function checkDailyLimit(feature, player) {
 export async function showProBenefits() {
   const { showConfirm } = await import('./modal.js');
   const ok = await showConfirm({
-    title: 'LifeQuest PRO 🌟',
-    message: 'Benefícios exclusivos para membros PRO:\n\n🤖 Treinos gerados por I.A.\n📊 Métricas avançadas\n💎 Pro Coins para a loja\n🎨 Avatares e Temas exclusivos\n\nTorne-se PRO por apenas R$ 4,99/mês!',
-    icon: '⭐',
-    confirmText: 'Assinar (R$ 4,99)',
+    title: 'Desbloqueie seu Potencial 🌟',
+    message: `
+      <div style="text-align: left; padding: 12px; background: rgba(0,0,0,0.25); border-radius: 16px; margin-top: 12px; border: 1px solid rgba(255,255,255,0.05);">
+        <h3 style="color: #FFD700; font-size: 15px; margin-bottom: 16px; font-weight: 700; text-align: center; text-transform: uppercase; letter-spacing: 1px;">Vantagens do LifeQuest PRO</h3>
+        
+        <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px;">
+          <div style="font-size: 22px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));">🤖</div>
+          <div><strong style="color: #fff; font-size: 14px;">Inteligência Artificial Ilimitada</strong><br><span style="font-size: 13px; color: rgba(255,255,255,0.6);">Geração de treinos, análises e sugestões de dieta sem bloqueios diários.</span></div>
+        </div>
+
+        <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px;">
+          <div style="font-size: 22px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));">📊</div>
+          <div><strong style="color: #fff; font-size: 14px;">Métricas Avançadas</strong><br><span style="font-size: 13px; color: rgba(255,255,255,0.6);">Acompanhe seu progresso real de hipertrofia com gráficos precisos.</span></div>
+        </div>
+
+        <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px;">
+          <div style="font-size: 22px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));">💎</div>
+          <div><strong style="color: #fff; font-size: 14px;">Economia Premium</strong><br><span style="font-size: 13px; color: rgba(255,255,255,0.6);">Receba Pro Coins mensais para gastar na loja com itens épicos.</span></div>
+        </div>
+
+        <div style="display: flex; align-items: flex-start; gap: 12px;">
+          <div style="font-size: 22px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));">🎨</div>
+          <div><strong style="color: #fff; font-size: 14px;">Personalização Total</strong><br><span style="font-size: 13px; color: rgba(255,255,255,0.6);">Avatares exclusivos, temas dinâmicos e customização completa do perfil.</span></div>
+        </div>
+      </div>
+      <div style="margin-top: 16px; font-size: 14px; color: #ccc; line-height: 1.4;">
+        Tudo isso por apenas <strong style="color: #fff; font-size: 15px;">R$ 4,99/mês</strong>.<br>Cancele quando quiser, sem burocracia.
+      </div>
+    `,
+    icon: '🚀',
+    confirmText: 'Assinar PRO (R$ 4,99)',
     cancelText: 'Voltar',
-    type: 'info'
+    type: 'default'
   });
 
   if (ok) {

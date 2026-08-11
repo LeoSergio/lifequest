@@ -50,15 +50,11 @@ export function generateChestReward(level, isPro) {
     milestone: milestone
   };
 
-  // Se não é marco e não é PRO, não ganha nada
-  if (!milestone && !isPro) {
-    return rewards;
-  }
-
   // Base do Baú PRO (Ganha em TODO NÍVEL)
   if (isPro) {
     if (!milestone) {
-      // Recompensa básica por upar um nível "comum"
+      // Recompensa básica por upar um nível "comum" (PRO)
+      rewards.coins = randomInt(10, 25);
       rewards.proCoins = randomInt(5, 15);
       rewards.chestType = 'bronze';
     } else {
@@ -67,12 +63,15 @@ export function generateChestReward(level, isPro) {
       rewards.coins = randomInt(200, 500) * (Math.floor(level / 5) || 1);
       rewards.proCoins = randomInt(30, 80) * (Math.floor(level / 5) || 1);
     }
-  } 
-  
-  // Base do Baú FREE (Só ganha nos MARCOS)
-  if (!isPro && milestone) {
-    rewards.chestType = level >= 30 ? 'gold' : 'silver';
-    rewards.coins = randomInt(50, 150) * (Math.floor(level / 5) || 1);
+  } else {
+    // Base do Baú FREE (Ganha em TODO NÍVEL também, mas sem proCoins)
+    if (!milestone) {
+      rewards.coins = randomInt(5, 15);
+      rewards.chestType = 'bronze';
+    } else {
+      rewards.chestType = level >= 30 ? 'gold' : 'silver';
+      rewards.coins = randomInt(50, 150) * (Math.floor(level / 5) || 1);
+    }
   }
 
   // Bônus especial supremo da AURA (Lvl 67)

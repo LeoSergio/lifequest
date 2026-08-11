@@ -51,5 +51,8 @@ export const api = {
 
   suggestMeals: (payload) =>
     request('/ai/meals/suggest', { method: 'POST', body: JSON.stringify(payload) }),
+
+  generateWorkoutPlan: (payload) =>
+    request('/ai/workouts/generate-plan', { method: 'POST', body: JSON.stringify(payload) }),
 };
 

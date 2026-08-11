@@ -4,6 +4,7 @@
   import { generateId } from '../lib/id.js';
   import { navigate } from '../lib/nav.js';
   import { enqueue, pushSync } from '../services/syncService.js';
+  import { showConfirm, showAlert } from '../lib/modal.js';
   import LineChart from '../components/LineChart.svelte';
   import ConsistencyCalendar from '../components/ConsistencyCalendar.svelte';
   import {
@@ -97,12 +98,14 @@
   let forearm = '';
   let bodyFatPercent = '';
 
+  let editingId = null;
+
   function toNumberOrNull(value) {
     return value === '' || value == null ? null : Number(value);
   }
 
   // Preenche os campos do formulário com os dados da última medição para facilitar
-  $: if (latestMeasurement) {
+  $: if (latestMeasurement && !editingId) {
     if (age === '' && latestMeasurement.age != null) age = latestMeasurement.age;
     if (weight === '' && latestMeasurement.weight != null) weight = latestMeasurement.weight;
     if (height === '' && latestMeasurement.height != null) height = latestMeasurement.height;
@@ -145,9 +148,10 @@
     return Math.round(tdee);
   })();
 
-  async function addMeasurement() {
+  async function saveMeasurement() {
+    const idToSave = editingId || generateId();
     const item = {
-      id: generateId(),
+      id: idToSave,
       date,
       age: toNumberOrNull(age),
       weight: toNumberOrNull(weight),
@@ -162,11 +166,56 @@
       forearm: toNumberOrNull(forearm),
       bodyFatPercent: toNumberOrNull(bodyFatPercent)
     };
-    await db.bodyMeasurements.add(item);
+    
+    await db.bodyMeasurements.put(item);
     await enqueue('upsert', 'bodyMeasurements', item.id, item);
     pushSync().catch(() => {});
 
+    editingId = null;
     age = weight = height = shoulder = chest = abdomen = thigh = calf = armLeft = armRight = forearm = bodyFatPercent = '';
+    date = new Date().toISOString().slice(0, 10);
+    
+    showAlert({ title: 'Sucesso', message: 'Medição salva com sucesso!', icon: '✅', type: 'success' });
+  }
+
+  function editLatest() {
+    if (!latestMeasurement) return;
+    editingId = latestMeasurement.id;
+    date = latestMeasurement.date;
+    age = latestMeasurement.age ?? '';
+    weight = latestMeasurement.weight ?? '';
+    height = latestMeasurement.height ?? '';
+    shoulder = latestMeasurement.shoulder ?? '';
+    chest = latestMeasurement.chest ?? '';
+    abdomen = latestMeasurement.abdomen ?? '';
+    thigh = latestMeasurement.thigh ?? '';
+    calf = latestMeasurement.calf ?? '';
+    armLeft = latestMeasurement.armLeft ?? '';
+    armRight = latestMeasurement.armRight ?? '';
+    forearm = latestMeasurement.forearm ?? '';
+    bodyFatPercent = latestMeasurement.bodyFatPercent ?? '';
+
+    setTimeout(() => {
+      document.getElementById('perimetria-form-heading')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  }
+
+  async function deleteLatest() {
+    if (!latestMeasurement) return;
+    const ok = await showConfirm({
+      title: 'Excluir medição?',
+      message: 'Tem certeza que deseja remover os dados desta avaliação?',
+      icon: '🗑️',
+      type: 'danger',
+      confirmText: 'Excluir',
+      cancelText: 'Cancelar'
+    });
+    
+    if (ok) {
+       await db.bodyMeasurements.delete(latestMeasurement.id);
+       await enqueue('delete', 'bodyMeasurements', latestMeasurement.id);
+       pushSync().catch(() => {});
+    }
   }
 
   // ---------- Desempenho (Carga / Volume / Repetições / PRs) ----------
@@ -261,7 +310,17 @@
   {#if tab === 'perimetria'}
     <section>
       {#if latestMeasurement}
-        <p class="text-[10px] text-white/40 mb-2 font-bold uppercase tracking-wider">Última medição: {formatDate(latestMeasurement.date)}</p>
+        <div class="flex justify-between items-center mb-2">
+          <p class="text-[10px] text-white/40 font-bold uppercase tracking-wider">Última medição: {formatDate(latestMeasurement.date)}</p>
+          <div class="flex gap-2">
+            <button class="text-[9px] uppercase font-bold tracking-wider px-2 py-1 rounded-[6px] border border-white/10 text-white/50 hover:text-white hover:bg-white/5 transition-colors" on:click={editLatest}>
+              Editar
+            </button>
+            <button class="text-[9px] uppercase font-bold tracking-wider px-2 py-1 rounded-[6px] border border-red-500/20 text-red-400 hover:text-white hover:bg-red-500/20 transition-colors" on:click={deleteLatest}>
+              Excluir
+            </button>
+          </div>
+        </div>
 
         <div class="bg-[#1C1C22]/80 border border-white/5 rounded-[20px] p-5 mb-5 shadow-inner flex flex-col gap-3">
           {#each summaryRows as row}
@@ -344,12 +403,19 @@
         {/if}
       </div>
 
-      <h2 class="text-[11px] uppercase text-white/40 mb-3 font-bold tracking-wider flex items-center gap-2">
+      <h2 id="perimetria-form-heading" class="text-[11px] uppercase text-white/40 mb-3 font-bold tracking-wider flex items-center gap-2 mt-8">
          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-         Cadastrar nova perimetria
+         {editingId ? 'Editar perimetria' : 'Cadastrar nova perimetria'}
       </h2>
-      <form on:submit|preventDefault={addMeasurement} class="bg-[#1C1C22]/80 border border-white/5 rounded-[20px] p-5 flex flex-col gap-4 shadow-inner">
-        <input type="date" class="bg-white/5 border border-white/10 rounded-[10px] px-3 py-2.5 text-[11px] text-white outline-none focus:border-[#a855f7] custom-date" bind:value={date} />
+      <form on:submit|preventDefault={saveMeasurement} class="bg-[#1C1C22]/80 border border-white/5 rounded-[20px] p-5 flex flex-col gap-4 shadow-inner">
+        <div class="flex justify-between items-center">
+          <input type="date" class="bg-white/5 border border-white/10 rounded-[10px] px-3 py-2.5 text-[11px] text-white outline-none focus:border-[#a855f7] custom-date flex-1" bind:value={date} />
+          {#if editingId}
+            <button type="button" class="ml-2 text-[10px] font-bold text-red-400 uppercase hover:text-white" on:click={() => { editingId = null; age = weight = height = shoulder = chest = abdomen = thigh = calf = armLeft = armRight = forearm = bodyFatPercent = ''; date = new Date().toISOString().slice(0, 10); }}>
+              Cancelar
+            </button>
+          {/if}
+        </div>
 
         <div>
           <p class="text-[9px] text-[#a855f7] font-bold uppercase tracking-wider mb-2">Perfil</p>
@@ -375,7 +441,9 @@
           </div>
         </div>
 
-        <button type="submit" class="bg-[#9333EA] text-white rounded-[12px] py-3 font-bold text-[11px] shadow-[0_0_15px_rgba(147,51,234,0.3)] hover:bg-[#a855f7] transition-colors mt-2">Registrar medição</button>
+        <button type="submit" class="bg-[#9333EA] text-white rounded-[12px] py-3 font-bold text-[11px] shadow-[0_0_15px_rgba(147,51,234,0.3)] hover:bg-[#a855f7] transition-colors mt-2">
+          {editingId ? 'Salvar Alterações' : 'Registrar medição'}
+        </button>
       </form>
     </section>
   {:else if tab === 'desempenho'}

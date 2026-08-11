@@ -252,7 +252,7 @@
           cancelText: 'Cancelar',
         });
         if (wantsToBuyPro) {
-          showAlert({ title: 'Em breve!', message: 'Redirecionando para a página de pagamento...', icon: '💳', type: 'info' });
+          showProBenefits();
         }
       } else {
         showAlert({
@@ -346,7 +346,7 @@
       </div>
     </div>
     
-    <button on:click={() => showAlert({ title: 'Em breve!', message: 'Checkout para adquirir Moedas PRO ou Assinatura Premium.', icon: '💳', type: 'info', confirmText: 'Entendi' })} class="bg-purple-600 hover:bg-purple-500 text-white text-[11px] font-bold px-3 py-1.5 rounded-[12px] transition-all shadow-[0_0_10px_rgba(168,85,247,0.3)]">
+    <button on:click={showProBenefits} class="bg-purple-600 hover:bg-purple-500 text-white text-[11px] font-bold px-3 py-1.5 rounded-[12px] transition-all shadow-[0_0_10px_rgba(168,85,247,0.3)]">
       + Adquirir PRO
     </button>
   </div>

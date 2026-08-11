@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import update
 from sqlalchemy.future import select
@@ -18,8 +19,12 @@ router = APIRouter(prefix="/payments", tags=["payments"])
 # O token deve vir de settings.mercadopago_access_token
 mp_sdk = mercadopago.SDK(getattr(settings, 'mercadopago_access_token', 'TEST-TOKEN-PLACEHOLDER'))
 
+class SubscribeRequest(BaseModel):
+    plan: str = "lifetime"
+
 @router.post("/subscribe")
 async def create_subscription(
+    body: SubscribeRequest,
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db_session)
 ):
@@ -47,15 +52,24 @@ async def create_subscription(
     if payer_email.lower() == "leo.sergio@gmail.com":
         payer_email = "comprador_ficticio@gmail.com" # Impede erro de comprar de si mesmo
 
+    if body.plan == "monthly":
+        item_title = "LifeQuest PRO (Mensal)"
+        item_id = "PRO_MONTHLY"
+        price = 4.99
+    else:
+        item_title = "LifeQuest PRO (Vitalício - Promoção)"
+        item_id = "PRO_LIFETIME"
+        price = 19.99
+
     preference_data = {
         "items": [
             {
-                "id": "PRO_MONTHLY",
-                "title": "LifeQuest PRO (Mensal)",
+                "id": item_id,
+                "title": item_title,
                 "description": "Desbloqueie IA Ilimitada, Temas e Pro Coins",
                 "quantity": 1,
                 "currency_id": "BRL",
-                "unit_price": 4.99
+                "unit_price": price
             }
         ],
         "payer": {
@@ -66,7 +80,7 @@ async def create_subscription(
             "failure": f"{frontend_url}?payment=failure",
             "pending": f"{frontend_url}?payment=pending"
         },
-        "external_reference": user_id,  # IMPORTANTE: Enviamos o user_id para o MP
+        "external_reference": f"{user_id}:{body.plan}",  # Enviamos user_id:plan para o MP
         # Configuração do Webhook. Em produção, use sua URL (ex: https://api.lifequest.com/payments/webhook)
         # "notification_url": "https://sua-url-backend.com/payments/webhook"
     }
@@ -116,11 +130,17 @@ async def mercadopago_webhook(
             payment = payment_info.get("response", {})
             
             status = payment.get("status")
-            user_id = payment.get("external_reference")  # Pegamos o ID que mandamos na Preference
+            ext_ref = payment.get("external_reference") or ""
             
-            if status == "approved" and user_id:
-                # Pagamento confirmado! Dá 30 dias de PRO.
-                expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=30)
+            if status == "approved" and ext_ref:
+                parts = ext_ref.split(":")
+                user_id = parts[0]
+                plan_type = parts[1] if len(parts) > 1 else "monthly"
+                
+                # Se for lifetime, não tem expiração
+                expires_at = None
+                if plan_type == "monthly":
+                    expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=30)
                 
                 stmt = update(UserModel).where(UserModel.id == UUID(user_id)).values(
                     is_pro=True,

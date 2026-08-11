@@ -83,7 +83,8 @@ export function showProBenefits() {
                   headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
-                  }
+                  },
+                  body: JSON.stringify({ plan: result.plan || 'lifetime' })
                 });
                 
                 if (!res.ok) {

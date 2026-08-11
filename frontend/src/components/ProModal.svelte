@@ -3,10 +3,12 @@
   import { cubicOut } from 'svelte/easing';
   import { onMount, onDestroy } from 'svelte';
 
-  export let onClose; // function(result: boolean)
+  export let onClose; // function(result: { plan: string } | false)
 
-  function close(result) {
-    if (onClose) onClose(result);
+  let selectedPlan = 'lifetime'; // 'monthly' | 'lifetime'
+
+  function close(confirmed) {
+    if (onClose) onClose(confirmed ? { plan: selectedPlan } : false);
   }
 
   // Prevent scrolling on body when modal is open
@@ -102,15 +104,32 @@
 
     </div>
 
-    <!-- Pricing Box -->
-    <div class="pricing-box">
-      <div class="pricing-icon">
-        ⭐
+    <!-- Plan Selection -->
+    <div class="plans-container">
+      <div 
+        class="plan-card {selectedPlan === 'monthly' ? 'active' : ''}"
+        on:click={() => selectedPlan = 'monthly'}
+      >
+        <div class="plan-header">
+          <span class="plan-name">Mensal</span>
+        </div>
+        <div class="plan-price">
+          R$ 4,99<span class="plan-period">/mês</span>
+        </div>
       </div>
-      <div class="pricing-text">
-        <span class="muted">Tudo isso por apenas</span>
-        <div class="price">R$ 4,99 <span class="month">/mês</span></div>
-        <span class="muted small">Cancele quando quiser, sem burocracia.</span>
+
+      <div 
+        class="plan-card {selectedPlan === 'lifetime' ? 'active' : ''} lifetime-card"
+        on:click={() => selectedPlan = 'lifetime'}
+      >
+        <div class="badge">PROMOÇÃO</div>
+        <div class="plan-header">
+          <span class="plan-name">Vitalício</span>
+        </div>
+        <div class="plan-price">
+          R$ 19,99
+        </div>
+        <div class="plan-old-price">de R$ 50,00</div>
       </div>
     </div>
 
@@ -127,7 +146,7 @@
         </span>
         <div class="btn-content">
           <span class="btn-title">Assinar PRO</span>
-          <span class="btn-sub">R$ 4,99 /mês</span>
+          <span class="btn-sub">{selectedPlan === 'lifetime' ? 'Pagamento único' : 'R$ 4,99 /mês'}</span>
         </div>
       </button>
     </div>
@@ -407,5 +426,135 @@
     font-size: 11px;
     color: rgba(255, 255, 255, 0.7);
     line-height: 1.2;
+  }
+
+  /* Plan Selection Styles */
+  .plans-container {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .plan-card {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 16px 12px;
+    cursor: pointer;
+    text-align: center;
+    position: relative;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .plan-card:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .plan-card.active {
+    background: rgba(124, 92, 255, 0.15);
+    border-color: #7c5cff;
+    box-shadow: 0 4px 15px rgba(124, 92, 255, 0.2);
+  }
+
+  .plan-header {
+    margin-bottom: 8px;
+  }
+
+  .plan-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.7);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .active .plan-name {
+    color: #a78bfa;
+  }
+
+  .plan-price {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  .plan-period {
+    font-size: 12px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.5);
+  }
+
+  .plan-old-price {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.4);
+    text-decoration: line-through;
+    margin-top: 4px;
+  }
+
+  .lifetime-card {
+    border-color: rgba(234, 179, 8, 0.3);
+  }
+
+  .lifetime-card.active {
+    border-color: #eab308;
+    background: rgba(234, 179, 8, 0.1);
+    box-shadow: 0 4px 15px rgba(234, 179, 8, 0.15);
+  }
+
+  .lifetime-card.active .plan-name {
+    color: #fde047;
+  }
+
+  .badge {
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #eab308;
+    color: #000;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(234, 179, 8, 0.4);
+  }
+
+  /* Mobile responsiveness enhancements */
+  @media (max-width: 480px) {
+    .pro-container {
+      padding: 16px;
+      padding-bottom: 24px;
+    }
+    .crown-icon {
+      width: 64px;
+      height: 64px;
+    }
+    .titles h1 {
+      font-size: 22px;
+    }
+    .icon-box {
+      width: 40px;
+      height: 40px;
+      min-width: 40px;
+      font-size: 20px;
+    }
+    .text h3 {
+      font-size: 14px;
+    }
+    .text p {
+      font-size: 12px;
+    }
+    .plan-card {
+      padding: 12px 8px;
+    }
+    .plan-price {
+      font-size: 18px;
+    }
   }
 </style>

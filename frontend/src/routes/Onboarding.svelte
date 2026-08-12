@@ -112,6 +112,14 @@
   });
 
   async function installPWA() {
+    const ua = navigator.userAgent || navigator.vendor || window.opera;
+    const isInstagramOrFB = (ua.indexOf('Instagram') > -1) || (ua.indexOf('FBAN') > -1) || (ua.indexOf('FBAV') > -1);
+
+    if (isInstagramOrFB) {
+      alert("⚠️ Você está usando o navegador do Instagram/Facebook.\n\nPara instalar o App, toque nos 3 pontinhos no canto superior da tela (ou inferior) e escolha:\n\n👉 'Abrir no Chrome' ou 'Abrir no navegador do sistema'.");
+      return;
+    }
+
     if (deferredPrompt) {
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
@@ -121,7 +129,7 @@
       }
     } else {
       // Fallback manual (ex: iOS Safari que não suporta o evento)
-      alert("Para instalar:\n\n📱 iOS (Safari): Toque em Compartilhar e depois 'Adicionar à Tela de Início'.\n\n🤖 Android (Chrome): Toque nos 3 pontinhos e 'Adicionar à Tela Inicial'.");
+      alert("Para instalar:\n\n📱 iOS (Safari): Toque em Compartilhar (quadrado com seta para cima) e depois 'Adicionar à Tela de Início'.\n\n🤖 Android (Chrome): Toque nos 3 pontinhos e 'Adicionar à Tela Inicial'.");
     }
   }
 

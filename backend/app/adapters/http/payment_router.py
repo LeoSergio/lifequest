@@ -144,7 +144,8 @@ async def mercadopago_webhook(
                 
                 stmt = update(UserModel).where(UserModel.id == UUID(user_id)).values(
                     is_pro=True,
-                    pro_expires_at=expires_at
+                    pro_expires_at=expires_at,
+                    updated_at=datetime.now(timezone.utc).replace(tzinfo=None)
                 )
                 await db.execute(stmt)
                 

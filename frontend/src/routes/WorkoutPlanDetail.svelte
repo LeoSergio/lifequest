@@ -319,11 +319,22 @@
                   <span class="text-[#a855f7] font-bold">{link.exercise.muscleGroup}</span> · {link.exercise.equipment} · <span class="text-white/60">{link.targetSets} séries</span> · {link.restSeconds}s desc.
                 </p>
               </div>
-              {#if isEditing || isNew}
-                <button class="text-white/20 text-sm shrink-0 hover:text-red-400 transition-colors p-1" on:click={() => removeExerciseLink(link.id)}>
-                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-                </button>
-              {/if}
+              <div class="flex items-center gap-2 shrink-0">
+                <a 
+                  href={`https://www.youtube.com/results?search_query=como+fazer+exercício+${encodeURIComponent(link.exercise.name)}`} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  class="p-1.5 bg-red-500/10 hover:bg-red-500/20 rounded-full text-red-400 transition-colors" 
+                  title="Ver vídeo ensinando (Pesquisa YouTube)"
+                >
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33 2.78 2.78 0 0 0 1.94 2c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.33 29 29 0 0 0-.46-5.33zM9.75 15.02V8.48l6.5 3.27-6.5 3.27z"/></svg>
+                </a>
+                {#if isEditing || isNew}
+                  <button class="text-white/20 text-sm hover:text-red-400 transition-colors p-1" on:click={() => removeExerciseLink(link.id)}>
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                  </button>
+                {/if}
+              </div>
             </div>
           {/each}
         </div>
@@ -351,7 +362,18 @@
           {#each exercises as link (link.id)}
             <div class="bg-[#1C1C22]/80 border border-white/5 rounded-[20px] p-5 shadow-inner transition-colors {completedExercises[link.id] ? 'opacity-60 border-green-500/20' : ''}">
               <div class="flex justify-between items-center mb-4">
-                <h3 class="text-[14px] font-bold {completedExercises[link.id] ? 'text-green-400' : 'text-white'}">{link.exercise.name}</h3>
+                <div class="flex items-center gap-2">
+                  <h3 class="text-[14px] font-bold {completedExercises[link.id] ? 'text-green-400' : 'text-white'}">{link.exercise.name}</h3>
+                  <a 
+                    href={`https://www.youtube.com/results?search_query=como+fazer+exercício+${encodeURIComponent(link.exercise.name)}`} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    class="p-1 bg-red-500/10 hover:bg-red-500/20 rounded-full text-red-400 transition-colors shrink-0" 
+                    title="Ver vídeo ensinando (Pesquisa YouTube)"
+                  >
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33 2.78 2.78 0 0 0 1.94 2c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.33 29 29 0 0 0-.46-5.33zM9.75 15.02V8.48l6.5 3.27-6.5 3.27z"/></svg>
+                  </a>
+                </div>
                 <span class="text-[9px] uppercase font-bold text-white/40 tracking-wider bg-white/5 px-2 py-1 rounded-[8px] border border-white/5">
                   {link.targetSets} Séries
                 </span>

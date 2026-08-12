@@ -67,7 +67,7 @@
     aiError = null;
   }
 
-  async function createPlan() {
+  async function createPlan(goToEdit = false) {
     if (!name.trim()) return;
 
     const plan = {
@@ -96,7 +96,7 @@
     }
 
     pushSync().catch(() => {});
-    navigate('workout-plan-detail', { planId: plan.id, isNew: !aiResult });
+    navigate('workout-plan-detail', { planId: plan.id, isEditing: goToEdit === true, isNew: !aiResult });
   }
 </script>
 
@@ -121,23 +121,45 @@
       <div class="px-4 pb-4 flex flex-col gap-3">
         <div class="bg-green-500/10 border border-green-500/20 rounded-[14px] p-4">
           <p class="text-[10px] text-green-400 uppercase font-bold tracking-wider mb-1">✅ Ficha gerada pela IA</p>
-          <p class="text-[13px] font-black text-white mb-2">{aiResult.plan_name}</p>
+          <div class="flex justify-between items-start mb-2">
+            <p class="text-[13px] font-black text-white">{aiResult.plan_name}</p>
+            <button 
+              class="text-[9px] uppercase font-bold text-[#a855f7] hover:text-white transition-colors bg-[#a855f7]/10 px-2 py-1 rounded-[6px]" 
+              on:click={() => createPlan(true)}
+              title="Salvar e editar os exercícios (adicionar/remover)"
+            >
+              <span class="flex items-center gap-1">
+                <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                Editar Treino
+              </span>
+            </button>
+          </div>
           <p class="text-[10px] text-white/50 mb-3 leading-relaxed">{aiResult.rationale}</p>
           <div class="flex flex-col gap-2">
             {#each aiResult.exercises as ex}
-              <div class="flex items-center gap-3 bg-white/5 rounded-[10px] px-3 py-2.5">
+              <div class="flex items-center gap-3 bg-white/5 rounded-[10px] px-3 py-2.5 group">
                 <div class="flex-1 min-w-0">
                   <p class="text-[11px] font-bold text-white truncate">{ex.name}</p>
                   <p class="text-[9px] text-[#a855f7] font-medium truncate">{ex.muscle_group} · {ex.equipment}</p>
                 </div>
                 <span class="text-[9px] text-white/40 font-bold shrink-0">{ex.sets} séries · {ex.rest_seconds}s</span>
+                
+                <a 
+                  href={`https://www.youtube.com/results?search_query=como+fazer+exercício+${encodeURIComponent(ex.name)}`} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  class="p-1.5 bg-red-500/20 hover:bg-red-500/40 rounded-full text-red-400 transition-colors shrink-0" 
+                  title="Ver vídeo ensinando (Pesquisa YouTube)"
+                >
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33 2.78 2.78 0 0 0 1.94 2c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.33 29 29 0 0 0-.46-5.33zM9.75 15.02V8.48l6.5 3.27-6.5 3.27z"/></svg>
+                </a>
               </div>
             {/each}
           </div>
         </div>
         <button
           class="w-full bg-gradient-to-r from-[#9333EA] to-[#7c3aed] text-white rounded-[14px] py-3.5 text-[12px] font-black shadow-[0_0_20px_rgba(147,51,234,0.4)] hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"
-          on:click={createPlan}
+          on:click={() => createPlan(false)}
         >
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
           SALVAR FICHA E IR PARA OS TREINOS
@@ -231,7 +253,7 @@
   </div>
 
   <!-- ── Formulário Manual ──────────────────────────────────────────────────── -->
-  <form on:submit|preventDefault={createPlan} class="flex flex-col gap-4">
+  <form on:submit|preventDefault={() => createPlan(false)} class="flex flex-col gap-4">
     <div class="bg-[#1C1C22]/80 border border-white/5 rounded-[20px] p-5 shadow-inner">
       <label for="plan-name" class="text-[10px] text-[#a855f7] mb-2 block uppercase font-bold tracking-wider">Nome do treino</label>
       <input

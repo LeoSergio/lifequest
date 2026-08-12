@@ -234,7 +234,6 @@
     
     const p = await db.player.toCollection().first();
     const { level, xp, leveledUp } = applyXp(p.level, p.xp, quest.xpReward);
-    let newCoins = p.coins || 0;
     
     const today = todayIso();
     const allTodayQuests = await db.dailyQuests.where('date').equals(today).toArray();
@@ -242,6 +241,8 @@
     
     let gotChest = false;
     let coinsEarned = 0;
+    let newCoins = p.coins || 0;
+    let newProCoins = p.proCoins || 0;
     
     if (allCompleted) {
        coinsEarned = 15;
@@ -249,8 +250,28 @@
        gotChest = true;
     }
 
+    // Se levou level up, calcula recompensa do baú de nível ANTES de salvar
+    let rewardMsg = '';
+    if (leveledUp) {
+      const isPlayerPro = isPro(p);
+      const chest = generateChestReward(level, isPlayerPro);
+      const titleInfo = getTitleForLevel(level);
+      
+      rewardMsg = `Você alcançou o nível ${level} e se tornou um ${titleInfo.title}!\n\n`;
+      
+      if (chest.chestType) {
+        rewardMsg += `🎁 **Baú Aberto!**\n`;
+        if (chest.coins > 0) rewardMsg += `+${chest.coins} LifeCoins 🪙\n`;
+        if (chest.proCoins > 0) rewardMsg += `+${chest.proCoins} Pro Coins 💎\n`;
+        
+        newCoins += chest.coins;
+        newProCoins += chest.proCoins;
+      }
+    }
+
+    // ÚNICO updatePlayer: salva level, xp e coins tudo de uma vez
     if (p) {
-      await updatePlayer(p.id, { level, xp, coins: newCoins });
+      await updatePlayer(p.id, { level, xp, coins: newCoins, proCoins: newProCoins });
     }
     
     if (gotChest) {
@@ -266,24 +287,6 @@
     }
     
     if (leveledUp) {
-      const isPlayerPro = isPro(p);
-      const chest = generateChestReward(level, isPlayerPro);
-      const titleInfo = getTitleForLevel(level);
-      
-      let rewardMsg = `Você alcançou o nível ${level} e se tornou um ${titleInfo.title}!\n\n`;
-      let newProCoins = p.proCoins || 0;
-      
-      if (chest.chestType) {
-        rewardMsg += `🎁 **Baú Aberto!**\n`;
-        if (chest.coins > 0) rewardMsg += `+${chest.coins} LifeCoins 🪙\n`;
-        if (chest.proCoins > 0) rewardMsg += `+${chest.proCoins} Pro Coins 💎\n`;
-        
-        newCoins += chest.coins;
-        newProCoins += chest.proCoins;
-      }
-      
-      await updatePlayer(p.id, { coins: newCoins, proCoins: newProCoins });
-
       setTimeout(() => {
         showAlert({
           title: '🎉 LEVEL UP!',
@@ -292,7 +295,7 @@
           type: 'success',
           confirmText: 'Aura!',
         });
-      }, gotChest ? 2500 : 300); // Aguarda o baú diário fechar se tiver ganho
+      }, gotChest ? 2500 : 300);
     }
 
     // Push imediato: missão concluída e XP/coins vão para a nuvem agora

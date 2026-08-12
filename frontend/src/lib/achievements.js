@@ -2,6 +2,8 @@ import { db } from '../db/db.js';
 import { generateId } from './id.js';
 import { enqueue } from '../services/syncService.js';
 import { showAlert } from './modal.js';
+import { applyXp } from './gamification.js';
+import { updatePlayer } from '../repositories/playerRepository.js';
 
 export const ACHIEVEMENTS = [
   // Básicos
@@ -166,18 +168,17 @@ export async function checkAchievements() {
     
     const ach = ACHIEVEMENTS.find(a => a.id === id);
     if (ach) {
-        // Grant Rewards
-        if (ach.xp || ach.coins) {
+        // Re-busca o player a cada conquista para evitar stale state
+        const currentPlayer = await db.player.toCollection().first();
+        if (currentPlayer && (ach.xp || ach.coins)) {
             const xpToAdd = ach.xp || 0;
             const coinsToAdd = ach.coins || 0;
-            await db.player.update(player.id, { 
-                xp: player.xp + xpToAdd, 
-                coins: (player.coins || 0) + coinsToAdd 
-            });
-            await enqueue('upsert', 'player', player.id, { 
-                xp: player.xp + xpToAdd, 
-                coins: (player.coins || 0) + coinsToAdd 
-            });
+
+            // Aplica XP corretamente para disparar level up
+            const { level, xp, leveledUp } = applyXp(currentPlayer.level, currentPlayer.xp, xpToAdd);
+            const newCoins = (currentPlayer.coins || 0) + coinsToAdd;
+
+            await updatePlayer(currentPlayer.id, { level, xp, coins: newCoins });
         }
 
         // Alert user

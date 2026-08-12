@@ -277,6 +277,15 @@
             </div>
           {:else if introStep === 2}
             <div class="animate-fade-in flex flex-col items-center text-center">
+              <div class="w-28 h-28 rounded-full border border-purple-500/30 flex items-center justify-center text-6xl mb-6 shadow-[0_0_40px_rgba(168,85,247,0.2)] bg-gradient-to-br from-surface to-bg relative overflow-hidden">
+                <div class="absolute inset-0 bg-purple-500/10"></div>
+                <span class="relative z-10">🎁</span>
+              </div>
+              <h1 class="text-[26px] font-black mb-3 tracking-tight text-white leading-tight">Missões e <span class="text-purple-400">Recompensas</span></h1>
+              <p class="text-white/60 text-sm leading-relaxed px-4">Cumpra missões geradas por IA, acumule moedas e compre itens exclusivos na Loja para seu Avatar.</p>
+            </div>
+          {:else if introStep === 3}
+            <div class="animate-fade-in flex flex-col items-center text-center">
               <div class="w-28 h-28 rounded-full border border-yellow-500/30 flex items-center justify-center text-6xl mb-6 shadow-[0_0_40px_rgba(234,179,8,0.2)] bg-gradient-to-br from-surface to-bg relative overflow-hidden">
                 <div class="absolute inset-0 bg-yellow-500/10"></div>
                 <span class="relative z-10">⚡</span>
@@ -292,25 +301,26 @@
           <button class="w-2.5 h-2.5 rounded-full transition-all {introStep === 0 ? 'bg-primary w-8' : 'bg-white/20'}" on:click={() => introStep = 0}></button>
           <button class="w-2.5 h-2.5 rounded-full transition-all {introStep === 1 ? 'bg-primary w-8' : 'bg-white/20'}" on:click={() => introStep = 1}></button>
           <button class="w-2.5 h-2.5 rounded-full transition-all {introStep === 2 ? 'bg-primary w-8' : 'bg-white/20'}" on:click={() => introStep = 2}></button>
+          <button class="w-2.5 h-2.5 rounded-full transition-all {introStep === 3 ? 'bg-primary w-8' : 'bg-white/20'}" on:click={() => introStep = 3}></button>
         </div>
 
         <button 
           class="w-full bg-primary flex items-center justify-center gap-2 text-white rounded-xl py-4 font-bold shadow-[0_4px_20px_rgba(124,92,255,0.4)] transition-transform active:scale-95 mb-4" 
           on:click={() => {
-            if (introStep < 2) {
+            if (introStep < 3) {
               introStep++;
             } else {
               step = 1;
             }
           }}
         >
-          <span>{introStep === 2 ? '🚀 Começar Jornada' : 'Próximo'}</span>
-          {#if introStep < 2}
+          <span>{introStep === 3 ? '🚀 Começar Jornada' : 'Próximo'}</span>
+          {#if introStep < 3}
              <span class="ml-1 opacity-70">›</span>
           {/if}
         </button>
         
-        {#if introStep < 2}
+        {#if introStep < 3}
           <button class="text-xs text-white/40 uppercase tracking-widest font-bold py-2 hover:text-white/70 transition-colors" on:click={() => step = 1}>
             Pular Apresentação
           </button>

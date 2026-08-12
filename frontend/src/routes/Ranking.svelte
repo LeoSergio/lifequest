@@ -475,9 +475,9 @@
     {/if}
 
 
-    <!-- Lista a partir do 4º -->
+    <!-- Lista: a partir do 4º se houver pódio (>=3 jogadores), do 1º se houver menos -->
     <div class="flex flex-col gap-2">
-      {#each ranking.slice(3) as entry (entry.user_id)}
+      {#each ranking.slice(ranking.length >= 3 ? 3 : 0) as entry (entry.user_id)}
         {@const btn = friendBtnState(entry)}
         <div class="bg-[#1C1C22]/80 border {entry.is_me ? 'border-[#a855f7]/50 shadow-[0_0_12px_rgba(168,85,247,0.15)]' : 'border-white/5'} rounded-2xl px-4 py-3 flex items-center gap-3 relative overflow-hidden transition-all">
           {#if entry.is_me}<div class="absolute inset-0 bg-[#a855f7]/5 pointer-events-none"></div>{/if}

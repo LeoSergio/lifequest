@@ -152,7 +152,8 @@
     // Se o usuário não digitou nada novo (setInputs vazio), mantém o valor que já estava salvo (se existir)
     // para não sobrescrever com null acidentalmente caso ele clique no botão novamente.
     let weight = currentInput.weight !== undefined ? currentInput.weight : (saved?.weightKg ?? '');
-    let reps = currentInput.reps !== undefined ? currentInput.reps : (saved?.repsDone ?? '');
+    // Padrão de 12 repetições se o usuário não digitou nada
+    let reps = currentInput.reps !== undefined ? currentInput.reps : (saved?.repsDone ?? 12);
 
     await persistSet({ 
       activeSession, 
@@ -404,7 +405,7 @@
                         <input
                           type="number"
                           class="w-full bg-[#1C1C22]/80 border border-white/10 rounded-[8px] px-2 py-2.5 text-center text-[12px] font-bold focus:border-[#a855f7] outline-none transition-colors text-white placeholder:text-white/20"
-                          placeholder="-"
+                          placeholder="Ex: 20"
                           value={setInputs[key]?.weight ?? (saved?.weightKg ?? '')}
                           on:input={(e) => (setInputs[key] = { ...setInputs[key], weight: e.target.value })}
                         />
@@ -415,7 +416,7 @@
                         <input
                           type="number"
                           class="w-full bg-[#1C1C22]/80 border border-white/10 rounded-[8px] px-2 py-2.5 text-center text-[12px] font-bold focus:border-[#a855f7] outline-none transition-colors text-white placeholder:text-white/20"
-                          placeholder="Reps"
+                          placeholder="12"
                           value={setInputs[key]?.reps ?? (saved?.repsDone ?? '')}
                           on:input={(e) => (setInputs[key] = { ...setInputs[key], reps: e.target.value })}
                         />

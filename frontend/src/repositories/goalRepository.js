@@ -10,7 +10,7 @@ import { enqueue } from '../services/syncService.js';
 export const allGoalsQuery = () =>
   liveQuery(() => db.goals.orderBy('createdAt').reverse().toArray());
 
-export async function addGoal({ title, targetValue, unit, reward, xpReward, deadline }) {
+export async function addGoal({ title, targetValue, unit, reward, xpReward, deadline, isEpic = false }) {
   const goal = {
     id: generateId(),
     title: title.trim(),
@@ -21,6 +21,7 @@ export async function addGoal({ title, targetValue, unit, reward, xpReward, dead
     xpReward: Number(xpReward) || 0,
     deadline: deadline || null,
     achievedAt: null,
+    isEpic: !!isEpic,
     createdAt: new Date().toISOString()
   };
   await db.goals.add(goal);

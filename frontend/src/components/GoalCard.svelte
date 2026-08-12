@@ -11,9 +11,10 @@
   $: daysLeft = daysUntilDeadline(goal.deadline);
 
   let increment = 1;
+  let processing = false;
+
   $: timeProgress = (() => {
     if (!goal.deadline || !goal.createdAt) return 0;
-    // O backend ou lib salva o deadline em formato YYYY-MM-DD. Adicionando horas p/ final do dia
     const start = new Date(goal.createdAt).getTime();
     const end = new Date(goal.deadline + 'T23:59:59').getTime();
     const now = new Date().getTime();
@@ -25,6 +26,21 @@
     const elapsed = now - start;
     return Math.round((elapsed / total) * 100);
   })();
+
+  async function handleConclude() {
+    if (processing) return;
+    processing = true;
+    dispatch('progress', { goal, amount: 1 });
+    // Reset após um tempo para caso a UI não atualize (ex: meta já concluída)
+    setTimeout(() => { processing = false; }, 2000);
+  }
+
+  async function handleIncrement() {
+    if (processing) return;
+    processing = true;
+    dispatch('progress', { goal, amount: Number(increment) || 0 });
+    setTimeout(() => { processing = false; }, 2000);
+  }
 </script>
 
 <div class="bg-surface rounded-xl p-4 {achieved ? 'opacity-60' : ''} group relative">
@@ -65,10 +81,16 @@
           <div></div>
         {/if}
         <button
-          class="bg-[#9333EA] text-white rounded-lg px-4 py-2 text-xs font-bold hover:bg-[#a855f7] transition-colors shadow-[0_0_10px_rgba(147,51,234,0.3)]"
-          on:click={() => dispatch('progress', { goal, amount: 1 })}
+          class="bg-[#9333EA] text-white rounded-lg px-4 py-2 text-xs font-bold hover:bg-[#a855f7] transition-colors shadow-[0_0_10px_rgba(147,51,234,0.3)] disabled:opacity-50 flex items-center gap-1.5"
+          on:click={handleConclude}
+          disabled={processing}
         >
-          ✓ Concluir Meta
+          {#if processing}
+            <span class="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+          {:else}
+            ✓
+          {/if}
+          Concluir Meta
         </button>
       </div>
     {:else}
@@ -92,10 +114,15 @@
             bind:value={increment}
           />
           <button
-            class="bg-primary text-white rounded-lg px-2 py-1 text-xs font-medium"
-            on:click={() => dispatch('progress', { goal, amount: Number(increment) || 0 })}
+            class="bg-primary text-white rounded-lg px-2 py-1 text-xs font-medium disabled:opacity-50 flex items-center gap-1"
+            on:click={handleIncrement}
+            disabled={processing}
           >
-            +
+            {#if processing}
+              <span class="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+            {:else}
+              +
+            {/if}
           </button>
         </div>
       </div>

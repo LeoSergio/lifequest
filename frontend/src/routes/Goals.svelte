@@ -43,11 +43,13 @@
   // Estado da tela de celebração
   let celebrating = null; // goal | null
 
-  $: filtered = ($allGoals ?? []).filter((g) => (tab === 'ativas' ? !g.achievedAt : !!g.achievedAt));
+  // Filtra metas normais (não épicas). Metas épicas são Chefões gerenciados em Quests.
+  $: normalGoals = ($allGoals ?? []).filter(g => !g.isEpic);
+  $: filtered = normalGoals.filter((g) => (tab === 'ativas' ? !g.achievedAt : !!g.achievedAt));
 
   async function createGoal() {
     if (!title.trim()) return;
-    await addGoal({ title, targetValue: 1, unit: '', reward, deadline });
+    await addGoal({ title, targetValue: 1, unit: '', reward, deadline, isEpic: false });
     showForm = false;
     pushSync().catch(() => {});
   }

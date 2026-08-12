@@ -4,50 +4,89 @@
 // Isso evita o número dessincronizar da realidade se uma conclusão for
 // apagada ou editada.
 
-function startOfWeekIso(date) {
-  const d = new Date(date);
-  const day = d.getDay(); // 0 = domingo
-  const diff = (day === 0 ? -6 : 1) - day; // volta até a segunda-feira
-  d.setDate(d.getDate() + diff);
-  return d.toISOString().slice(0, 10);
+/**
+ * Converte uma string "YYYY-MM-DD" para um Date local (sem shift de timezone).
+ * `new Date("2026-08-12")` é interpretado como UTC midnight, o que em fusos
+ * negativos (ex: Brasil UTC-3) resulta em "2026-08-11 21:00" local — ou seja,
+ * na segunda-feira correta sendo tratada como domingo da semana anterior.
+ */
+function parseDateLocal(dateStr) {
+  if (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return new Date(y, m - 1, d, 12, 0, 0); // meio-dia local para evitar qualquer DST edge
+  }
+  return new Date(dateStr);
 }
 
+function startOfWeekIso(dateOrStr) {
+  const d = dateOrStr instanceof Date ? new Date(dateOrStr) : parseDateLocal(dateOrStr);
+  const day = d.getDay(); // 0 = domingo, usando hora local correta
+  const diff = (day === 0 ? -6 : 1) - day; // volta até a segunda-feira
+  d.setDate(d.getDate() + diff);
+  // Retorna a data local em formato ISO
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
+
+/**
+ * Retorna "YYYY-MM-DD" da data LOCAL de hoje (não UTC).
+ * Usando UTC: às 22h no Brasil (UTC-3), seria o dia seguinte.
+ */
 export function todayIso() {
-  return new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 /** Streak (dias consecutivos) de um hábito diário, terminando hoje ou ontem. */
 export function habitStreak(habitId, completions) {
   const days = new Set(completions.filter((c) => c.habitId === habitId).map((c) => c.date));
 
-  let streak = 0;
-  const cursor = new Date();
-
-  // Se hoje ainda não foi marcado, começa a contagem em ontem — assim a
-  // ofensiva não "quebra" visualmente só porque o dia ainda não acabou.
-  if (!days.has(cursor.toISOString().slice(0, 10))) {
-    cursor.setDate(cursor.getDate() - 1);
+  function localIso(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
   }
 
-  while (days.has(cursor.toISOString().slice(0, 10))) {
+  let streak = 0;
+  const today = todayIso();
+  const yesterdayDate = new Date();
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+  const yesterday = localIso(yesterdayDate);
+
+  // Começa pelo dia mais recente com marcação (hoje ou ontem)
+  // Assim a ofensiva não "quebra" visualmente só porque o dia ainda não acabou.
+  const cursorDate = parseDateLocal(days.has(today) ? today : yesterday);
+
+  let cursor = localIso(cursorDate);
+  while (days.has(cursor)) {
     streak += 1;
-    cursor.setDate(cursor.getDate() - 1);
+    cursorDate.setDate(cursorDate.getDate() - 1);
+    cursor = localIso(cursorDate);
   }
 
   return streak;
 }
 
-/** Últimos 7 dias marcando se o hábito foi concluído em cada um (pontinhos S T Q Q S S D). */
+
+/** Últimos 7 dias marcando se o hábito foi concluído em cada um (pontinhos D S T Q Q S S). */
 export function last7Days(habitId, completions) {
   const days = new Set(completions.filter((c) => c.habitId === habitId).map((c) => c.date));
   const labels = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
-  const today = new Date();
   const result = [];
 
   for (let i = 6; i >= 0; i--) {
-    const d = new Date(today);
+    const d = new Date();
     d.setDate(d.getDate() - i);
-    const iso = d.toISOString().slice(0, 10);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const iso = `${y}-${m}-${dd}`;
     result.push({ date: iso, label: labels[d.getDay()], done: days.has(iso), isToday: i === 0 });
   }
 
@@ -65,6 +104,7 @@ export function completedToday(habitId, completions) {
   const today = todayIso();
   return completions.some((c) => c.habitId === habitId && c.date === today);
 }
+
 
 /**
  * Taxa de sucesso agregada dos últimos 7 dias: de todas as ocorrências

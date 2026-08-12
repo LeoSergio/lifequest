@@ -426,8 +426,9 @@
                 </div>
 
                 <div class="mt-4 pt-4 border-t border-white/5 flex flex-col gap-2">
-                  <button class="w-full bg-white/5 border border-white/10 text-white/80 rounded-[12px] py-2.5 text-[11px] font-bold hover:bg-white/10 hover:text-white transition-colors" on:click={() => completedExercises[link.id] = true}>
-                    Ocultar este Exercício
+                  <button class="w-full bg-green-500/10 border border-green-500/20 text-green-400 rounded-[12px] py-3 text-[11px] font-bold hover:bg-green-500/20 transition-colors flex items-center justify-center gap-2" on:click={() => { completedExercises[link.id] = true; startRest(link.id, link.restSeconds); }}>
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    Concluir Exercício
                   </button>
                 </div>
               {:else}

@@ -44,13 +44,25 @@
   async function handleComplete(event) {
     const habit = event.detail;
     const result = await completeHabit(habit, $completions ?? []);
-    if (result?.leveledUp) showAlert({
-      title: 'Level Up! 🎉',
-      message: `Agora você é nível ${result.level}!`,
-      icon: '⭐',
-      type: 'success',
-      confirmText: 'Boa!',
-    });
+    if (!result) return; // já completou hoje, ignorar
+
+    if (result.leveledUp) {
+      showAlert({
+        title: 'Level Up! 🎉',
+        message: `+${result.xpGained} XP — Agora você é nível ${result.level}!`,
+        icon: '⭐',
+        type: 'success',
+        confirmText: 'Boa!',
+      });
+    } else if (result.weeklyGoalMet) {
+      showAlert({
+        title: '🎯 Meta Semanal Concluída!',
+        message: `+${result.xpGained} XP — Você completou a meta desta semana!`,
+        icon: '🏆',
+        type: 'success',
+        confirmText: 'Incrível!',
+      });
+    }
     // Push imediato: conclusão do hábito vai para a nuvem agora
     pushSync().catch(() => {});
   }

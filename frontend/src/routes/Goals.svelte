@@ -78,12 +78,12 @@
 
     if (result.leveledUp) showAlert({
       title: `Level Up! 🎉`,
-      message: `Agora você é nível ${result.level}!`,
+      message: `+${result.xpGained} XP — Agora você é nível ${result.level}!`,
       icon: '⭐',
       type: 'success',
       confirmText: 'Boa!',
     });
-    if (result.achieved) celebrating = result.updatedGoal;
+    if (result.achieved) celebrating = { ...result.updatedGoal, xpGained: result.xpGained };
   }
 
   function newSimilarGoal() {
@@ -242,6 +242,10 @@
         </div>
         <div class="bg-bg rounded-lg p-3 w-full flex justify-around">
           <div>
+            <p class="text-lg font-bold text-xp">+{celebrating.xpGained ?? 50} XP</p>
+            <p class="text-[10px] text-white/40">Experiência ganha</p>
+          </div>
+          <div>
             <p class="text-lg font-bold text-xp">🏅</p>
             <p class="text-[10px] text-white/40">Conquista Avaliada</p>
           </div>
@@ -258,6 +262,7 @@
           </button>
           <button class="flex-1 bg-primary text-white rounded-lg py-2 text-sm font-medium" on:click={newSimilarGoal}>
             Definir próxima
+          </button>
         </div>
       </div>
     </div>

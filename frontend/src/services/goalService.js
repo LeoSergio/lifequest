@@ -1,20 +1,19 @@
 /**
  * Service de metas — use cases da funcionalidade de Goals.
- *
- * Metas registram progresso e conquistas, mas NÃO concedem XP.
- * XP vem exclusivamente de missões diárias e conquistas automáticas do sistema.
  */
 import { isGoalAchieved } from '../lib/goals.js';
 import { addGoal, updateGoal, deleteGoal } from '../repositories/goalRepository.js';
 import { checkAchievements } from '../lib/achievements.js';
+import { applyXp } from '../lib/gamification.js';
+import { getPlayer, updatePlayer } from '../repositories/playerRepository.js';
 
 export { addGoal, deleteGoal };
 
 /**
  * Adiciona progresso a uma meta.
  *
- * Retorna `{ achieved: boolean, leveledUp: boolean, level: number, updatedGoal }`.
- * A UI usa isso para decidir se exibe a tela de celebração e/ou level up.
+ * Ao atingir a meta pela primeira vez, concede +50 XP ao jogador.
+ * Retorna `{ achieved, leveledUp, level, xpGained, updatedGoal }`.
  */
 export async function addProgress(goal, amount) {
   if (!amount) return null;
@@ -30,13 +29,28 @@ export async function addProgress(goal, amount) {
 
   await updateGoal(goal.id, updates);
 
-  // XP não é concedido por metas: apenas missões e conquistas geram XP.
+  let leveledUp = false;
+  let level = 1;
+  const xpGained = 50; // XP fixo por meta concluída
+
   if (!wasAchieved && nowAchieved) {
+    // Concede XP ao completar a meta
+    const p = await getPlayer();
+    if (p) {
+      const result = applyXp(p.level, p.xp, xpGained);
+      leveledUp = result.leveledUp;
+      level = result.level;
+      await updatePlayer(p.id, { level: result.level, xp: result.xp });
+    }
     await checkAchievements();
   }
 
   return {
     achieved: !wasAchieved && nowAchieved,
+    leveledUp,
+    level,
+    xpGained: (!wasAchieved && nowAchieved) ? xpGained : 0,
     updatedGoal: { ...goal, ...updates }
   };
 }
+

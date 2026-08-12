@@ -31,11 +31,19 @@
     const today = new Date();
     const days = [];
     const lastActive = $player?.lastActiveAt;
+
+    // Helper: data local em ISO (igual ao todayIso / lastActiveAt)
+    function localIso(d) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${dd}`;
+    }
     
     for (let i = 6; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(d.getDate() - i);
-      const iso = d.toISOString().slice(0, 10);
+      const iso = localIso(d); // ← local, não UTC
       
       let active = false;
       if (streak > 0 && lastActive) {

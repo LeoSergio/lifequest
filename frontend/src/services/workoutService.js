@@ -17,7 +17,7 @@ import {
   updatePlan,
   updateSet
 } from '../repositories/workoutRepository.js';
-import { getPlayer } from '../repositories/playerRepository.js';
+import { getPlayer, updatePlayer } from '../repositories/playerRepository.js';
 import { checkAchievements } from '../lib/achievements.js';
 
 export { removePlan, removeExerciseLink, updatePlan };
@@ -84,7 +84,16 @@ export async function finishWorkout({ activeSession, exercises, activeSets, setI
 
   // Concede um valor de XP fixo por concluir o treino.
   const xpReward = 50;
-  const { leveledUp, level } = await applyXp(xpReward, "Treino concluído");
+  let leveledUp = false;
+  let level = 1;
+
+  const p = await getPlayer();
+  if (p) {
+    const result = applyXp(p.level, p.xp, xpReward);
+    leveledUp = result.leveledUp;
+    level = result.level;
+    await updatePlayer(p.id, { level: result.level, xp: result.xp });
+  }
 
   await checkAchievements();
 

@@ -10,8 +10,8 @@ export function xpToNextLevel(level) {
  * (inclusive múltiplos level ups de uma vez, se o ganho for grande).
  */
 export function applyXp(currentLevel, currentXp, xpGained) {
-  let level = currentLevel;
-  let xp = currentXp + xpGained;
+  let level = Number(currentLevel) || 1;
+  let xp = (Number(currentXp) || 0) + (Number(xpGained) || 0);
   let leveledUp = false;
 
   while (xp >= xpToNextLevel(level)) {

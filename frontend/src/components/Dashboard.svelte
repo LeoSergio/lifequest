@@ -86,18 +86,26 @@
       const yesterday = yesterdayDate.toISOString().slice(0, 10);
 
       let newStreak = p.streak || 0;
-      let lastActive = p.lastActiveAt;
+      const lastActive = p.lastActiveAt;
 
       if (lastActive !== today) {
-        if (lastActive === yesterday) {
+        let streakChanges = {};
+
+        if (!lastActive) {
+          // Primeiro acesso neste dispositivo (lastActiveAt não existe):
+          // apenas marca o dia de hoje sem alterar o streak já existente.
+          streakChanges = { lastActiveAt: today };
+        } else if (lastActive === yesterday) {
+          // Acessou ontem: streak continua crescendo normalmente
           newStreak += 1;
+          streakChanges = { streak: newStreak, lastActiveAt: today };
         } else {
+          // Pulou um dia ou mais: reseta a ofensiva
           newStreak = 1;
+          streakChanges = { streak: newStreak, lastActiveAt: today };
         }
-        await updatePlayer(p.id, {
-          streak: newStreak,
-          lastActiveAt: today
-        });
+
+        await updatePlayer(p.id, streakChanges);
         // Push imediato: streak atualizado vai para a nuvem agora
         pushSync().catch(() => {});
       }

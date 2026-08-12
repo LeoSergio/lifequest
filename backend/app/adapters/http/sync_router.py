@@ -88,10 +88,15 @@ async def _apply_event(event: SyncEvent, db: AsyncSession, user_id: str) -> None
             "xp": event.payload.get("xp", 0),
             "coins": event.payload.get("coins", 0),
             "pro_coins": event.payload.get("proCoins", 0),
-            "streak_days": event.payload.get("streak", 0),
             "avatar": event.payload.get("avatar"),
             "updated_at": datetime.now(timezone.utc).replace(tzinfo=None)
         }
+
+        # Só atualiza streak_days se o payload REALMENTE contiver 'streak'.
+        # Sem essa guarda, qualquer updatePlayer (ex: ganhar XP num treino)
+        # mandava streak=0 no push e apagava a ofensiva do usuário no banco.
+        if "streak" in event.payload:
+            update_values["streak_days"] = event.payload["streak"]
         
         if "name" in event.payload:
             new_name = event.payload["name"]

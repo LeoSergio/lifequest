@@ -128,8 +128,13 @@
         showInstallButton = false;
       }
     } else {
-      // Fallback manual (ex: iOS Safari que não suporta o evento)
-      alert("Para instalar:\n\n📱 iOS (Safari): Toque em Compartilhar (quadrado com seta para cima) e depois 'Adicionar à Tela de Início'.\n\n🤖 Android (Chrome): Toque nos 3 pontinhos e 'Adicionar à Tela Inicial'.");
+      // Fallback manual
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+      if (isIOS) {
+        alert("📱 Para instalar no iPhone (Safari):\n\n1. Toque no ícone Compartilhar (quadrado com seta para cima) na barra do navegador.\n2. Role para baixo e escolha 'Adicionar à Tela de Início'.");
+      } else {
+        alert("🤖 Para instalar no Android:\n\nToque nos 3 pontinhos do navegador e escolha 'Adicionar à Tela Inicial' ou 'Instalar Aplicativo'.");
+      }
     }
   }
 

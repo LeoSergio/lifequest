@@ -9,6 +9,7 @@
   // primeiro segundo. Perimetria detalhada (circunferências etc.) fica
   // pra tela de Métricas, quando o usuário quiser se aprofundar depois.
   let step = 0;
+  let introStep = 0;
   const totalSteps = 3;
 
   let name = '';
@@ -253,85 +254,68 @@
 
     {#if step === 0}
       <!-- Tela de Apresentação (Intro) -->
-      <div class="w-full flex flex-col items-center animate-fade-in mt-4">
-        <!-- Logo Icon -->
-        <div class="w-20 h-20 rounded-full border border-primary/30 flex items-center justify-center text-4xl mb-4 shadow-[0_0_30px_rgba(124,92,255,0.2)] bg-gradient-to-br from-surface to-bg relative overflow-hidden">
-          <div class="absolute inset-0 bg-primary/10"></div>
-          <span class="relative z-10">🌟</span>
+      <div class="w-full flex flex-col items-center animate-fade-in mt-6">
+        
+        <div class="w-full min-h-[320px] flex flex-col items-center justify-center mb-8 relative">
+          {#if introStep === 0}
+            <div class="animate-fade-in flex flex-col items-center text-center">
+              <div class="w-28 h-28 rounded-full border border-primary/30 flex items-center justify-center text-6xl mb-6 shadow-[0_0_40px_rgba(124,92,255,0.2)] bg-gradient-to-br from-surface to-bg relative overflow-hidden">
+                <div class="absolute inset-0 bg-primary/10"></div>
+                <span class="relative z-10 animate-bounce-slow">📈</span>
+              </div>
+              <h1 class="text-[26px] font-black mb-3 tracking-tight text-white leading-tight">Sua vida como um <span class="text-primary">Jogo</span></h1>
+              <p class="text-white/60 text-sm leading-relaxed px-4">Complete hábitos reais, ganhe XP, suba de nível e transforme a disciplina em algo viciante.</p>
+            </div>
+          {:else if introStep === 1}
+            <div class="animate-fade-in flex flex-col items-center text-center">
+              <div class="w-28 h-28 rounded-full border border-green-500/30 flex items-center justify-center text-6xl mb-6 shadow-[0_0_40px_rgba(34,197,94,0.2)] bg-gradient-to-br from-surface to-bg relative overflow-hidden">
+                <div class="absolute inset-0 bg-green-500/10"></div>
+                <span class="relative z-10">💪</span>
+              </div>
+              <h1 class="text-[26px] font-black mb-3 tracking-tight text-white leading-tight">Domine seus <span class="text-green-400">Treinos</span></h1>
+              <p class="text-white/60 text-sm leading-relaxed px-4">Monte fichas inteligentes, acompanhe seus recordes de carga e veja seus resultados de forma visual.</p>
+            </div>
+          {:else if introStep === 2}
+            <div class="animate-fade-in flex flex-col items-center text-center">
+              <div class="w-28 h-28 rounded-full border border-yellow-500/30 flex items-center justify-center text-6xl mb-6 shadow-[0_0_40px_rgba(234,179,8,0.2)] bg-gradient-to-br from-surface to-bg relative overflow-hidden">
+                <div class="absolute inset-0 bg-yellow-500/10"></div>
+                <span class="relative z-10">⚡</span>
+              </div>
+              <h1 class="text-[26px] font-black mb-3 tracking-tight text-white leading-tight">Rápido e <span class="text-yellow-400">Privado</span></h1>
+              <p class="text-white/60 text-sm leading-relaxed px-4">O LifeQuest funciona 100% offline. Seus dados ficam no seu celular e você sincroniza com a nuvem apenas quando quiser.</p>
+            </div>
+          {/if}
         </div>
-        
-        <h1 class="text-3xl font-bold mb-1 tracking-tight text-white">LifeQuest</h1>
-        <p class="text-white/50 mb-8 text-sm">Seu aplicativo de desenvolvimento pessoal.</p>
-        
-        <div class="flex flex-col gap-3 w-full mb-8">
-          <!-- Card 1 -->
-          <div class="flex items-center gap-4 bg-surface/80 p-4 rounded-2xl border border-white/5 shadow-md relative overflow-hidden">
-             <div class="absolute top-0 left-0 w-1 bg-primary h-full"></div>
-             <div class="flex flex-col items-center justify-center bg-white/5 rounded-lg w-12 h-12 p-2 shrink-0">
-               <span class="text-[10px] font-bold text-white/40 mb-1">01</span>
-               <span class="text-xl">📈</span>
-             </div>
-             <div class="text-left">
-               <h3 class="font-semibold text-sm text-white/90"><span class="text-primary">Evolua</span> constantemente</h3>
-               <p class="text-[11px] text-white/50 leading-tight mt-0.5">Acompanhe seu progresso e suba de nível completando hábitos reais.</p>
-             </div>
-          </div>
-          
-          <!-- Card 2 -->
-          <div class="flex items-center gap-4 bg-surface/80 p-4 rounded-2xl border border-white/5 shadow-md relative overflow-hidden">
-             <div class="absolute top-0 left-0 w-1 bg-primary h-full"></div>
-             <div class="flex flex-col items-center justify-center bg-white/5 rounded-lg w-12 h-12 p-2 shrink-0">
-               <span class="text-[10px] font-bold text-white/40 mb-1">02</span>
-               <span class="text-xl">💪</span>
-             </div>
-             <div class="text-left">
-               <h3 class="font-semibold text-sm text-white/90"><span class="text-xp">Domine</span> seus Treinos</h3>
-               <p class="text-[11px] text-white/50 leading-tight mt-0.5">Monte fichas, acompanhe recordes de carga e veja seus resultados.</p>
-             </div>
-          </div>
-          
-          <!-- Card 3 -->
-          <div class="flex items-center gap-4 bg-surface/80 p-4 rounded-2xl border border-white/5 shadow-md relative overflow-hidden">
-             <div class="absolute top-0 left-0 w-1 bg-primary h-full"></div>
-             <div class="flex flex-col items-center justify-center bg-white/5 rounded-lg w-12 h-12 p-2 shrink-0">
-               <span class="text-[10px] font-bold text-white/40 mb-1">03</span>
-               <span class="text-xl">⚡</span>
-             </div>
-             <div class="text-left">
-               <h3 class="font-semibold text-sm text-white/90"><span class="text-xp">Rápido</span> e Privado</h3>
-               <p class="text-[11px] text-white/50 leading-tight mt-0.5">Funciona 100% offline. Sincronize com a nuvem apenas se quiser.</p>
-             </div>
-          </div>
+
+        <!-- Indicadores do Carousel -->
+        <div class="flex gap-2 mb-8">
+          <button class="w-2.5 h-2.5 rounded-full transition-all {introStep === 0 ? 'bg-primary w-8' : 'bg-white/20'}" on:click={() => introStep = 0}></button>
+          <button class="w-2.5 h-2.5 rounded-full transition-all {introStep === 1 ? 'bg-primary w-8' : 'bg-white/20'}" on:click={() => introStep = 1}></button>
+          <button class="w-2.5 h-2.5 rounded-full transition-all {introStep === 2 ? 'bg-primary w-8' : 'bg-white/20'}" on:click={() => introStep = 2}></button>
         </div>
 
         <button 
-          class="w-full bg-primary flex items-center justify-center gap-2 text-white rounded-xl py-4 font-bold shadow-[0_4px_20px_rgba(124,92,255,0.4)] transition-transform active:scale-95 mb-6" 
-          on:click={() => step = 1}
+          class="w-full bg-primary flex items-center justify-center gap-2 text-white rounded-xl py-4 font-bold shadow-[0_4px_20px_rgba(124,92,255,0.4)] transition-transform active:scale-95 mb-4" 
+          on:click={() => {
+            if (introStep < 2) {
+              introStep++;
+            } else {
+              step = 1;
+            }
+          }}
         >
-          <span>🚀</span>
-          <span>Começar Jornada</span>
-          <span class="ml-1 opacity-70">›</span>
+          <span>{introStep === 2 ? '🚀 Começar Jornada' : 'Próximo'}</span>
+          {#if introStep < 2}
+             <span class="ml-1 opacity-70">›</span>
+          {/if}
         </button>
+        
+        {#if introStep < 2}
+          <button class="text-xs text-white/40 uppercase tracking-widest font-bold py-2 hover:text-white/70 transition-colors" on:click={() => step = 1}>
+            Pular Apresentação
+          </button>
+        {/if}
 
-        <!-- Trust Badges (Rodapé) -->
-        <div class="w-full flex justify-between items-start pt-4 border-t border-white/5 px-2">
-          <div class="flex flex-col items-center text-center gap-1.5 flex-1">
-            <span class="text-primary/70 text-base">🛡️</span>
-            <span class="text-[9px] text-white/40 leading-tight">Dados são<br>seus</span>
-          </div>
-          <div class="flex flex-col items-center text-center gap-1.5 flex-1 border-l border-white/5">
-            <span class="text-primary/70 text-base">⚡</span>
-            <span class="text-[9px] text-white/40 leading-tight">100%<br>offline</span>
-          </div>
-          <div class="flex flex-col items-center text-center gap-1.5 flex-1 border-l border-white/5">
-            <span class="text-primary/70 text-base">👁️</span>
-            <span class="text-[9px] text-white/40 leading-tight">Sem anúncios<br>invasivos</span>
-          </div>
-          <div class="flex flex-col items-center text-center gap-1.5 flex-1 border-l border-white/5">
-            <span class="text-primary/70 text-base">🎯</span>
-            <span class="text-[9px] text-white/40 leading-tight">Foco no que<br>importa</span>
-          </div>
-        </div>
       </div>
 
     {:else if step === 1}

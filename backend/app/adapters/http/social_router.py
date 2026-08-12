@@ -108,11 +108,13 @@ async def global_ranking(
     current_user_id: Optional[str] = Depends(get_current_user_id_optional),
 ):
     """Top 100 usuários ordenados por nível → XP → streak. Auth opcional."""
-    # Fórmula de Pontuação: (Level * 100 + XP) * (10 + Streak)
-    # Isso dá um bônus de 10% no 'Poder' para cada dia de ofensiva consecutivo,
-    # penalizando contas de alto nível inativas (streak = 0).
+    # Ordenação: nível (primário) → XP (desempate) → streak (terciário)
+    # Isso garante que um jogador de nível 10 sempre esteja acima de um de nível 1,
+    # independentemente do XP acumulado.
     stmt = select(UserModel).where(UserModel.ranking_visible == True).order_by(
-        ((UserModel.level * 100 + UserModel.xp) * (10 + UserModel.streak_days)).desc()
+        UserModel.level.desc(),
+        UserModel.xp.desc(),
+        UserModel.streak_days.desc(),
     ).limit(100)
 
     result = await db.execute(stmt)
@@ -196,12 +198,14 @@ async def friends_ranking(
         friend_ids.add(f.requester_id if f.addressee_id == uid else f.addressee_id)
     friend_ids.add(uid)
 
-    # Busca perfis e ordena
+    # Busca perfis e ordena: nível (primário) → XP (desempate) → streak (terciário)
     users_stmt = select(UserModel).where(
         UserModel.id.in_(friend_ids),
         UserModel.ranking_visible == True
     ).order_by(
-        ((UserModel.level * 100 + UserModel.xp) * (10 + UserModel.streak_days)).desc()
+        UserModel.level.desc(),
+        UserModel.xp.desc(),
+        UserModel.streak_days.desc(),
     )
     u_result = await db.execute(users_stmt)
     users = u_result.scalars().all()

@@ -12,6 +12,10 @@
   let introStep = 0;
   const totalSteps = 3;
 
+  // Variáveis para instalação PWA
+  let deferredPrompt;
+  let showInstallButton = false;
+
   let name = '';
   let email = '';
   let password = '';
@@ -95,6 +99,30 @@
       }
     }
     init();
+  }
+
+  import { onMount } from 'svelte';
+
+  onMount(() => {
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      showInstallButton = true;
+    });
+  });
+
+  async function installPWA() {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        deferredPrompt = null;
+        showInstallButton = false;
+      }
+    } else {
+      // Fallback manual (ex: iOS Safari que não suporta o evento)
+      alert("Para instalar:\n\n📱 iOS (Safari): Toque em Compartilhar e depois 'Adicionar à Tela de Início'.\n\n🤖 Android (Chrome): Toque nos 3 pontinhos e 'Adicionar à Tela Inicial'.");
+    }
   }
 
   async function next() {
@@ -293,6 +321,22 @@
               <h1 class="text-[26px] font-black mb-3 tracking-tight text-white leading-tight">Rápido e <span class="text-yellow-400">Privado</span></h1>
               <p class="text-white/60 text-sm leading-relaxed px-4">O LifeQuest funciona 100% offline. Seus dados ficam no seu celular e você sincroniza com a nuvem apenas quando quiser.</p>
             </div>
+          {:else if introStep === 4}
+            <div class="animate-fade-in flex flex-col items-center text-center">
+              <div class="w-28 h-28 rounded-full border border-blue-500/30 flex items-center justify-center text-6xl mb-6 shadow-[0_0_40px_rgba(59,130,246,0.2)] bg-gradient-to-br from-surface to-bg relative overflow-hidden">
+                <div class="absolute inset-0 bg-blue-500/10"></div>
+                <span class="relative z-10">📱</span>
+              </div>
+              <h1 class="text-[26px] font-black mb-3 tracking-tight text-white leading-tight">Baixe o <span class="text-blue-400">App</span></h1>
+              <p class="text-white/60 text-sm leading-relaxed px-4 mb-4">Adicione o LifeQuest à sua tela inicial para acessar rápido como um aplicativo nativo!</p>
+              <button 
+                class="bg-blue-600 text-white font-bold py-3 px-6 rounded-xl shadow-[0_0_15px_rgba(37,99,235,0.4)] hover:scale-105 transition-transform flex items-center gap-2"
+                on:click={installPWA}
+              >
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Instalar no Celular
+              </button>
+            </div>
           {/if}
         </div>
 
@@ -302,25 +346,26 @@
           <button class="w-2.5 h-2.5 rounded-full transition-all {introStep === 1 ? 'bg-primary w-8' : 'bg-white/20'}" on:click={() => introStep = 1}></button>
           <button class="w-2.5 h-2.5 rounded-full transition-all {introStep === 2 ? 'bg-primary w-8' : 'bg-white/20'}" on:click={() => introStep = 2}></button>
           <button class="w-2.5 h-2.5 rounded-full transition-all {introStep === 3 ? 'bg-primary w-8' : 'bg-white/20'}" on:click={() => introStep = 3}></button>
+          <button class="w-2.5 h-2.5 rounded-full transition-all {introStep === 4 ? 'bg-primary w-8' : 'bg-white/20'}" on:click={() => introStep = 4}></button>
         </div>
 
         <button 
           class="w-full bg-primary flex items-center justify-center gap-2 text-white rounded-xl py-4 font-bold shadow-[0_4px_20px_rgba(124,92,255,0.4)] transition-transform active:scale-95 mb-4" 
           on:click={() => {
-            if (introStep < 3) {
+            if (introStep < 4) {
               introStep++;
             } else {
               step = 1;
             }
           }}
         >
-          <span>{introStep === 3 ? '🚀 Começar Jornada' : 'Próximo'}</span>
-          {#if introStep < 3}
+          <span>{introStep === 4 ? '🚀 Começar Jornada' : 'Próximo'}</span>
+          {#if introStep < 4}
              <span class="ml-1 opacity-70">›</span>
           {/if}
         </button>
         
-        {#if introStep < 3}
+        {#if introStep < 4}
           <button class="text-xs text-white/40 uppercase tracking-widest font-bold py-2 hover:text-white/70 transition-colors" on:click={() => step = 1}>
             Pular Apresentação
           </button>

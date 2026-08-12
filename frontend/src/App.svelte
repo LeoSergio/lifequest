@@ -19,8 +19,21 @@
   import SyncBadge from './components/SyncBadge.svelte';
   import Modal from './components/Modal.svelte';
   import Ranking from './routes/Ranking.svelte';
+  import { startQuestService, stopQuestService } from './services/questService.js';
 
   const hasPlayer = liveQuery(async () => (await db.player.count()) > 0);
+
+  // Inicia o serviço global de missões diárias assim que o player estiver disponível.
+  // Fica ativo independente de qual rota o usuário estiver navegando.
+  let questServiceStarted = false;
+  $: if ($hasPlayer && !questServiceStarted) {
+    questServiceStarted = true;
+    startQuestService();
+  } else if ($hasPlayer === false && questServiceStarted) {
+    // Logout: para o timer
+    questServiceStarted = false;
+    stopQuestService();
+  }
 </script>
 <BackgroundBlobs />
 <Modal />

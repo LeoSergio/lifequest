@@ -13,6 +13,7 @@
   import { API_BASE } from '../lib/api.js';
   import { showAlert, showConfirm, showPrompt } from '../lib/modal.js';
   import { isPro, showProBenefits } from '../lib/pro.js';
+  import { onMount } from 'svelte';
   
   let currentTab = 'diarias'; // 'diarias', 'semanais', 'mensais', 'conquistas', 'loja'
   
@@ -88,7 +89,32 @@
   $: weekDone    = weekCount >= WEEKLY_GOAL;
   $: weekUsed    = $player && $player.lastWeeklyRoulette === startIso;
 
-  // Retorna os títulos de missões usadas nos últimos 7 dias (para evitar repetição)
+  // ── Auto-renovação de missões diárias ──
+  // O serviço global (questService.js, iniciado no App.svelte) já garante
+  // a geração automática ao abrir o app e à meia-noite.
+  // Aqui apenas verificamos ao montar a rota caso o serviço ainda não tenha
+  // rodado (ex: navegação rápida antes do primeiro tick do serviço).
+
+  async function checkAndAutoFetchQuests() {
+    const today = todayIso();
+    const existing = await db.dailyQuests.where('date').equals(today).count();
+    if (existing === 0) {
+      let p = await db.player.toCollection().first();
+      let attempts = 0;
+      while (!p && attempts < 10) {
+        await new Promise(r => setTimeout(r, 200));
+        p = await db.player.toCollection().first();
+        attempts++;
+      }
+      if (p) await fetchDailyQuests();
+    }
+  }
+
+  onMount(() => {
+    // Garante missões caso o serviço global ainda não tenha gerado
+    checkAndAutoFetchQuests();
+  });
+
   async function getRecentQuestTitles() {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);

@@ -133,7 +133,9 @@
       if (isIOS) {
         alert("📱 Para instalar no iPhone (Safari):\n\n1. Toque no ícone Compartilhar (quadrado com seta para cima) na barra do navegador.\n2. Role para baixo e escolha 'Adicionar à Tela de Início'.");
       } else {
-        alert("🤖 Para instalar no Android:\n\nToque nos 3 pontinhos do navegador e escolha 'Adicionar à Tela Inicial' ou 'Instalar Aplicativo'.");
+        // Usuário solicitou a remoção do texto dos "3 pontinhos". 
+        // Se o código cair aqui no Android, é porque o Chrome PROIBIU o download automático.
+        alert("⚠️ Download automático bloqueado pelo navegador.\n\nIsso ocorre se você estiver acessando via IP local (HTTP) em vez do link oficial, ou se o app já estiver instalado.");
       }
     }
   }

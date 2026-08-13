@@ -103,14 +103,6 @@
 
   import { onMount } from 'svelte';
 
-  onMount(() => {
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-      showInstallButton = true;
-    });
-  });
-
   async function installPWA() {
     const ua = navigator.userAgent || navigator.vendor || window.opera;
     const isInstagramOrFB = (ua.indexOf('Instagram') > -1) || (ua.indexOf('FBAN') > -1) || (ua.indexOf('FBAV') > -1);
@@ -120,12 +112,11 @@
       return;
     }
 
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
+    if (window.deferredPrompt) {
+      window.deferredPrompt.prompt();
+      const { outcome } = await window.deferredPrompt.userChoice;
       if (outcome === 'accepted') {
-        deferredPrompt = null;
-        showInstallButton = false;
+        window.deferredPrompt = null;
       }
     } else {
       // Fallback manual

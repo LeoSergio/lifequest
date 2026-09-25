@@ -56,14 +56,15 @@
     if (!file) return;
 
     if (file.size > 20 * 1024 * 1024) {
-      scanError = 'Imagem muito grande. Use uma foto com menos de 20 MB.';
+      scanError = 'Arquivo muito grande. Use um arquivo com menos de 20 MB.';
       return;
     }
 
     isScanningSheet = true;
     scanError = null;
     scanResult = null;
-    scanPreviewUrl = URL.createObjectURL(file);
+    // Preview de imagem (não aplica para PDF)
+    scanPreviewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : null;
 
     try {
       const base64 = await new Promise((resolve, reject) => {
@@ -78,7 +79,7 @@
       if (result.plan_name_suggestion) name = result.plan_name_suggestion;
     } catch (e) {
       console.error('[Scan] Erro ao analisar ficha:', e);
-      scanError = 'Não foi possível analisar a imagem. Verifique sua conexão e tente novamente.';
+      scanError = 'Não foi possível analisar o arquivo. Verifique sua conexão e tente novamente.';
       scanPreviewUrl = null;
     } finally {
       isScanningSheet = false;
@@ -257,14 +258,23 @@
 
     {:else}
       <div class="flex flex-col gap-3">
-        {#if scanPreviewUrl && isScanningSheet}
-          <div class="relative rounded-[16px] overflow-hidden">
-            <img src={scanPreviewUrl} alt="Processando..." class="w-full max-h-52 object-cover opacity-40" />
-            <div class="absolute inset-0 flex flex-col items-center justify-center gap-3">
-              <div class="w-8 h-8 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
-              <p class="text-[11px] font-bold text-blue-300">Analisando ficha com IA...</p>
-              <p class="text-[9px] text-white/40">Isso pode levar alguns segundos</p>
-            </div>
+
+        <!-- Loading com preview da imagem -->
+        {#if isScanningSheet}
+          <div class="bg-[#1C1C22]/80 border border-blue-500/20 rounded-[16px] p-5 flex flex-col items-center gap-3">
+            {#if scanPreviewUrl}
+              <div class="relative w-full rounded-[12px] overflow-hidden">
+                <img src={scanPreviewUrl} alt="Processando..." class="w-full max-h-44 object-cover opacity-40" />
+                <div class="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                  <div class="w-8 h-8 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                  <p class="text-[11px] font-bold text-blue-300">Analisando com IA...</p>
+                </div>
+              </div>
+            {:else}
+              <div class="w-10 h-10 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+              <p class="text-[12px] font-bold text-blue-300">Lendo o PDF com IA...</p>
+              <p class="text-[10px] text-white/40">Isso pode levar alguns segundos</p>
+            {/if}
           </div>
         {/if}
 
@@ -272,12 +282,51 @@
           <p class="text-[10px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-[12px] px-4 py-3">{scanError}</p>
         {/if}
 
-        <label class="w-full cursor-pointer bg-blue-600 hover:bg-blue-500 text-white font-black text-[14px] py-6 rounded-[20px] transition-colors flex flex-col items-center justify-center gap-3 shadow-[0_0_25px_rgba(59,130,246,0.3)] {isScanningSheet ? 'opacity-50 pointer-events-none' : ''}">
-          <svg class="w-9 h-9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-          {isScanningSheet ? 'Analisando...' : 'Fotografar ou Importar Ficha'}
-          <input type="file" accept="image/*" capture="environment" class="hidden" on:change={handleScanSheet} disabled={isScanningSheet} />
-        </label>
-        <p class="text-[9px] text-white/30 text-center">Aceita fotos, capturas de tela ou fichas impressas · Máx 20 MB</p>
+        <!-- Opções de importação -->
+        {#if !isScanningSheet}
+          <div class="flex flex-col gap-2">
+            <!-- Câmera -->
+            <label class="w-full cursor-pointer bg-[#1C1C22]/80 hover:bg-blue-500/10 border border-blue-500/20 hover:border-blue-400/50 text-white rounded-[16px] px-4 py-4 transition-all flex items-center gap-4 group">
+              <div class="w-10 h-10 rounded-[12px] bg-blue-500/15 flex items-center justify-center shrink-0 group-hover:bg-blue-500/25 transition-colors">
+                <svg class="w-5 h-5 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              </div>
+              <div class="flex-1">
+                <p class="text-[13px] font-bold text-white">Tirar foto</p>
+                <p class="text-[9px] text-white/40">Abrir câmera e fotografar a ficha</p>
+              </div>
+              <svg class="w-4 h-4 text-white/20 group-hover:text-blue-400 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+              <input type="file" accept="image/*" capture="environment" class="hidden" on:change={handleScanSheet} />
+            </label>
+
+            <!-- Galeria -->
+            <label class="w-full cursor-pointer bg-[#1C1C22]/80 hover:bg-blue-500/10 border border-blue-500/20 hover:border-blue-400/50 text-white rounded-[16px] px-4 py-4 transition-all flex items-center gap-4 group">
+              <div class="w-10 h-10 rounded-[12px] bg-blue-500/15 flex items-center justify-center shrink-0 group-hover:bg-blue-500/25 transition-colors">
+                <svg class="w-5 h-5 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              </div>
+              <div class="flex-1">
+                <p class="text-[13px] font-bold text-white">Escolher da galeria</p>
+                <p class="text-[9px] text-white/40">Importar foto salva no celular ou computador</p>
+              </div>
+              <svg class="w-4 h-4 text-white/20 group-hover:text-blue-400 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+              <input type="file" accept="image/*" class="hidden" on:change={handleScanSheet} />
+            </label>
+
+            <!-- PDF -->
+            <label class="w-full cursor-pointer bg-[#1C1C22]/80 hover:bg-orange-500/10 border border-orange-500/20 hover:border-orange-400/50 text-white rounded-[16px] px-4 py-4 transition-all flex items-center gap-4 group">
+              <div class="w-10 h-10 rounded-[12px] bg-orange-500/15 flex items-center justify-center shrink-0 group-hover:bg-orange-500/25 transition-colors">
+                <svg class="w-5 h-5 text-orange-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+              </div>
+              <div class="flex-1">
+                <p class="text-[13px] font-bold text-white">Importar PDF</p>
+                <p class="text-[9px] text-white/40">Ficha enviada por e-mail ou WhatsApp em PDF</p>
+              </div>
+              <svg class="w-4 h-4 text-white/20 group-hover:text-orange-400 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+              <input type="file" accept="application/pdf" class="hidden" on:change={handleScanSheet} />
+            </label>
+          </div>
+          <p class="text-[9px] text-white/25 text-center">A IA lê fichas manuscritas, impressas e digitais · Máx 20 MB</p>
+        {/if}
+
       </div>
     {/if}
 

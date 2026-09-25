@@ -68,9 +68,10 @@ class GroqGeminiProvider(AIProviderInterface):
 
 
     async def generate_from_image(self, image_base64: str, mime_type: str, prompt: str) -> dict:
-        """Chamada multimodal ao Gemini Vision — envia imagem + prompt e retorna JSON estruturado.
-        
-        Não usa Groq pois a maioria dos modelos Groq não suporta visão multimodal.
+        """Chamada multimodal ao Gemini — envia imagem ou PDF + prompt e retorna JSON estruturado.
+
+        Suporta: image/jpeg, image/png, image/webp, image/gif, application/pdf.
+        Não usa Groq pois a maioria dos modelos Groq não suporta entrada multimodal.
         """
         if not settings.gemini_api_key:
             raise ValueError("GEMINI_API_KEY não configurada. Necessária para análise de imagens.")

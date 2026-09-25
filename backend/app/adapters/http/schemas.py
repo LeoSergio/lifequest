@@ -149,3 +149,23 @@ class WorkoutPlanGenerationResponseSchema(BaseModel):
     plan_name: str
     exercises: list[GeneratedExerciseSchema]
     rationale: str
+
+
+# ── Workout Sheet Scan (Gemini Vision) ─────────────────────────────────────────────────
+
+class WorkoutSheetScanRequestSchema(BaseModel):
+    image_base64: str   # Imagem codificada em base64 (com ou sem prefixo data:...)
+    mime_type: str      # Ex: "image/jpeg", "image/png", "image/webp"
+
+
+class ScannedExerciseSchema(BaseModel):
+    name: str
+    muscle_group: str
+    sets: int
+    reps: str
+    rest_seconds: int
+
+
+class WorkoutSheetScanResponseSchema(BaseModel):
+    plan_name_suggestion: str
+    exercises: list[ScannedExerciseSchema]

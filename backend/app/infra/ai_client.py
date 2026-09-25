@@ -13,6 +13,7 @@ from app.infra.config import settings
 
 _GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 _GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+_GEMINI_VISION_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
 
 # Groq descontinua modelos com frequência — confira a lista atual em
 # https://console.groq.com/docs/models antes de trocar isto.
@@ -59,6 +60,43 @@ class GroqGeminiProvider(AIProviderInterface):
                 json={
                     "contents": [{"parts": [{"text": f"{system_prompt}\n\n{user_prompt}"}]}],
                     "generationConfig": {"response_mime_type": "application/json"},
+                },
+            )
+            res.raise_for_status()
+            content = res.json()["candidates"][0]["content"]["parts"][0]["text"]
+            return json.loads(content)
+
+
+    async def generate_from_image(self, image_base64: str, mime_type: str, prompt: str) -> dict:
+        """Chamada multimodal ao Gemini Vision — envia imagem + prompt e retorna JSON estruturado.
+        
+        Não usa Groq pois a maioria dos modelos Groq não suporta visão multimodal.
+        """
+        if not settings.gemini_api_key:
+            raise ValueError("GEMINI_API_KEY não configurada. Necessária para análise de imagens.")
+
+        # Remove o prefixo data:image/...;base64, se presente
+        if "," in image_base64:
+            image_base64 = image_base64.split(",", 1)[1]
+
+        async with httpx.AsyncClient(timeout=45) as client:
+            res = await client.post(
+                f"{_GEMINI_VISION_URL}?key={settings.gemini_api_key}",
+                json={
+                    "contents": [{
+                        "parts": [
+                            {
+                                "inlineData": {
+                                    "mimeType": mime_type,
+                                    "data": image_base64
+                                }
+                            },
+                            {"text": prompt}
+                        ]
+                    }],
+                    "generationConfig": {
+                        "response_mime_type": "application/json"
+                    }
                 },
             )
             res.raise_for_status()

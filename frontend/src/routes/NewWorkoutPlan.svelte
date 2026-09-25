@@ -21,6 +21,57 @@
   let aiResult = null; // { plan_name, exercises, rationale }
   let aiError = null;
 
+  // ── Scan de Ficha por Foto (Gemini Vision) ────────────────────────────────
+  let isScanningSheet = false;
+  let scanResult = null;  // { plan_name_suggestion, exercises }
+  let scanError = null;
+  let scanPreviewUrl = null; // URL local da imagem para preview
+
+  async function handleScanSheet(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Valida tamanho máximo de 20 MB (limite do Gemini Vision)
+    if (file.size > 20 * 1024 * 1024) {
+      scanError = 'Imagem muito grande. Use uma foto com menos de 20 MB.';
+      return;
+    }
+
+    isScanningSheet = true;
+    scanError = null;
+    scanResult = null;
+    scanPreviewUrl = URL.createObjectURL(file);
+
+    try {
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const result = await api.scanWorkoutSheet(base64, file.type);
+      scanResult = result;
+      // Pré-preenche o nome do treino com a sugestão da IA
+      if (result.plan_name_suggestion) name = result.plan_name_suggestion;
+    } catch (e) {
+      console.error('[Scan] Erro ao analisar ficha:', e);
+      scanError = 'Não foi possível analisar a imagem. Verifique sua conexão e tente novamente.';
+      scanPreviewUrl = null;
+    } finally {
+      isScanningSheet = false;
+      // Limpa o input para permitir reenviar a mesma imagem
+      event.target.value = '';
+    }
+  }
+
+  function resetScan() {
+    scanResult = null;
+    scanError = null;
+    scanPreviewUrl = null;
+    if (scanResult?.plan_name_suggestion) name = '';
+  }
+
   const activeDays = WEEKDAYS.filter(w => w.value !== null);
 
   function toggleDay(val) {
@@ -78,31 +129,117 @@
     await db.workoutPlans.put(plan);
     await enqueue('upsert', 'workoutPlans', plan.id, plan);
 
-    // Se veio da IA, cria os exercícios automaticamente
-    if (aiResult?.exercises?.length) {
+    // Exercícios do scan por foto têm prioridade sobre os da IA de texto
+    const exercisesToSave = scanResult?.exercises ?? aiResult?.exercises;
+
+    if (exercisesToSave?.length) {
       const catalog = await db.exercises.toArray();
-      for (const ex of aiResult.exercises) {
+      for (const ex of exercisesToSave) {
         await addExerciseToPlan({
           planId: plan.id,
           catalog,
           exerciseName: ex.name,
           muscleGroup: ex.muscle_group,
-          equipment: ex.equipment,
+          equipment: ex.equipment ?? 'Livre',
           targetSets: ex.sets,
-          targetReps: 'Livre',
+          targetReps: ex.reps ?? 'Livre',
           restSeconds: ex.rest_seconds,
         });
       }
     }
 
     pushSync().catch(() => {});
-    navigate('workout-plan-detail', { planId: plan.id, isEditing: goToEdit === true, isNew: !aiResult });
+    const hasScan = !!scanResult;
+    navigate('workout-plan-detail', { planId: plan.id, isEditing: goToEdit === true, isNew: !hasScan && !aiResult });
   }
 </script>
 
 <main class="min-h-screen p-4 pb-24 max-w-md mx-auto">
   <button class="text-[10px] text-[#a855f7] mb-4 flex items-center gap-1 font-bold uppercase tracking-wider hover:text-white transition-colors" on:click={() => navigate('training')}>← Voltar para Treinos</button>
   <h1 class="text-2xl font-black text-white mb-6">Novo treino</h1>
+
+  <!-- ── Bloco Câmera: Importar Ficha por Foto ─────────────────────────────── -->
+  <div class="mb-4 rounded-[20px] overflow-hidden border border-blue-500/30 bg-blue-500/5">
+    <div class="p-4 flex items-center gap-3">
+      <div class="w-9 h-9 rounded-[12px] flex items-center justify-center shrink-0 bg-blue-500/20">
+        <svg class="w-5 h-5 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-[12px] font-bold text-blue-300 leading-tight">📸 Importar Ficha com IA</p>
+        <p class="text-[9px] text-white/50 leading-relaxed mt-0.5">Fotografe a ficha do seu personal e a IA lê os exercícios automaticamente.</p>
+      </div>
+    </div>
+
+    {#if scanResult}
+      <!-- ── Preview do Scan ──────────────────────────────────────────── -->
+      <div class="px-4 pb-4 flex flex-col gap-3">
+        <div class="bg-blue-500/10 border border-blue-500/20 rounded-[14px] p-4">
+          <p class="text-[10px] text-blue-400 uppercase font-bold tracking-wider mb-3">📷 Ficha lida pela IA — {scanResult.exercises.length} exercícios detectados</p>
+          
+          {#if scanPreviewUrl}
+            <img src={scanPreviewUrl} alt="Foto da ficha" class="w-full rounded-[10px] mb-3 max-h-40 object-cover opacity-70" />
+          {/if}
+
+          <div class="flex flex-col gap-2">
+            {#each scanResult.exercises as ex, i}
+              <div class="flex items-center gap-3 bg-white/5 rounded-[10px] px-3 py-2.5">
+                <span class="text-[10px] text-white/30 font-bold w-4 shrink-0">{i + 1}</span>
+                <div class="flex-1 min-w-0">
+                  <p class="text-[11px] font-bold text-white truncate">{ex.name}</p>
+                  <p class="text-[9px] text-blue-400 font-medium">{ex.muscle_group}</p>
+                </div>
+                <span class="text-[9px] text-white/40 font-bold shrink-0">{ex.sets}x{ex.reps}</span>
+              </div>
+            {/each}
+          </div>
+        </div>
+
+        <button
+          class="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-[14px] py-3.5 text-[12px] font-black shadow-[0_0_20px_rgba(59,130,246,0.4)] hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"
+          on:click={() => createPlan(false)}
+        >
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+          SALVAR FICHA E IR PARA OS TREINOS
+        </button>
+        <button class="text-[10px] font-bold text-white/40 hover:text-white/70 uppercase tracking-wider text-center" on:click={resetScan}>
+          Usar outra foto
+        </button>
+      </div>
+    {:else}
+      <!-- ── Botão de Upload / Câmera ────────────────────────────────── -->
+      <div class="px-4 pb-4 flex flex-col gap-2">
+        {#if scanPreviewUrl && isScanningSheet}
+          <div class="relative rounded-[12px] overflow-hidden">
+            <img src={scanPreviewUrl} alt="Processando..." class="w-full max-h-40 object-cover opacity-40" />
+            <div class="absolute inset-0 flex flex-col items-center justify-center gap-2">
+              <div class="w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+              <p class="text-[10px] font-bold text-blue-300">Analisando ficha com IA...</p>
+            </div>
+          </div>
+        {/if}
+
+        {#if scanError}
+          <p class="text-[10px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-[10px] px-3 py-2">{scanError}</p>
+        {/if}
+
+        <label
+          class="w-full cursor-pointer bg-blue-600/80 hover:bg-blue-500/80 text-white font-bold text-[11px] py-3 rounded-[12px] transition-colors flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(59,130,246,0.2)] {isScanningSheet ? 'opacity-50 pointer-events-none' : ''}"
+        >
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          {isScanningSheet ? 'Analisando...' : 'Fotografar ou Importar Ficha'}
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            class="hidden"
+            on:change={handleScanSheet}
+            disabled={isScanningSheet}
+          />
+        </label>
+        <p class="text-[9px] text-white/30 text-center">Aceita fotos, capturas de tela ou fichas impressas</p>
+      </div>
+    {/if}
+  </div>
 
   <!-- ── Bloco IA ───────────────────────────────────────────────────────────── -->
   <div class="mb-5 rounded-[20px] overflow-hidden border border-purple-500/30 bg-purple-500/5">

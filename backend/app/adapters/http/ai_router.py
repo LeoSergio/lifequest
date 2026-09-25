@@ -28,6 +28,7 @@ from app.domain.use_cases import (
     generate_daily_quests,
     generate_epic_quest,
     generate_workout_plan,
+    scan_workout_sheet,
 )
 from app.infra.ai_client import ai_provider
 from app.adapters.http.schemas import (
@@ -46,6 +47,8 @@ from app.adapters.http.schemas import (
     EpicQuestResponseSchema,
     WorkoutPlanGenerationRequestSchema,
     WorkoutPlanGenerationResponseSchema,
+    WorkoutSheetScanRequestSchema,
+    WorkoutSheetScanResponseSchema,
 )
 
 router = APIRouter(prefix="/ai", tags=["ai"])
@@ -132,6 +135,21 @@ async def generate_workout_plan_endpoint(payload: WorkoutPlanGenerationRequestSc
     request_entity = WorkoutPlanGenerationRequest(**payload.model_dump())
     result = await generate_workout_plan.generate_workout_plan(
         request=request_entity,
+        ai_provider=ai_provider,
+    )
+    return result
+
+
+@router.post("/workouts/scan-sheet", response_model=WorkoutSheetScanResponseSchema)
+async def scan_workout_sheet_endpoint(payload: WorkoutSheetScanRequestSchema):
+    """Analisa uma foto de ficha de treino com Gemini Vision e retorna os exercícios estruturados.
+    
+    Aceita imagens em base64 (JPEG, PNG, WEBP) com até 20 MB.
+    O Gemini interpreta fichas manuscritas, impressas ou capturas de tela.
+    """
+    result = await scan_workout_sheet.scan_workout_sheet(
+        image_base64=payload.image_base64,
+        mime_type=payload.mime_type,
         ai_provider=ai_provider,
     )
     return result

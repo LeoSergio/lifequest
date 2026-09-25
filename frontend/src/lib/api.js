@@ -54,5 +54,8 @@ export const api = {
 
   generateWorkoutPlan: (payload) =>
     request('/ai/workouts/generate-plan', { method: 'POST', body: JSON.stringify(payload) }),
+
+  scanWorkoutSheet: (imageBase64, mimeType) =>
+    request('/ai/workouts/scan-sheet', { method: 'POST', body: JSON.stringify({ image_base64: imageBase64, mime_type: mimeType }) }),
 };
 

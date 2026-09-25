@@ -116,6 +116,65 @@
     return activeSets.find((s) => s.workoutPlanExerciseId === linkId && s.setNumber === setNumber);
   }
 
+  // Auto-complete inteligente de Repetições vindas da ficha (ex: "8", "1x20+4x8", "15")
+  function getSuggestedReps(link, setNumber) {
+    const raw = String(link.targetReps || '').trim();
+    if (!raw || raw.toLowerCase() === 'livre') return 12;
+
+    // Se for formato como "1x20+4x8" (série de aquecimento + séries de trabalho)
+    if (raw.includes('+')) {
+      const parts = raw.split('+');
+      let currentSetAcc = 0;
+      for (const part of parts) {
+        const match = part.trim().match(/(\d+)\s*[xX]\s*(\d+)/);
+        if (match) {
+          const setsCount = parseInt(match[1], 10);
+          const repsCount = parseInt(match[2], 10);
+          currentSetAcc += setsCount;
+          if (setNumber <= currentSetAcc) return repsCount;
+        }
+      }
+    }
+
+    // Se for formato "4x8" ou "3x15"
+    const matchMultiply = raw.match(/^\d+\s*[xX]\s*(\d+)/);
+    if (matchMultiply) return parseInt(matchMultiply[1], 10);
+
+    // Se for faixa "8-12" ou "10-12" -> sugere o limite superior
+    const matchRange = raw.match(/\d+\s*-\s*(\d+)/);
+    if (matchRange) return parseInt(matchRange[1], 10);
+
+    // Se for apenas número direto "8", "15"
+    const parsedNum = parseInt(raw, 10);
+    return isNaN(parsedNum) ? 12 : parsedNum;
+  }
+
+  // Auto-complete inteligente de Carga: busca a última carga registrada para o mesmo exercício no histórico
+  function getSuggestedWeight(link, setNumber) {
+    if (!$allSessionSets || $allSessionSets.length === 0) return '';
+
+    // Filtra histórico de séries concluídas deste mesmo exercício (fora da sessão ativa atual)
+    const prevSets = $allSessionSets.filter(
+      (s) =>
+        s.exerciseId === link.exerciseId &&
+        s.workoutSessionId !== activeSession?.id &&
+        s.weightKg != null &&
+        s.weightKg > 0
+    );
+
+    if (prevSets.length === 0) return '';
+
+    // Ordena pelo mais recente
+    prevSets.sort((a, b) => new Date(b.completedAt || 0) - new Date(a.completedAt || 0));
+
+    // Tenta primeiro a carga da mesma série (ex: série 2)
+    const sameSet = prevSets.find((s) => s.setNumber === setNumber);
+    if (sameSet) return sameSet.weightKg;
+
+    // Senão, pega a última carga geral usada no exercício
+    return prevSets[0].weightKg;
+  }
+
   async function handleAddExercise() {
     if (!exerciseName.trim()) return;
     await addExerciseToPlan({
@@ -149,11 +208,17 @@
     const saved = savedSet(link.id, setNumber);
     const currentInput = setInputs[key] || {};
     
-    // Se o usuário não digitou nada novo (setInputs vazio), mantém o valor que já estava salvo (se existir)
-    // para não sobrescrever com null acidentalmente caso ele clique no botão novamente.
-    let weight = currentInput.weight !== undefined ? currentInput.weight : (saved?.weightKg ?? '');
-    // Padrão de 12 repetições se o usuário não digitou nada
-    let reps = currentInput.reps !== undefined ? currentInput.reps : (saved?.repsDone ?? 12);
+    // Sugestões inteligentes de fallback caso o usuário não tenha digitado
+    const suggestedW = getSuggestedWeight(link, setNumber);
+    const suggestedR = getSuggestedReps(link, setNumber);
+
+    let weight = currentInput.weight !== undefined 
+      ? currentInput.weight 
+      : (saved?.weightKg ?? suggestedW ?? '');
+
+    let reps = currentInput.reps !== undefined 
+      ? currentInput.reps 
+      : (saved?.repsDone ?? suggestedR ?? 12);
 
     await persistSet({ 
       activeSession, 
@@ -172,7 +237,9 @@
         activeSession,
         exercises,
         activeSets,
-        setInputs
+        setInputs,
+        getSuggestedWeight,
+        getSuggestedReps
       });
       // Push imediato ao encerrar sessão
       pushSync().catch(() => {});
@@ -394,6 +461,8 @@
                     {@const setNumber = i + 1}
                     {@const saved = savedSet(link.id, setNumber)}
                     {@const key = `${link.id}-${setNumber}`}
+                    {@const suggestedW = getSuggestedWeight(link, setNumber)}
+                    {@const suggestedR = getSuggestedReps(link, setNumber)}
                     <div class="flex items-center gap-2 p-1.5 rounded-[12px] bg-white/5 border border-white/5">
                       <!-- Set Number -->
                       <div class="w-10 text-center font-black text-[12px] text-white/40">
@@ -405,7 +474,7 @@
                         <input
                           type="number"
                           class="w-full bg-[#1C1C22]/80 border border-white/10 rounded-[8px] px-2 py-2.5 text-center text-[12px] font-bold focus:border-[#a855f7] outline-none transition-colors text-white placeholder:text-white/20"
-                          placeholder="Ex: 20"
+                          placeholder={suggestedW !== '' ? `${suggestedW} kg` : '0 kg'}
                           value={setInputs[key]?.weight ?? (saved?.weightKg ?? '')}
                           on:input={(e) => (setInputs[key] = { ...setInputs[key], weight: e.target.value })}
                         />
@@ -416,7 +485,7 @@
                         <input
                           type="number"
                           class="w-full bg-[#1C1C22]/80 border border-white/10 rounded-[8px] px-2 py-2.5 text-center text-[12px] font-bold focus:border-[#a855f7] outline-none transition-colors text-white placeholder:text-white/20"
-                          placeholder="12"
+                          placeholder={String(suggestedR)}
                           value={setInputs[key]?.reps ?? (saved?.repsDone ?? '')}
                           on:input={(e) => (setInputs[key] = { ...setInputs[key], reps: e.target.value })}
                         />

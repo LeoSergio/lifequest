@@ -8,7 +8,10 @@ Responsabilidade ÚNICA: traduzir HTTP ↔ Use Cases.
 
 Nenhuma lógica de negócio aqui — sem montagem de prompts, sem regras de fallback.
 """
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
+import logging
+
+logger = logging.getLogger(__name__)
 
 from app.domain.entities.ai_entities import (
     MissionRequest,
@@ -142,14 +145,25 @@ async def generate_workout_plan_endpoint(payload: WorkoutPlanGenerationRequestSc
 
 @router.post("/workouts/scan-sheet", response_model=WorkoutSheetScanResponseSchema)
 async def scan_workout_sheet_endpoint(payload: WorkoutSheetScanRequestSchema):
-    """Analisa uma foto de ficha de treino com Gemini Vision e retorna os exercícios estruturados.
+    """Analisa uma foto ou PDF de ficha de treino com Gemini Vision.
     
-    Aceita imagens em base64 (JPEG, PNG, WEBP) com até 20 MB.
-    O Gemini interpreta fichas manuscritas, impressas ou capturas de tela.
+    Aceita imagens (JPEG, PNG, WEBP) e PDF em base64, até 20 MB.
+    O Gemini interpreta fichas manuscritas, impressas, digitais ou PDFs de personal.
     """
-    result = await scan_workout_sheet.scan_workout_sheet(
-        image_base64=payload.image_base64,
-        mime_type=payload.mime_type,
-        ai_provider=ai_provider,
-    )
-    return result
+    try:
+        result = await scan_workout_sheet.scan_workout_sheet(
+            image_base64=payload.image_base64,
+            mime_type=payload.mime_type,
+            ai_provider=ai_provider,
+        )
+        return result
+    except Exception as e:
+        logger.error("[scan-sheet] Erro ao processar ficha: %s", e, exc_info=True)
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Não foi possível ler a ficha. "
+                "Certifique-se de que a imagem está nítida e bem iluminada, "
+                "ou tente com um arquivo PDF."
+            ),
+        )

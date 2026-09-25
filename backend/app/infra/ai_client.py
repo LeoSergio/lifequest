@@ -12,8 +12,7 @@ from app.domain.repositories.ai_provider_interface import AIProviderInterface
 from app.infra.config import settings
 
 _GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-_GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent"
-_GEMINI_VISION_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent"
+_GEMINI_MODELS = ["gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-3.1-flash-lite"]
 
 # Groq descontinua modelos com frequência — confira a lista atual em
 # https://console.groq.com/docs/models antes de trocar isto.
@@ -54,18 +53,26 @@ class GroqGeminiProvider(AIProviderInterface):
 
     async def _call_gemini(self, system_prompt: str, user_prompt: str) -> dict:
         """Fallback: usado se Groq falhar, ou para tarefas multimodais (ex: OCR de nota fiscal)."""
-        async with httpx.AsyncClient(timeout=30) as client:
-            res = await client.post(
-                f"{_GEMINI_URL}?key={settings.gemini_api_key}",
-                json={
-                    "contents": [{"parts": [{"text": f"{system_prompt}\n\n{user_prompt}"}]}],
-                    "generationConfig": {"response_mime_type": "application/json"},
-                },
-            )
-            res.raise_for_status()
-            content = res.json()["candidates"][0]["content"]["parts"][0]["text"]
-            return json.loads(content)
-
+        last_error = None
+        for model in _GEMINI_MODELS:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={settings.gemini_api_key}"
+            try:
+                async with httpx.AsyncClient(timeout=30) as client:
+                    res = await client.post(
+                        url,
+                        json={
+                            "contents": [{"parts": [{"text": f"{system_prompt}\n\n{user_prompt}"}]}],
+                            "generationConfig": {"response_mime_type": "application/json"},
+                        },
+                    )
+                    res.raise_for_status()
+                    content = res.json()["candidates"][0]["content"]["parts"][0]["text"]
+                    return json.loads(content)
+            except Exception as e:
+                last_error = e
+                continue
+        if last_error:
+            raise last_error
 
     async def generate_from_image(self, image_base64: str, mime_type: str, prompt: str) -> dict:
         """Chamada multimodal ao Gemini — envia imagem ou PDF + prompt e retorna JSON estruturado.
@@ -80,29 +87,38 @@ class GroqGeminiProvider(AIProviderInterface):
         if "," in image_base64:
             image_base64 = image_base64.split(",", 1)[1]
 
-        async with httpx.AsyncClient(timeout=45) as client:
-            res = await client.post(
-                f"{_GEMINI_VISION_URL}?key={settings.gemini_api_key}",
-                json={
-                    "contents": [{
-                        "parts": [
-                            {
-                                "inlineData": {
-                                    "mimeType": mime_type,
-                                    "data": image_base64
-                                }
-                            },
-                            {"text": prompt}
-                        ]
-                    }],
-                    "generationConfig": {
-                        "response_mime_type": "application/json"
-                    }
-                },
-            )
-            res.raise_for_status()
-            content = res.json()["candidates"][0]["content"]["parts"][0]["text"]
-            return json.loads(content)
+        last_error = None
+        for model in _GEMINI_MODELS:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={settings.gemini_api_key}"
+            try:
+                async with httpx.AsyncClient(timeout=45) as client:
+                    res = await client.post(
+                        url,
+                        json={
+                            "contents": [{
+                                "parts": [
+                                    {
+                                        "inlineData": {
+                                            "mimeType": mime_type,
+                                            "data": image_base64
+                                        }
+                                    },
+                                    {"text": prompt}
+                                ]
+                            }],
+                            "generationConfig": {
+                                "response_mime_type": "application/json"
+                            }
+                        },
+                    )
+                    res.raise_for_status()
+                    content = res.json()["candidates"][0]["content"]["parts"][0]["text"]
+                    return json.loads(content)
+            except Exception as e:
+                last_error = e
+                continue
+        if last_error:
+            raise last_error
 
 
 # Instância singleton — injetada nos routers via FastAPI Depends.

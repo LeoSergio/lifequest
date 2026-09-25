@@ -13,94 +13,53 @@ Segue a Regra de Dependência da Clean Architecture:
 from app.domain.repositories.ai_provider_interface import AIProviderInterface
 
 _SYSTEM_PROMPT = """\
-Você é um especialista em leitura de fichas de treino de academia.
+Você é um instrutor de musculação especialista em interpretar fichas de treino de academia.
 
-Sua tarefa: analisar a imagem e extrair TODOS os exercícios presentes na ficha.
+Sua tarefa: analisar a imagem da ficha de musculação e extrair APENAS E EXCLUSIVAMENTE os exercícios que estão PREENCHIDOS pelo instrutor ou aluno.
 
-== TIPOS DE FICHA QUE VOCÊ PODE RECEBER ==
-- Fichas de caderninho com tabelas impressas + preenchimento manuscrito
-- Tabelas com colunas: Exercício | Séries | Repetições | Dia/Código | Carga
-- Fichas organizadas por grupo muscular (Bíceps, Tríceps, Peitoral, etc.)
-- Fichas divididas em treinos A, B, C com ou sem separação visual clara
-- Capturas de tela de apps de treino
-- PDFs gerados por personal trainers
+== REGRAS CRÍTICAS E OBRIGATÓRIAS ==
 
-== REGRAS CRÍTICAS DE INTERPRETAÇÃO ==
+REGRA 1 — EXERCÍCIOS NÃO PREENCHIDOS DEVEM SER TOTALMENTE IGNORADOS:
+- A ficha possui tabelas impressas com dezenas de exercícios possíveis.
+- Extraia APENAS os exercícios que têm anotação manuscrita (escrita à mão) de Séries ou Repetições.
+- Se as colunas de "Séries" e "Repet." estiverem VAZIAS, EM BRANCO ou sem preenchimento, IGNORE o exercício completamente. NÃO o inclua na resposta!
 
-REGRA 1 — CABEÇALHOS NÃO SÃO EXERCÍCIOS:
-Linhas com fundo cinza/escuro que contenham APENAS o nome de um grupo muscular
-(ex: "Bíceps", "Tríceps", "Peitoral", "Ombro", "Costas") são CABEÇALHOS
-de seção, NÃO exercícios. Ignore-as completamente — não as adicione na lista.
+REGRA 2 — DIVISÃO EM TREINOS / GRUPOS MUSCULARES:
+- Observe atentamente como a ficha está dividida:
+  1) Se houver códigos na coluna "Dia" começando com letras como A, B ou C (ex: B1, B2, B3 -> Treino B; A7, A8, A9 -> Treino A; C8, C9, C10 -> Treino C), AGRUPE OS EXERCÍCIOS EM TREINOS DIFERENTES conforme essa letra! (ex: "Treino A - Bíceps e Ombros", "Treino B - Coxa e Pernas", "Treino C - Tríceps").
+  2) Se não houver divisão por letra A/B/C, divida pelos grupos musculares principais encontrados (ex: "Treino de Peito", "Treino de Bíceps e Tríceps", "Treino de Coxa").
 
-REGRA 2 — EXERCÍCIOS SEM SÉRIES/REPS PREENCHIDOS:
-Se um exercício está listado mas as colunas de séries e repetições estão em branco
-ou com traço (-), ainda assim INCLUA o exercício com valores padrão:
-- sets = 3
-- reps = "Livre"
-Isso é comum em fichas onde o aluno ainda não preencheu os dados.
+REGRA 3 — CABEÇALHOS NÃO SÃO EXERCÍCIOS:
+- Linhas com fundo cinza/escuro com o nome do grupo muscular (ex: "Coxa", "Glúteo", "Bíceps", "Tríceps", "Antebraço", "Abdominal") são cabeçalhos de seção, NÃO exercícios. Use-as apenas para identificar o grupo muscular e o nome do treino.
 
-REGRA 3 — COLUNA "DIA" OU "CÓDIGO":
-Fichas brasileiras frequentemente têm uma coluna chamada "Dia" com valores como
-A7, A8, B3, C9, etc. Esses são CÓDIGOS DE REFERÊNCIA do personal, NÃO dias
-da semana. IGNORE essa coluna completamente — não use esses valores.
+REGRA 4 — ANOTAÇÕES MANUSCRITAS NO NOME DO EXERCÍCIO:
+- Se houver texto manuscrito complementando o exercício impresso (ex: impresso "Leg press" com manuscrito "45°" -> "Leg press 45°"; impresso "Agachamento livre" com manuscrito "Frontal" -> "Agachamento livre Frontal"; impresso "Rosca Martelo" com manuscrito "45°" -> "Rosca Martelo 45°"; impresso "Tríceps testa" com manuscrito "Polia" -> "Tríceps testa Polia"), inclua essa variação no nome do exercício.
 
-REGRA 4 — TEXTO MISTO (impresso + manuscrito):
-Algumas fichas têm o nome do exercício impresso e anotações manuscritas ao lado
-(ex: "Rosca Martelo - 45°" ou "Tríceps testa Polia"). Combine o texto impresso
-e manuscrito para formar o nome completo correto do exercício.
-
-REGRA 5 — EXERCÍCIOS REPETIDOS EM GRUPOS DIFERENTES:
-Se a mesma ficha tiver "Rosca direta" no grupo Bíceps e depois no grupo Tríceps
-(situação rara), inclua ambos separadamente.
-
-REGRA 6 — FICHAS MULTI-PÁGINA:
-Se a imagem mostrar apenas uma parte de uma ficha maior (ex: só Bíceps e Tríceps),
-extraia apenas o que está visível. O usuário pode enviar outras partes separadamente.
-
-== FORMATO DE RESPOSTA ==
-Retorne EXCLUSIVAMENTE um JSON válido (sem markdown, sem texto antes ou depois):
-
+== FORMATO DE RESPOSTA (JSON ESTRITO) ==
+Retorne EXCLUSIVAMENTE um JSON válido com esta estrutura:
 {
-  "plan_name_suggestion": "Nome descritivo baseado nos grupos musculares visíveis",
-  "exercises": [
+  "workouts": [
     {
-      "name": "Nome completo do exercício em português",
-      "muscle_group": "grupo muscular normalizado",
-      "sets": 4,
-      "reps": "8",
-      "rest_seconds": 90
+      "name": "Nome descritivo da divisão (ex: Treino B - Coxa, ou Treino A - Bíceps)",
+      "exercises": [
+        {
+          "name": "Nome completo do exercício",
+          "muscle_group": "pernas | glúteos | bíceps | tríceps | peitoral | ombro | costas | abdômen | antebraço | panturrilha",
+          "sets": 4,
+          "reps": "8 (ou 1x20+4x8, ou 15)",
+          "rest_seconds": 90
+        }
+      ]
     }
   ]
 }
 
-== NORMALIZAÇÃO DO CAMPO muscle_group ==
-Use EXATAMENTE um destes valores (em minúsculas, com acento):
-peitoral | costas | ombro | bíceps | tríceps | pernas | glúteos | abdômen | antebraço | panturrilha | cardio | corpo_todo
-
-Exemplos de mapeamento:
-- Seção "Bíceps" → muscle_group = "bíceps"
-- Seção "Triceps" → muscle_group = "tríceps"
-- Seção "Abdominal" → muscle_group = "abdômen"
-- Seção "Antebraço" → muscle_group = "antebraço"
-- Seção "Ombro" ou "Deltóide" → muscle_group = "ombro"
-
-== NORMALIZAÇÃO DOS CAMPOS NUMÉRICOS ==
-- sets: número inteiro. "4x8" → sets=4. Em branco → 3.
-- reps: string. "8" → "8". "8-12" → "8-12". "até a falha" → "até a falha". Em branco → "Livre".
-- rest_seconds: inteiro em segundos. "1min" = 60. "90s" = 90. Não informado = 90.
-
-== EXEMPLO DE SAÍDA ESPERADA para a ficha típica de caderninho ==
-Ficha com seções: Bíceps (Rosca direta 4x8, Banco Scott 4x8), Tríceps (Tríceps polia 4x8, Rosca francesa 4x8)
-
-{
-  "plan_name_suggestion": "Bíceps, Tríceps e Antebraço",
-  "exercises": [
-    {"name": "Rosca direta", "muscle_group": "bíceps", "sets": 4, "reps": "8", "rest_seconds": 90},
-    {"name": "Banco Scott", "muscle_group": "bíceps", "sets": 4, "reps": "8", "rest_seconds": 90},
-    {"name": "Tríceps na polia", "muscle_group": "tríceps", "sets": 4, "reps": "8", "rest_seconds": 90},
-    {"name": "Rosca francesa", "muscle_group": "tríceps", "sets": 4, "reps": "8", "rest_seconds": 90}
-  ]
-}
+== NORMALIZAÇÃO DO muscle_group ==
+Use apenas: peitoral | costas | ombro | bíceps | tríceps | pernas | glúteos | abdômen | antebraço | panturrilha
+- Coxa / Quadríceps / Isquiotibiais -> pernas
+- Glúteo -> glúteos
+- Deltóide / Trapézio -> ombro
+- Abdominal -> abdômen
 """
 
 
@@ -118,7 +77,7 @@ async def scan_workout_sheet(
         ai_provider: Instância do provedor de IA injetada pelo adapter
 
     Returns:
-        dict com "plan_name_suggestion" (str) e "exercises" (list[dict])
+        dict com "plan_name_suggestion" (str), "exercises" (list[dict]) e "workouts" (list[dict])
     """
     result = await ai_provider.generate_from_image(
         image_base64=image_base64,
@@ -126,37 +85,86 @@ async def scan_workout_sheet(
         prompt=_SYSTEM_PROMPT,
     )
 
-    # Garantia mínima de estrutura para não quebrar o frontend
-    if "exercises" not in result:
-        result["exercises"] = []
-    if "plan_name_suggestion" not in result:
-        result["plan_name_suggestion"] = "Ficha Importada"
-
-    # Filtra possíveis cabeçalhos que escaparam do prompt (linha sem nome real)
     grupos_musculares = {
         "bíceps", "biceps", "tríceps", "triceps", "peitoral", "costas",
-        "ombro", "pernas", "glúteos", "gluteos", "abdômen", "abdomen",
-        "abdominal", "antebraço", "antebraco", "panturrilha", "cardio",
+        "ombro", "ombros", "pernas", "coxa", "glúteos", "glúteo", "gluteos", "gluteo",
+        "abdômen", "abdomen", "abdominal", "antebraço", "antebraco", "panturrilha", "cardio",
     }
-    result["exercises"] = [
-        ex for ex in result["exercises"]
-        if ex.get("name", "").strip().lower() not in grupos_musculares
-    ]
 
-    # Normaliza campos obrigatórios de cada exercício
-    for ex in result["exercises"]:
-        ex.setdefault("name", "Exercício")
-        ex.setdefault("muscle_group", "corpo_todo")
-        # Garante sets como inteiro
-        try:
-            ex["sets"] = int(ex.get("sets", 3))
-        except (ValueError, TypeError):
-            ex["sets"] = 3
-        ex.setdefault("reps", "Livre")
-        # Garante rest_seconds como inteiro
-        try:
-            ex["rest_seconds"] = int(ex.get("rest_seconds", 90))
-        except (ValueError, TypeError):
-            ex["rest_seconds"] = 90
+    workouts = result.get("workouts", [])
+    all_exercises = []
 
-    return result
+    # Se a IA retornou no formato de lista de workouts
+    cleaned_workouts = []
+    for w in workouts:
+        w_name = w.get("name", "Treino").strip()
+        raw_exs = w.get("exercises", [])
+        cleaned_exs = []
+        for ex in raw_exs:
+            ex_name = ex.get("name", "").strip()
+            if not ex_name or ex_name.lower() in grupos_musculares:
+                continue
+            
+            # Normalizar sets
+            try:
+                sets_val = int(ex.get("sets", 4))
+            except (ValueError, TypeError):
+                sets_val = 4
+            
+            # Normalizar reps
+            reps_val = str(ex.get("reps", "8")).strip() or "8"
+
+            cleaned_ex = {
+                "name": ex_name,
+                "muscle_group": ex.get("muscle_group", "pernas"),
+                "sets": sets_val,
+                "reps": reps_val,
+                "rest_seconds": int(ex.get("rest_seconds", 90)),
+            }
+            cleaned_exs.append(cleaned_ex)
+            all_exercises.append(cleaned_ex)
+
+        if cleaned_exs:
+            cleaned_workouts.append({
+                "name": w_name,
+                "exercises": cleaned_exs,
+            })
+
+    # Caso a IA retorne no formato antigo direto com "exercises"
+    if not cleaned_workouts and "exercises" in result:
+        direct_exs = []
+        for ex in result["exercises"]:
+            ex_name = ex.get("name", "").strip()
+            if not ex_name or ex_name.lower() in grupos_musculares:
+                continue
+            try:
+                sets_val = int(ex.get("sets", 4))
+            except (ValueError, TypeError):
+                sets_val = 4
+            reps_val = str(ex.get("reps", "8")).strip() or "8"
+            item = {
+                "name": ex_name,
+                "muscle_group": ex.get("muscle_group", "pernas"),
+                "sets": sets_val,
+                "reps": reps_val,
+                "rest_seconds": int(ex.get("rest_seconds", 90)),
+            }
+            direct_exs.append(item)
+            all_exercises.append(item)
+        if direct_exs:
+            cleaned_workouts.append({
+                "name": result.get("plan_name_suggestion", "Ficha Importada"),
+                "exercises": direct_exs,
+            })
+
+    plan_name = result.get("plan_name_suggestion")
+    if not plan_name and cleaned_workouts:
+        plan_name = cleaned_workouts[0]["name"]
+    elif not plan_name:
+        plan_name = "Ficha Importada"
+
+    return {
+        "plan_name_suggestion": plan_name,
+        "exercises": all_exercises,
+        "workouts": cleaned_workouts,
+    }

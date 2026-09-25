@@ -110,6 +110,76 @@
     }
   }
 
+  async function saveSingleWorkout(workout) {
+    if (!workout || !workout.exercises?.length) return;
+
+    const plan = {
+      id: generateId(),
+      name: workout.name.trim() || 'Novo Treino',
+      weekday: JSON.stringify(weekdays),
+    };
+    await db.workoutPlans.put(plan);
+    await enqueue('upsert', 'workoutPlans', plan.id, plan);
+
+    const catalog = await db.exercises.toArray();
+    for (const ex of workout.exercises) {
+      await addExerciseToPlan({
+        planId: plan.id,
+        catalog,
+        exerciseName: ex.name,
+        muscleGroup: ex.muscle_group,
+        equipment: ex.equipment ?? 'Livre',
+        targetSets: ex.sets,
+        targetReps: ex.reps ?? 'Livre',
+        restSeconds: ex.rest_seconds,
+      });
+    }
+
+    pushSync().catch(() => {});
+    navigate('workout-plan-detail', {
+      planId: plan.id,
+      isEditing: false,
+      isNew: false,
+    });
+  }
+
+  async function saveAllWorkouts() {
+    if (!scanResult?.workouts?.length) {
+      await createPlan(false);
+      return;
+    }
+
+    const catalog = await db.exercises.toArray();
+    let firstPlanId = null;
+
+    for (const w of scanResult.workouts) {
+      const plan = {
+        id: generateId(),
+        name: w.name.trim() || 'Novo Treino',
+        weekday: JSON.stringify(weekdays),
+      };
+      await db.workoutPlans.put(plan);
+      await enqueue('upsert', 'workoutPlans', plan.id, plan);
+      if (!firstPlanId) firstPlanId = plan.id;
+
+      for (const ex of w.exercises) {
+        await addExerciseToPlan({
+          planId: plan.id,
+          catalog,
+          exerciseName: ex.name,
+          muscleGroup: ex.muscle_group,
+          equipment: ex.equipment ?? 'Livre',
+          targetSets: ex.sets,
+          targetReps: ex.reps ?? 'Livre',
+          restSeconds: ex.rest_seconds,
+        });
+      }
+    }
+
+    pushSync().catch(() => {});
+    navigate('training');
+  }
+
   async function createPlan(goToEdit = false) {
     if (!name.trim()) return;
 
@@ -214,45 +284,98 @@
   {:else if mode === 'scan'}
 
     {#if scanResult}
-      <div class="flex flex-col gap-3">
-        <div class="bg-blue-500/10 border border-blue-500/20 rounded-[20px] p-4">
-          <p class="text-[10px] text-blue-400 uppercase font-bold tracking-wider mb-1">📷 {scanResult.exercises.length} exercícios detectados</p>
-          {#if scanPreviewUrl}
-            <img src={scanPreviewUrl} alt="Foto da ficha" class="w-full rounded-[12px] my-3 max-h-48 object-cover opacity-75" />
-          {/if}
-          <div class="flex flex-col gap-2 mt-1">
-            {#each scanResult.exercises as ex, i}
-              <div class="flex items-center gap-3 bg-white/5 rounded-[10px] px-3 py-2.5">
-                <span class="text-[10px] text-white/30 font-bold w-5 shrink-0">{i + 1}</span>
-                <div class="flex-1 min-w-0">
-                  <p class="text-[11px] font-bold text-white truncate">{ex.name}</p>
-                  <p class="text-[9px] text-blue-400 font-medium">{ex.muscle_group}</p>
+      <div class="flex flex-col gap-4">
+        {#if scanPreviewUrl}
+          <img src={scanPreviewUrl} alt="Foto da ficha" class="w-full rounded-[16px] max-h-48 object-cover border border-white/10 opacity-75" />
+        {/if}
+
+        {#if scanResult.workouts && scanResult.workouts.length > 0}
+          <div class="flex items-center justify-between">
+            <p class="text-[11px] text-blue-400 font-bold uppercase tracking-wider">
+              📋 {scanResult.workouts.length} {scanResult.workouts.length === 1 ? 'treino identificado' : 'divisões de treino identificadas'}
+            </p>
+            {#if scanResult.workouts.length > 1}
+              <button
+                class="text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30 px-3 py-1.5 rounded-[10px] hover:bg-blue-500/30 transition-colors"
+                on:click={saveAllWorkouts}
+              >
+                Salvar todos juntos ({scanResult.workouts.length})
+              </button>
+            {/if}
+          </div>
+
+          <div class="flex flex-col gap-3">
+            {#each scanResult.workouts as workout, wIdx}
+              <div class="bg-[#1C1C22]/80 border border-blue-500/20 rounded-[18px] p-4 flex flex-col gap-3">
+                <div class="flex items-center justify-between gap-2 border-b border-white/5 pb-2">
+                  <div>
+                    <h3 class="text-[13px] font-black text-white">{workout.name}</h3>
+                    <p class="text-[10px] text-white/40">{workout.exercises.length} exercícios</p>
+                  </div>
+                  <button
+                    class="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black px-3 py-1.5 rounded-[10px] transition-colors shrink-0 flex items-center gap-1 shadow-sm"
+                    on:click={() => saveSingleWorkout(workout)}
+                  >
+                    <span>Salvar este treino</span>
+                    <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+                  </button>
                 </div>
-                <span class="text-[9px] text-white/40 font-bold shrink-0">{ex.sets}x{ex.reps}</span>
+
+                <div class="flex flex-col gap-1.5">
+                  {#each workout.exercises as ex, i}
+                    <div class="flex items-center gap-3 bg-white/5 rounded-[10px] px-3 py-2">
+                      <span class="text-[10px] text-white/30 font-bold w-4 shrink-0">{i + 1}</span>
+                      <div class="flex-1 min-w-0">
+                        <p class="text-[11px] font-bold text-white truncate">{ex.name}</p>
+                        <p class="text-[9px] text-blue-400 font-medium capitalize">{ex.muscle_group}</p>
+                      </div>
+                      <span class="text-[9px] text-white/50 font-bold bg-white/5 px-2 py-1 rounded-[6px] shrink-0">{ex.sets}x{ex.reps}</span>
+                    </div>
+                  {/each}
+                </div>
               </div>
             {/each}
           </div>
-        </div>
 
-        <div class="bg-[#1C1C22]/80 border border-white/5 rounded-[16px] p-4">
-          <label class="text-[10px] text-blue-400 mb-2 block uppercase font-bold tracking-wider">Nome do treino</label>
-          <input
-            class="w-full bg-white/5 border border-white/10 rounded-[10px] px-3 py-2.5 text-[12px] font-bold text-white focus:border-blue-400 outline-none placeholder:text-white/30 transition-colors"
-            placeholder="ex: Treino A — Peito e Costas"
-            bind:value={name}
-          />
-        </div>
+        {:else}
+          <!-- Formato de treino único -->
+          <div class="bg-blue-500/10 border border-blue-500/20 rounded-[20px] p-4">
+            <p class="text-[10px] text-blue-400 uppercase font-bold tracking-wider mb-2">📷 {scanResult.exercises.length} exercícios detectados</p>
+            <div class="flex flex-col gap-2">
+              {#each scanResult.exercises as ex, i}
+                <div class="flex items-center gap-3 bg-white/5 rounded-[10px] px-3 py-2.5">
+                  <span class="text-[10px] text-white/30 font-bold w-5 shrink-0">{i + 1}</span>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-[11px] font-bold text-white truncate">{ex.name}</p>
+                    <p class="text-[9px] text-blue-400 font-medium capitalize">{ex.muscle_group}</p>
+                  </div>
+                  <span class="text-[9px] text-white/40 font-bold shrink-0">{ex.sets}x{ex.reps}</span>
+                </div>
+              {/each}
+            </div>
+          </div>
 
-        <button
-          class="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-[16px] py-4 text-[12px] font-black shadow-[0_0_20px_rgba(59,130,246,0.4)] hover:scale-[1.02] transition-transform flex items-center justify-center gap-2 disabled:opacity-40 disabled:hover:scale-100"
-          on:click={() => createPlan(false)}
-          disabled={!name.trim()}
-        >
-          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-          SALVAR FICHA
-        </button>
-        <button class="text-[10px] font-bold text-white/40 hover:text-white/70 uppercase tracking-wider text-center py-1" on:click={() => { scanResult = null; scanPreviewUrl = null; }}>
-          Usar outra foto
+          <div class="bg-[#1C1C22]/80 border border-white/5 rounded-[16px] p-4">
+            <label class="text-[10px] text-blue-400 mb-2 block uppercase font-bold tracking-wider">Nome do treino</label>
+            <input
+              class="w-full bg-white/5 border border-white/10 rounded-[10px] px-3 py-2.5 text-[12px] font-bold text-white focus:border-blue-400 outline-none placeholder:text-white/30 transition-colors"
+              placeholder="ex: Treino A — Peito e Costas"
+              bind:value={name}
+            />
+          </div>
+
+          <button
+            class="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-[16px] py-4 text-[12px] font-black shadow-[0_0_20px_rgba(59,130,246,0.4)] hover:scale-[1.02] transition-transform flex items-center justify-center gap-2 disabled:opacity-40 disabled:hover:scale-100"
+            on:click={() => createPlan(false)}
+            disabled={!name.trim()}
+          >
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+            SALVAR FICHA
+          </button>
+        {/if}
+
+        <button class="text-[10px] font-bold text-white/40 hover:text-white/70 uppercase tracking-wider text-center py-2" on:click={() => { scanResult = null; scanPreviewUrl = null; }}>
+          ← Usar outra foto
         </button>
       </div>
 

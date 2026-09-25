@@ -166,6 +166,12 @@ class ScannedExerciseSchema(BaseModel):
     rest_seconds: int
 
 
+class ScannedWorkoutSchema(BaseModel):
+    name: str
+    exercises: list[ScannedExerciseSchema]
+
+
 class WorkoutSheetScanResponseSchema(BaseModel):
     plan_name_suggestion: str
     exercises: list[ScannedExerciseSchema]
+    workouts: list[ScannedWorkoutSchema] = []

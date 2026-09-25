@@ -24,15 +24,6 @@ services:
       - db
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
-  guildas:
-    build: ./guildas
-    ports:
-      - "8001:8001"
-    env_file:
-      - ./guildas/.env
-    volumes:
-      - ./guildas/app:/app/app
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
 
 # O frontend NÃO entra aqui: é um PWA local-first, roda direto com `npm run dev`
 # na máquina do dev (não precisa de container, e recarrega mais rápido assim).

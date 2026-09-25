@@ -12,8 +12,8 @@ from app.domain.repositories.ai_provider_interface import AIProviderInterface
 from app.infra.config import settings
 
 _GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-_GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
-_GEMINI_VISION_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+_GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent"
+_GEMINI_VISION_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent"
 
 # Groq descontinua modelos com frequência — confira a lista atual em
 # https://console.groq.com/docs/models antes de trocar isto.

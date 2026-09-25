@@ -13,7 +13,7 @@
     }
   ],
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "https://lifequest-production-adfd.up.railway.app/$1" },
+    { "source": "/api/(.*)", "destination": "http://15.228.160.215:8000/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

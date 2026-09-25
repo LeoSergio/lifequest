@@ -19,15 +19,18 @@ Sua tarefa: analisar a imagem da ficha de musculação e extrair APENAS E EXCLUS
 
 == REGRAS CRÍTICAS E OBRIGATÓRIAS ==
 
-REGRA 1 — EXERCÍCIOS NÃO PREENCHIDOS DEVEM SER TOTALMENTE IGNORADOS:
+REGRA 1 — EXERCÍCIOS NÃO PREENCHIDOS DEVEM SER TOTALMENTE IGNORADOS (CRÍTICO):
 - A ficha possui tabelas impressas com dezenas de exercícios possíveis.
 - Extraia APENAS os exercícios que têm anotação manuscrita (escrita à mão) de Séries ou Repetições.
-- Se as colunas de "Séries" e "Repet." estiverem VAZIAS, EM BRANCO ou sem preenchimento, IGNORE o exercício completamente. NÃO o inclua na resposta!
+- Se as colunas de "Séries" e "Repet." estiverem VAZIAS, EM BRANCO ou sem preenchimento manuscrito, IGNORE o exercício completamente. NÃO o inclua na resposta sob nenhuma hipótese!
+- Exemplo: se na seção de Glúteo ou Peito todas as linhas estiverem sem números de séries e repetições anotadas, NÃO retorne nenhum exercício dessa seção.
 
-REGRA 2 — DIVISÃO EM TREINOS / GRUPOS MUSCULARES:
-- Observe atentamente como a ficha está dividida:
-  1) Se houver códigos na coluna "Dia" começando com letras como A, B ou C (ex: B1, B2, B3 -> Treino B; A7, A8, A9 -> Treino A; C8, C9, C10 -> Treino C), AGRUPE OS EXERCÍCIOS EM TREINOS DIFERENTES conforme essa letra! (ex: "Treino A - Bíceps e Ombros", "Treino B - Coxa e Pernas", "Treino C - Tríceps").
-  2) Se não houver divisão por letra A/B/C, divida pelos grupos musculares principais encontrados (ex: "Treino de Peito", "Treino de Bíceps e Tríceps", "Treino de Coxa").
+REGRA 2 — UNIFICAÇÃO DOS TREINOS PELA MESMA LETRA / DIVISÃO (CRÍTICO):
+- Observe atentamente os códigos na coluna "Dia":
+  1) Códigos com mesma letra pertencem AO MESMO TREINO. Por exemplo: C1, C2, C8, C9, C10 pertencem TODOS ao "Treino C". NUNCA crie múltiplos Treinos C separados! Junte todos os exercícios com letra C em um único "Treino C".
+  2) O mesmo vale para A (A1, A7, A8, A9 -> tudo em um único "Treino A") e B (B1, B2, B3... -> tudo em um único "Treino B").
+  3) O nome do treino deve indicar a letra e os principais grupos musculares presentes nele. Exemplo: "Treino C - Pernas", "Treino B - Coxa e Glúteo", "Treino A - Bíceps e Ombros".
+  4) Não misture exercícios de letras diferentes no mesmo treino.
 
 REGRA 3 — CABEÇALHOS NÃO SÃO EXERCÍCIOS:
 - Linhas com fundo cinza/escuro com o nome do grupo muscular (ex: "Coxa", "Glúteo", "Bíceps", "Tríceps", "Antebraço", "Abdominal") são cabeçalhos de seção, NÃO exercícios. Use-as apenas para identificar o grupo muscular e o nome do treino.
@@ -129,6 +132,32 @@ async def scan_workout_sheet(
                 "name": w_name,
                 "exercises": cleaned_exs,
             })
+
+    # Unificação determinística por letra de treino (ex: se houver 2 "Treino C", funde em 1 só)
+    merged_by_letter = {}
+    for w in cleaned_workouts:
+        name_lower = w["name"].lower()
+        # Detecta se é Treino A, B, C, D...
+        match_letter = None
+        for letter in ["treino a", "treino b", "treino c", "treino d", "treino e"]:
+            if letter in name_lower:
+                match_letter = letter
+                break
+        
+        key = match_letter if match_letter else name_lower
+        if key in merged_by_letter:
+            target = merged_by_letter[key]
+            # Adiciona exercícios sem duplicar nome
+            for ex in w["exercises"]:
+                if not any(e["name"].lower().strip() == ex["name"].lower().strip() for e in target["exercises"]):
+                    target["exercises"].append(ex)
+        else:
+            merged_by_letter[key] = {
+                "name": w["name"],
+                "exercises": list(w["exercises"])
+            }
+
+    cleaned_workouts = list(merged_by_letter.values())
 
     # Caso a IA retorne no formato antigo direto com "exercises"
     if not cleaned_workouts and "exercises" in result:

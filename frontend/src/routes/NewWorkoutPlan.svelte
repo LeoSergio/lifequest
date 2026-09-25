@@ -98,7 +98,9 @@
             const url = URL.createObjectURL(file);
             img.onload = () => {
               URL.revokeObjectURL(url);
-              const maxDim = 1280;
+              // 1800px preserva perfeita legibilidade de caneta e traços finos
+              // enquanto reduz uma foto de 12 MB para cerca de 500 KB (ideal para OCR rápido e preciso)
+              const maxDim = 1800;
               let width = img.width;
               let height = img.height;
 
@@ -118,8 +120,8 @@
               const ctx = canvas.getContext('2d');
               ctx.drawImage(img, 0, 0, width, height);
 
-              // Converte para JPEG com 82% de qualidade (ideal para leitura OCR rápida)
-              const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+              // 90% de qualidade mantém traços de caneta azuis/pretos sem artefatos de compressão
+              const dataUrl = canvas.toDataURL('image/jpeg', 0.90);
               resolve(dataUrl);
             };
             img.onerror = async () => {

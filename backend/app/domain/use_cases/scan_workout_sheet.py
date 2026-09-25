@@ -64,16 +64,16 @@ Use apenas: peitoral | costas | ombro | bíceps | tríceps | pernas | glúteos |
 
 
 async def scan_workout_sheet(
-    image_base64: str,
-    mime_type: str,
-    ai_provider: AIProviderInterface,
+    image_base64: str | list[dict],
+    mime_type: str = "image/jpeg",
+    ai_provider: AIProviderInterface = None,
 ) -> dict:
     """
-    Envia imagem ao Gemini Vision e retorna exercícios estruturados.
+    Envia imagem ou lista de imagens ao Gemini Vision e retorna exercícios estruturados.
 
     Args:
-        image_base64: Imagem codificada em base64 (com ou sem prefixo data:...)
-        mime_type: MIME type da imagem ou documento (image/jpeg, image/png, application/pdf)
+        image_base64: Imagem base64 ou lista de dicts [{"image_base64": "...", "mime_type": "..."}]
+        mime_type: MIME type padrão caso seja imagem única
         ai_provider: Instância do provedor de IA injetada pelo adapter
 
     Returns:

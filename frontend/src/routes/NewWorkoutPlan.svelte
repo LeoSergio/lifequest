@@ -27,14 +27,14 @@
   let isScanningSheet = false;
   let scanResult = null;
   let scanError = null;
-  let scanPreviewUrl = null;
+  let scanPreviewUrls = [];
 
   const activeDays = WEEKDAYS.filter(w => w.value !== null);
 
   function selectMode(m) {
     mode = m;
     aiResult = null; aiError = null;
-    scanResult = null; scanError = null; scanPreviewUrl = null;
+    scanResult = null; scanError = null; scanPreviewUrls = [];
     name = '';
     weekdays = [];
   }
@@ -51,36 +51,88 @@
       : [...aiEquipment, val];
   }
 
-  async function handleScanSheet(event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  async function handleScanSheet(event, isAddingMore = false) {
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) return;
 
-    if (file.size > 20 * 1024 * 1024) {
-      scanError = 'Arquivo muito grande. Use um arquivo com menos de 20 MB.';
-      return;
+    for (const f of files) {
+      if (f.size > 20 * 1024 * 1024) {
+        scanError = 'Cada arquivo deve ter no máximo 20 MB.';
+        return;
+      }
     }
 
     isScanningSheet = true;
     scanError = null;
-    scanResult = null;
-    // Preview de imagem (não aplica para PDF)
-    scanPreviewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : null;
+
+    if (!isAddingMore) {
+      scanResult = null;
+      scanPreviewUrls = [];
+    }
+
+    const newPreviews = files
+      .filter(f => f.type.startsWith('image/'))
+      .map(f => URL.createObjectURL(f));
+    scanPreviewUrls = [...scanPreviewUrls, ...newPreviews];
 
     try {
-      const base64 = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
+      const imagesData = await Promise.all(
+        files.map(async (file) => {
+          const base64 = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+          return {
+            image_base64: base64,
+            mime_type: file.type || 'image/jpeg',
+          };
+        })
+      );
 
-      const result = await api.scanWorkoutSheet(base64, file.type);
-      scanResult = result;
-      if (result.plan_name_suggestion) name = result.plan_name_suggestion;
+      const result = await api.scanWorkoutSheet(imagesData);
+
+      if (isAddingMore && scanResult) {
+        // Mesclar de forma inteligente com os treinos existentes
+        const existingWorkouts = scanResult.workouts || [];
+        const newWorkouts = result.workouts || [];
+
+        const mergedMap = new Map();
+        for (const w of existingWorkouts) {
+          mergedMap.set(w.name.toLowerCase().trim(), { ...w, exercises: [...w.exercises] });
+        }
+
+        for (const nw of newWorkouts) {
+          const key = nw.name.toLowerCase().trim();
+          if (mergedMap.has(key)) {
+            // Adicionar exercícios evitando duplicatas exatas
+            const target = mergedMap.get(key);
+            for (const nex of nw.exercises) {
+              if (!target.exercises.some(e => e.name.toLowerCase().trim() === nex.name.toLowerCase().trim())) {
+                target.exercises.push(nex);
+              }
+            }
+          } else {
+            mergedMap.set(key, { ...nw, exercises: [...nw.exercises] });
+          }
+        }
+
+        const mergedList = Array.from(mergedMap.values());
+        const mergedExercises = mergedList.flatMap(w => w.exercises);
+
+        scanResult = {
+          plan_name_suggestion: scanResult.plan_name_suggestion || result.plan_name_suggestion,
+          workouts: mergedList,
+          exercises: mergedExercises,
+        };
+      } else {
+        scanResult = result;
+        if (result.plan_name_suggestion && !name) name = result.plan_name_suggestion;
+      }
     } catch (e) {
       console.error('[Scan] Erro ao analisar ficha:', e);
-      scanError = 'Não foi possível analisar o arquivo. Verifique sua conexão e tente novamente.';
-      scanPreviewUrl = null;
+      scanError = 'Não foi possível analisar as fotos. Verifique sua conexão e tente novamente.';
     } finally {
       isScanningSheet = false;
       event.target.value = '';
@@ -285,8 +337,18 @@
 
     {#if scanResult}
       <div class="flex flex-col gap-4">
-        {#if scanPreviewUrl}
-          <img src={scanPreviewUrl} alt="Foto da ficha" class="w-full rounded-[16px] max-h-48 object-cover border border-white/10 opacity-75" />
+        <!-- Previews das páginas analisadas -->
+        {#if scanPreviewUrls.length > 0}
+          <div class="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {#each scanPreviewUrls as pUrl, idx}
+              <div class="relative shrink-0 w-24 h-24 rounded-[12px] overflow-hidden border border-white/10">
+                <img src={pUrl} alt="Página {idx + 1}" class="w-full h-full object-cover" />
+                <span class="absolute bottom-1 right-1 bg-black/70 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-[4px]">
+                  Pág {idx + 1}
+                </span>
+              </div>
+            {/each}
+          </div>
         {/if}
 
         {#if scanResult.workouts && scanResult.workouts.length > 0}
@@ -374,9 +436,17 @@
           </button>
         {/if}
 
-        <button class="text-[10px] font-bold text-white/40 hover:text-white/70 uppercase tracking-wider text-center py-2" on:click={() => { scanResult = null; scanPreviewUrl = null; }}>
-          ← Usar outra foto
-        </button>
+        <!-- Botão para adicionar mais uma página de forma cumulativa -->
+        <div class="flex items-center gap-2 pt-2 border-t border-white/10">
+          <label class="flex-1 cursor-pointer bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-[14px] py-3 px-4 transition-all flex items-center justify-center gap-2 text-[11px] font-bold">
+            <svg class="w-4 h-4 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+            <span>+ Adicionar outra página / verso</span>
+            <input type="file" accept="image/*,application/pdf" multiple class="hidden" on:change={(e) => handleScanSheet(e, true)} />
+          </label>
+          <button class="text-[10px] font-bold text-white/40 hover:text-white/70 uppercase tracking-wider py-3 px-3" on:click={() => { scanResult = null; scanPreviewUrls = []; }}>
+            Recomeçar
+          </button>
+        </div>
       </div>
 
     {:else}
@@ -385,17 +455,17 @@
         <!-- Loading com preview da imagem -->
         {#if isScanningSheet}
           <div class="bg-[#1C1C22]/80 border border-blue-500/20 rounded-[16px] p-5 flex flex-col items-center gap-3">
-            {#if scanPreviewUrl}
+            {#if scanPreviewUrls.length > 0}
               <div class="relative w-full rounded-[12px] overflow-hidden">
-                <img src={scanPreviewUrl} alt="Processando..." class="w-full max-h-44 object-cover opacity-40" />
+                <img src={scanPreviewUrls[scanPreviewUrls.length - 1]} alt="Processando..." class="w-full max-h-44 object-cover opacity-40" />
                 <div class="absolute inset-0 flex flex-col items-center justify-center gap-2">
                   <div class="w-8 h-8 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
-                  <p class="text-[11px] font-bold text-blue-300">Analisando com IA...</p>
+                  <p class="text-[11px] font-bold text-blue-300">Analisando {scanPreviewUrls.length} {scanPreviewUrls.length === 1 ? 'página' : 'páginas'} com IA...</p>
                 </div>
               </div>
             {:else}
               <div class="w-10 h-10 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
-              <p class="text-[12px] font-bold text-blue-300">Lendo o PDF com IA...</p>
+              <p class="text-[12px] font-bold text-blue-300">Lendo arquivos com IA...</p>
               <p class="text-[10px] text-white/40">Isso pode levar alguns segundos</p>
             {/if}
           </div>
@@ -421,17 +491,17 @@
               <input type="file" accept="image/*" capture="environment" class="hidden" on:change={handleScanSheet} />
             </label>
 
-            <!-- Galeria -->
+            <!-- Galeria com seleção múltipla -->
             <label class="w-full cursor-pointer bg-[#1C1C22]/80 hover:bg-blue-500/10 border border-blue-500/20 hover:border-blue-400/50 text-white rounded-[16px] px-4 py-4 transition-all flex items-center gap-4 group">
               <div class="w-10 h-10 rounded-[12px] bg-blue-500/15 flex items-center justify-center shrink-0 group-hover:bg-blue-500/25 transition-colors">
                 <svg class="w-5 h-5 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
               </div>
               <div class="flex-1">
                 <p class="text-[13px] font-bold text-white">Escolher da galeria</p>
-                <p class="text-[9px] text-white/40">Importar foto salva no celular ou computador</p>
+                <p class="text-[9px] text-white/40">Selecione uma ou mais fotos da ficha de uma vez</p>
               </div>
               <svg class="w-4 h-4 text-white/20 group-hover:text-blue-400 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
-              <input type="file" accept="image/*" class="hidden" on:change={handleScanSheet} />
+              <input type="file" accept="image/*" multiple class="hidden" on:change={handleScanSheet} />
             </label>
 
             <!-- PDF -->
@@ -441,13 +511,13 @@
               </div>
               <div class="flex-1">
                 <p class="text-[13px] font-bold text-white">Importar PDF</p>
-                <p class="text-[9px] text-white/40">Ficha enviada por e-mail ou WhatsApp em PDF</p>
+                <p class="text-[9px] text-white/40">Ficha completa de várias páginas em PDF</p>
               </div>
               <svg class="w-4 h-4 text-white/20 group-hover:text-orange-400 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
-              <input type="file" accept="application/pdf" class="hidden" on:change={handleScanSheet} />
+              <input type="file" accept="application/pdf" multiple class="hidden" on:change={handleScanSheet} />
             </label>
           </div>
-          <p class="text-[9px] text-white/25 text-center">A IA lê fichas manuscritas, impressas e digitais · Máx 20 MB</p>
+          <p class="text-[9px] text-white/25 text-center">A IA lê fichas de várias páginas, frente e verso · Máx 20 MB por arquivo</p>
         {/if}
 
       </div>

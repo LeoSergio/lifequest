@@ -151,11 +151,22 @@ async def scan_workout_sheet_endpoint(payload: WorkoutSheetScanRequestSchema):
     O Gemini interpreta fichas manuscritas, impressas, digitais ou PDFs de personal.
     """
     try:
-        result = await scan_workout_sheet.scan_workout_sheet(
-            image_base64=payload.image_base64,
-            mime_type=payload.mime_type,
-            ai_provider=ai_provider,
-        )
+        # Suporta tanto lista de imagens quanto imagem única
+        if payload.images and len(payload.images) > 0:
+            images_data = [
+                {"image_base64": img.image_base64, "mime_type": img.mime_type}
+                for img in payload.images
+            ]
+            result = await scan_workout_sheet.scan_workout_sheet(
+                image_base64=images_data,
+                ai_provider=ai_provider,
+            )
+        else:
+            result = await scan_workout_sheet.scan_workout_sheet(
+                image_base64=payload.image_base64 or "",
+                mime_type=payload.mime_type,
+                ai_provider=ai_provider,
+            )
         return result
     except Exception as e:
         logger.error("[scan-sheet] Erro ao processar ficha: %s", e, exc_info=True)

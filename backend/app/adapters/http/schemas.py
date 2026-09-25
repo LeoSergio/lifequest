@@ -153,9 +153,15 @@ class WorkoutPlanGenerationResponseSchema(BaseModel):
 
 # ── Workout Sheet Scan (Gemini Vision) ─────────────────────────────────────────────────
 
+class SheetImageItemSchema(BaseModel):
+    image_base64: str
+    mime_type: str = "image/jpeg"
+
+
 class WorkoutSheetScanRequestSchema(BaseModel):
-    image_base64: str   # Imagem codificada em base64 (com ou sem prefixo data:...)
-    mime_type: str      # Ex: "image/jpeg", "image/png", "image/webp"
+    image_base64: str | None = None   # Imagem única (retrocompatibilidade)
+    mime_type: str = "image/jpeg"     # Ex: "image/jpeg", "image/png", "application/pdf"
+    images: list[SheetImageItemSchema] = []  # Lista de múltiplas imagens/páginas
 
 
 class ScannedExerciseSchema(BaseModel):

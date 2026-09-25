@@ -74,38 +74,57 @@ class GroqGeminiProvider(AIProviderInterface):
         if last_error:
             raise last_error
 
-    async def generate_from_image(self, image_base64: str, mime_type: str, prompt: str) -> dict:
-        """Chamada multimodal ao Gemini — envia imagem ou PDF + prompt e retorna JSON estruturado.
+    async def generate_from_image(
+        self,
+        image_base64: str | list[dict],
+        mime_type: str = "image/jpeg",
+        prompt: str = "",
+    ) -> dict:
+        """Chamada multimodal ao Gemini — envia uma ou mais imagens/páginas PDF + prompt e retorna JSON estruturado.
 
-        Suporta: image/jpeg, image/png, image/webp, image/gif, application/pdf.
-        Não usa Groq pois a maioria dos modelos Groq não suporta entrada multimodal.
+        image_base64 pode ser uma string base64 única ou uma lista de dicts:
+        [{"image_base64": "...", "mime_type": "image/jpeg"}, ...]
         """
         if not settings.gemini_api_key:
             raise ValueError("GEMINI_API_KEY não configurada. Necessária para análise de imagens.")
 
-        # Remove o prefixo data:image/...;base64, se presente
-        if "," in image_base64:
-            image_base64 = image_base64.split(",", 1)[1]
+        parts = []
+        if isinstance(image_base64, list):
+            for item in image_base64:
+                b64 = item.get("image_base64", "")
+                mtype = item.get("mime_type", "image/jpeg")
+                if "," in b64:
+                    b64 = b64.split(",", 1)[1]
+                if b64:
+                    parts.append({
+                        "inlineData": {
+                            "mimeType": mtype,
+                            "data": b64
+                        }
+                    })
+        else:
+            b64 = image_base64
+            if "," in b64:
+                b64 = b64.split(",", 1)[1]
+            if b64:
+                parts.append({
+                    "inlineData": {
+                        "mimeType": mime_type,
+                        "data": b64
+                    }
+                })
+
+        parts.append({"text": prompt})
 
         last_error = None
         for model in _GEMINI_MODELS:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={settings.gemini_api_key}"
             try:
-                async with httpx.AsyncClient(timeout=45) as client:
+                async with httpx.AsyncClient(timeout=60) as client:
                     res = await client.post(
                         url,
                         json={
-                            "contents": [{
-                                "parts": [
-                                    {
-                                        "inlineData": {
-                                            "mimeType": mime_type,
-                                            "data": image_base64
-                                        }
-                                    },
-                                    {"text": prompt}
-                                ]
-                            }],
+                            "contents": [{"parts": parts}],
                             "generationConfig": {
                                 "response_mime_type": "application/json"
                             }

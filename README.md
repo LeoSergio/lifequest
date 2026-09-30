@@ -92,7 +92,19 @@ unificados como um RPG, com missões geradas por IA.
 - `backend/`: AI Gateway + sincronização stateless + módulo social
 - `guildas/`: microsserviço isolado para estado social mínimo (ver Stack acima)
 
-Documentação técnica detalhada: [`docs/backend_architecture.md`](docs/backend_architecture.md).
+---
+
+## 📚 Documentação Técnica
+
+Documentação detalhada de cada camada do sistema, gerada a partir do código-fonte:
+
+| Documento | Descrição |
+|---|---|
+| [`docs/FRONTEND.md`](docs/FRONTEND.md) | Stack (Svelte + Vite + Dexie.js), arquitetura local-first, schema IndexedDB (10 versões), sync engine, rotas, componentes, serviços e gamificação |
+| [`docs/BACKEND.md`](docs/BACKEND.md) | Arquitetura clean/hexagonal (FastAPI), todos os endpoints REST, use cases de IA, autenticação JWT + Google OAuth, pagamentos (Mercado Pago) e deploy |
+| [`docs/DATABASE.md`](docs/DATABASE.md) | Schema PostgreSQL (16 tabelas), padrão SyncBase, histórico das 14 migrations Alembic, índices, soft delete e decisões de design |
+
+> Para a arquitetura geral do sistema (C4 model, fluxos e guildas), veja também [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Ambiente de desenvolvimento
 

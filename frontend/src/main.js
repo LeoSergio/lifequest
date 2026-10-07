@@ -7,11 +7,19 @@ import { inject } from '@vercel/analytics';
 // Injeta o Vercel Analytics (apenas em produção/quando deployado na Vercel)
 inject();
 
-// Atualiza o app automaticamente assim que uma nova versão do Service Worker assumir o controle
+// Atualiza o app automaticamente assim que uma nova versão do Service Worker assumir o controle,
+// EXCETO se houver um treino ativo em andamento (para não perder o preenchimento de séries).
 if ('serviceWorker' in navigator) {
   let refreshing = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (refreshing) return;
+    try {
+      const activeWorkout = localStorage.getItem('lifequest_active_workout_session_id');
+      if (activeWorkout) {
+        console.warn('[SW] Nova versão do app disponível, mas recarga adiada pois há treino em andamento.');
+        return;
+      }
+    } catch (_) {}
     refreshing = true;
     window.location.reload();
   });

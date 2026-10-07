@@ -1,4 +1,5 @@
 <script>
+  import { onMount, onDestroy } from 'svelte';
   import { navigate } from '../lib/nav.js';
   import { MUSCLE_GROUPS, EQUIPMENT_TYPES, WEEKDAYS } from '../lib/constants.js';
   import {
@@ -16,8 +17,9 @@
     finishWorkout,
     updatePlan
   } from '../services/workoutService.js';
-  import { pushSync } from '../services/syncService.js';
-  import { showAlert } from '../lib/modal.js';
+  import { pushSync, enqueue } from '../services/syncService.js';
+  import { showAlert, showConfirm } from '../lib/modal.js';
+  import { db } from '../db/db.js';
 
   export let planId; // recebido via navigate('workout-plan-detail', { planId })
 
@@ -32,9 +34,15 @@
   export let isEditing = false;
   export let isNew = false;
 
-  // Inputs de peso/reps ainda não salvos, por "linkId-numeroDaSerie".
-  // Só existe em memória até o usuário tocar em "salvar" naquela série.
+  // Inputs de peso/reps por "linkId-numeroDaSerie".
   let setInputs = {};
+  let completedExercises = {};
+  let activeRestLinkId = null;
+  let restTimeLeft = 0;
+  let restEndTime = null;
+  let restInterval = null;
+  let autoSaveTimeouts = {};
+  let hasLoadedDraft = false;
 
   let editName = '';
   let editWeekdays = [];
@@ -42,29 +50,133 @@
 
   const activeDays = WEEKDAYS.filter(w => w.value !== null);
 
-  let completedExercises = {};
-  let activeRestLinkId = null;
-  let restTimeLeft = 0;
-  let restInterval;
+  function getDraftKey(sessionId) {
+    return `lifequest_workout_draft_${sessionId}`;
+  }
+
+  function saveWorkoutDraft() {
+    if (!activeSession) return;
+    try {
+      const draft = {
+        setInputs,
+        completedExercises,
+        activeRestLinkId,
+        restEndTime,
+        updatedAt: Date.now()
+      };
+      localStorage.setItem(getDraftKey(activeSession.id), JSON.stringify(draft));
+      localStorage.setItem('lifequest_active_workout_session_id', String(activeSession.id));
+      localStorage.setItem('lifequest_active_workout_plan_id', String(planId));
+    } catch (e) {
+      console.warn('[Workout] Falha ao salvar rascunho local:', e);
+    }
+  }
+
+  function clearWorkoutDraft(sessionId) {
+    try {
+      if (sessionId) {
+        localStorage.removeItem(getDraftKey(sessionId));
+      }
+      const cur = localStorage.getItem('lifequest_active_workout_session_id');
+      if (!sessionId || cur === String(sessionId)) {
+        localStorage.removeItem('lifequest_active_workout_session_id');
+        localStorage.removeItem('lifequest_active_workout_plan_id');
+      }
+    } catch (_) {}
+  }
+
+  function loadWorkoutDraft(sessionId) {
+    if (!sessionId) return;
+    hasLoadedDraft = true;
+    try {
+      const raw = localStorage.getItem(getDraftKey(sessionId));
+      if (raw) {
+        const draft = JSON.parse(raw);
+        if (draft.setInputs && typeof draft.setInputs === 'object') {
+          setInputs = { ...draft.setInputs };
+        }
+        if (draft.completedExercises && typeof draft.completedExercises === 'object') {
+          completedExercises = { ...draft.completedExercises };
+        }
+        if (draft.activeRestLinkId && draft.restEndTime) {
+          const now = Date.now();
+          if (draft.restEndTime > now) {
+            activeRestLinkId = draft.activeRestLinkId;
+            restEndTime = draft.restEndTime;
+            restTimeLeft = Math.ceil((draft.restEndTime - now) / 1000);
+            startRestTicker();
+          } else {
+            activeRestLinkId = null;
+            restEndTime = null;
+            restTimeLeft = 0;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[Workout] Falha ao carregar rascunho local:', e);
+    }
+  }
+
+  function updateRestTimer() {
+    if (!restEndTime) {
+      stopRest();
+      return;
+    }
+    const diff = Math.ceil((restEndTime - Date.now()) / 1000);
+    if (diff <= 0) {
+      stopRest();
+    } else {
+      restTimeLeft = diff;
+    }
+  }
+
+  function startRestTicker() {
+    if (restInterval) clearInterval(restInterval);
+    updateRestTimer();
+    restInterval = setInterval(updateRestTimer, 1000);
+  }
 
   function startRest(linkId, seconds) {
     if (restInterval) clearInterval(restInterval);
     activeRestLinkId = linkId;
     restTimeLeft = seconds;
-    restInterval = setInterval(() => {
-      restTimeLeft -= 1;
-      if (restTimeLeft <= 0) {
-        clearInterval(restInterval);
-        activeRestLinkId = null;
-      }
-    }, 1000);
+    restEndTime = Date.now() + seconds * 1000;
+    startRestTicker();
+    saveWorkoutDraft();
   }
 
   function stopRest() {
     if (restInterval) clearInterval(restInterval);
     activeRestLinkId = null;
     restTimeLeft = 0;
+    restEndTime = null;
+    saveWorkoutDraft();
   }
+
+  function handleVisibilityChange() {
+    if (document.visibilityState === 'visible' && restEndTime) {
+      updateRestTimer();
+    }
+  }
+
+  onMount(() => {
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    const handleBeforeUnload = (e) => {
+      if (activeSession) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      if (restInterval) clearInterval(restInterval);
+      Object.values(autoSaveTimeouts).forEach(t => clearTimeout(t));
+    };
+  });
 
   const plan = workoutPlansQuery();
   const links = planExerciseLinksQuery(planId);
@@ -105,8 +217,20 @@
 
   const today = new Date().toISOString().slice(0, 10);
 
-  $: activeSession = ($planSessions ?? []).find((s) => !s.finishedAt) ?? null;
-  $: todaysFinishedSession = ($planSessions ?? []).find((s) => s.finishedAt?.slice(0, 10) === today);
+  $: activeSession = ($planSessions ?? []).find((s) => !s.finishedAt && !s.isRestDay) ?? null;
+  $: todaysFinishedSession = ($planSessions ?? []).find((s) => s.finishedAt?.slice(0, 10) === today && !s.isRestDay);
+
+  $: if (activeSession) {
+    if (!hasLoadedDraft) {
+      loadWorkoutDraft(activeSession.id);
+    }
+    try {
+      localStorage.setItem('lifequest_active_workout_session_id', String(activeSession.id));
+      localStorage.setItem('lifequest_active_workout_plan_id', String(planId));
+    } catch (_) {}
+  } else {
+    hasLoadedDraft = false;
+  }
 
   $: activeSets = activeSession && $allSessionSets
     ? $allSessionSets.filter((s) => s.workoutSessionId === activeSession.id)
@@ -197,7 +321,11 @@
   async function handleStartWorkout() {
     starting = true;
     try {
-      await startWorkout(planId);
+      const sId = await startWorkout(planId);
+      try {
+        localStorage.setItem('lifequest_active_workout_session_id', String(sId));
+        localStorage.setItem('lifequest_active_workout_plan_id', String(planId));
+      } catch (_) {}
     } finally {
       starting = false;
     }
@@ -229,10 +357,68 @@
     });
   }
 
+  function handleInput(link, setNumber, field, value) {
+    const key = `${link.id}-${setNumber}`;
+    setInputs = {
+      ...setInputs,
+      [key]: {
+        ...setInputs[key],
+        [field]: value
+      }
+    };
+    saveWorkoutDraft();
+
+    // Auto-save debounced no Dexie para manter banco e storage sincronizados
+    if (autoSaveTimeouts[key]) clearTimeout(autoSaveTimeouts[key]);
+    autoSaveTimeouts[key] = setTimeout(() => {
+      if (activeSession) {
+        handleSaveSet(link, setNumber);
+      }
+    }, 600);
+  }
+
+  async function handleCompleteExercise(link) {
+    completedExercises = { ...completedExercises, [link.id]: true };
+    for (let s = 1; s <= link.targetSets; s++) {
+      await handleSaveSet(link, s);
+    }
+    startRest(link.id, link.restSeconds);
+    saveWorkoutDraft();
+  }
+
+  function handleReopenExercise(linkId) {
+    completedExercises = { ...completedExercises, [linkId]: false };
+    saveWorkoutDraft();
+  }
+
+  async function handleCancelWorkout() {
+    if (!activeSession) return;
+    const ok = await showConfirm({
+      title: 'Descartar treino?',
+      message: 'Tem certeza que deseja cancelar o treino em andamento? O progresso desta sessão não será salvo.',
+      icon: '⚠️',
+      type: 'danger',
+      confirmText: 'Descartar',
+      cancelText: 'Continuar treinando'
+    });
+    if (!ok) return;
+
+    const sId = activeSession.id;
+    await db.sessionSets.where('workoutSessionId').equals(sId).delete();
+    await db.workoutSessions.delete(sId);
+    await enqueue('delete', 'workoutSessions', String(sId));
+    clearWorkoutDraft(sId);
+    stopRest();
+    setInputs = {};
+    completedExercises = {};
+    pushSync().catch(() => {});
+  }
+
   async function handleFinishWorkout() {
     if (!activeSession) return;
     completing = true;
     try {
+      const sessionId = activeSession.id;
       const { xpReward, leveledUp, level } = await finishWorkout({
         activeSession,
         exercises,
@@ -241,6 +427,13 @@
         getSuggestedWeight,
         getSuggestedReps
       });
+
+      // Limpa os rascunhos locais da sessão concluída
+      clearWorkoutDraft(sessionId);
+      stopRest();
+      setInputs = {};
+      completedExercises = {};
+
       // Push imediato ao encerrar sessão
       pushSync().catch(() => {});
       if (leveledUp) {
@@ -475,8 +668,8 @@
                           type="number"
                           class="w-full bg-[#1C1C22]/80 border border-white/10 rounded-[8px] px-2 py-2.5 text-center text-[12px] font-bold focus:border-[#a855f7] outline-none transition-colors text-white placeholder:text-white/20"
                           placeholder={suggestedW !== '' ? `${suggestedW} kg` : '0 kg'}
-                          value={setInputs[key]?.weight ?? (saved?.weightKg ?? '')}
-                          on:input={(e) => (setInputs[key] = { ...setInputs[key], weight: e.target.value })}
+                          value={setInputs[key]?.weight !== undefined ? setInputs[key].weight : (saved?.weightKg ?? '')}
+                          on:input={(e) => handleInput(link, setNumber, 'weight', e.target.value)}
                         />
                       </div>
 
@@ -486,8 +679,8 @@
                           type="number"
                           class="w-full bg-[#1C1C22]/80 border border-white/10 rounded-[8px] px-2 py-2.5 text-center text-[12px] font-bold focus:border-[#a855f7] outline-none transition-colors text-white placeholder:text-white/20"
                           placeholder={String(suggestedR)}
-                          value={setInputs[key]?.reps ?? (saved?.repsDone ?? '')}
-                          on:input={(e) => (setInputs[key] = { ...setInputs[key], reps: e.target.value })}
+                          value={setInputs[key]?.reps !== undefined ? setInputs[key].reps : (saved?.repsDone ?? '')}
+                          on:input={(e) => handleInput(link, setNumber, 'reps', e.target.value)}
                         />
                       </div>
                     </div>
@@ -495,7 +688,7 @@
                 </div>
 
                 <div class="mt-4 pt-4 border-t border-white/5 flex flex-col gap-2">
-                  <button class="w-full bg-green-500/10 border border-green-500/20 text-green-400 rounded-[12px] py-3 text-[11px] font-bold hover:bg-green-500/20 transition-colors flex items-center justify-center gap-2" on:click={() => { completedExercises[link.id] = true; startRest(link.id, link.restSeconds); }}>
+                  <button class="w-full bg-green-500/10 border border-green-500/20 text-green-400 rounded-[12px] py-3 text-[11px] font-bold hover:bg-green-500/20 transition-colors flex items-center justify-center gap-2" on:click={() => handleCompleteExercise(link)}>
                     <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
                     Concluir Exercício
                   </button>
@@ -524,7 +717,7 @@
                     </button>
                   {/if}
                   
-                  <button class="text-[10px] text-white/40 font-bold hover:text-white/70 uppercase tracking-wider text-center py-2" on:click={() => completedExercises[link.id] = false}>
+                  <button class="text-[10px] text-white/40 font-bold hover:text-white/70 uppercase tracking-wider text-center py-2" on:click={() => handleReopenExercise(link.id)}>
                     Reabrir exercício
                   </button>
                 </div>
@@ -534,9 +727,13 @@
         </div>
 
         <!-- Botão ÚNICO de encerrar sessão, posicionado apenas no final -->
-        <button class="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-[16px] py-4 text-[13px] font-black shadow-[0_0_20px_rgba(34,197,94,0.4)] hover:scale-[1.02] transition-transform flex items-center justify-center gap-2 mt-8 mb-6" on:click={handleFinishWorkout}>
+        <button class="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-[16px] py-4 text-[13px] font-black shadow-[0_0_20px_rgba(34,197,94,0.4)] hover:scale-[1.02] transition-transform flex items-center justify-center gap-2 mt-8 mb-3" on:click={handleFinishWorkout}>
           <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
           ENCERRAR SESSÃO COMPLETA
+        </button>
+
+        <button class="w-full text-white/30 hover:text-red-400 text-[11px] font-bold uppercase tracking-wider transition-colors py-2 mb-6" on:click={handleCancelWorkout}>
+          Descartar este treino
         </button>
       </div>
     {:else}

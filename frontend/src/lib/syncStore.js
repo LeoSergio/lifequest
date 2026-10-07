@@ -5,7 +5,7 @@ import { liveQuery } from 'dexie';
 export const syncState = writable({
   status: 'idle', // 'idle' | 'syncing' | 'offline' | 'error'
   pendingCount: 0,
-  lastSyncTime: localStorage.getItem('last_sync_time') || null
+  lastSyncTime: typeof localStorage !== 'undefined' ? localStorage.getItem('last_sync_time') : null
 });
 
 // Atualiza o contador de pendências em tempo real escutando o IndexedDB via liveQuery

@@ -20,8 +20,12 @@
   import Modal from './components/Modal.svelte';
   import Ranking from './routes/Ranking.svelte';
   import { startQuestService, stopQuestService } from './services/questService.js';
+  import { navigate } from './lib/nav.js';
 
   const hasPlayer = liveQuery(async () => (await db.player.count()) > 0);
+  const activeSessionLive = liveQuery(async () => {
+    return await db.workoutSessions.filter(s => !s.finishedAt && !s.isRestDay).first();
+  });
 
   // Inicia o serviço global de missões diárias assim que o player estiver disponível.
   // Fica ativo independente de qual rota o usuário estiver navegando.
@@ -71,6 +75,23 @@
   {:else}
     <Dashboard />
   {/if}
+
+  {#if $activeSessionLive && $nav.name !== 'workout-plan-detail'}
+    <aside 
+      class="fixed bottom-20 left-4 right-4 max-w-md mx-auto z-40 bg-gradient-to-r from-[#9333EA] to-[#7928CA] text-white p-3 rounded-[16px] shadow-[0_8px_25px_rgba(147,51,234,0.5)] border border-white/20 flex items-center justify-between backdrop-blur-md cursor-pointer hover:scale-[1.02] transition-transform"
+      on:click={() => navigate('workout-plan-detail', { planId: $activeSessionLive.workoutPlanId })}
+    >
+      <div class="flex items-center gap-2.5">
+        <div class="w-2.5 h-2.5 rounded-full bg-green-400 animate-ping"></div>
+        <div>
+          <p class="text-[11px] font-black uppercase tracking-wider leading-none">Treino em andamento</p>
+          <p class="text-[9px] text-white/80 mt-0.5">Toque para continuar preenchendo</p>
+        </div>
+      </div>
+      <span class="text-xs font-black bg-white/20 px-2.5 py-1 rounded-[8px]">Retornar →</span>
+    </aside>
+  {/if}
+
   <NavBar />
 {:else}
   <Onboarding />

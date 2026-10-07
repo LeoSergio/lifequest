@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+html, body {
+  overscroll-behavior-y: contain;
+}
+
 @layer utilities {
   .animation-delay-2000 {
     animation-delay: 2s;

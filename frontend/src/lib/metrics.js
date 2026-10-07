@@ -455,3 +455,136 @@ export function goalsAchievedInRange(goals, range) {
       g.achievedAt.slice(0, 10) <= range.end,
   ).length;
 }
+
+/**
+ * Filtra as séries por grupo muscular (ou retorna todas se muscleGroup for 'all' ou nulo).
+ */
+export function filterSetsByMuscleGroup(sessionSets, catalog, muscleGroup) {
+  if (!sessionSets || !catalog || !muscleGroup || muscleGroup === 'all') {
+    return sessionSets ?? [];
+  }
+  const exerciseMap = new Map(catalog.map((e) => [String(e.id), e]));
+  return sessionSets.filter((s) => {
+    const ex = exerciseMap.get(String(s.exerciseId));
+    return ex && ex.muscleGroup === muscleGroup;
+  });
+}
+
+/**
+ * Compara a última sessão e a penúltima sessão em que um grupo muscular específico foi treinado.
+ * Retorna dados detalhados de evolução de carga, volume, repetições e diagnóstico do treino.
+ */
+export function compareMuscleGroupSessions(sessionSets, catalog, muscleGroup) {
+  if (!sessionSets || !catalog || !muscleGroup || muscleGroup === 'all') return null;
+
+  const exerciseMap = new Map(catalog.map((e) => [String(e.id), e]));
+
+  // Filtra sets que pertencem ao grupo muscular selecionado e têm data
+  const groupSets = sessionSets.filter((s) => {
+    if (!s.completedAt) return false;
+    const ex = exerciseMap.get(String(s.exerciseId));
+    return ex && ex.muscleGroup === muscleGroup;
+  });
+
+  if (groupSets.length === 0) return null;
+
+  // Agrupa por dia (YYYY-MM-DD) ou workoutSessionId
+  const bySessionOrDate = {};
+  for (const set of groupSets) {
+    const key = set.workoutSessionId || set.completedAt.slice(0, 10);
+    if (!bySessionOrDate[key]) {
+      bySessionOrDate[key] = {
+        key,
+        date: set.completedAt.slice(0, 10),
+        sets: []
+      };
+    }
+    bySessionOrDate[key].sets.push(set);
+  }
+
+  const sessionsList = Object.values(bySessionOrDate).sort(
+    (a, b) => b.date.localeCompare(a.date)
+  );
+
+  if (sessionsList.length === 0) return null;
+
+  function summarizeSession(session) {
+    let maxWeight = 0;
+    let totalTonnage = 0;
+    let totalReps = 0;
+    const exerciseBests = {};
+
+    for (const s of session.sets) {
+      const w = s.weightKg ?? 0;
+      const r = s.repsDone ?? 0;
+      if (w > maxWeight) maxWeight = w;
+      totalTonnage += w * r;
+      totalReps += r;
+
+      const ex = exerciseMap.get(String(s.exerciseId));
+      const exName = ex?.name || 'Exercício';
+      if (!exerciseBests[exName] || w > exerciseBests[exName].maxWeight) {
+        exerciseBests[exName] = { name: exName, maxWeight: w, reps: r };
+      }
+    }
+
+    return {
+      date: session.date,
+      setsCount: session.sets.length,
+      maxWeight,
+      totalTonnage,
+      totalReps,
+      exercises: Object.values(exerciseBests)
+    };
+  }
+
+  const latest = summarizeSession(sessionsList[0]);
+  const previous = sessionsList.length > 1 ? summarizeSession(sessionsList[1]) : null;
+
+  let daysApart = null;
+  if (previous) {
+    const d1 = new Date(latest.date);
+    const d2 = new Date(previous.date);
+    daysApart = Math.round(Math.abs(d1 - d2) / (1000 * 60 * 60 * 24));
+  }
+
+  const deltaMaxWeight = previous ? Math.round((latest.maxWeight - previous.maxWeight) * 10) / 10 : null;
+  const deltaTonnage = previous ? Math.round(latest.totalTonnage - previous.totalTonnage) : null;
+  const deltaTonnagePercent = previous ? percentDelta(latest.totalTonnage, previous.totalTonnage) : null;
+  const deltaSets = previous ? latest.setsCount - previous.setsCount : null;
+
+  // Diagnóstico do treino
+  let feedback = '';
+  let badgeType = 'info';
+
+  if (!previous) {
+    feedback = 'Primeiro treino registrado deste grupo muscular! Suas próximas sessões mostrarão a comparação direta aqui.';
+    badgeType = 'info';
+  } else if (deltaMaxWeight > 0) {
+    feedback = `🔥 Sobrecarga Progressiva! Você aumentou a carga máxima em +${deltaMaxWeight}kg em relação ao treino anterior.`;
+    badgeType = 'success';
+  } else if (deltaTonnagePercent != null && deltaTonnagePercent > 5) {
+    feedback = `💪 Volume e trabalho total aumentaram (+${deltaTonnagePercent}% de tonelagem). Ótimo estímulo para hipertrofia.`;
+    badgeType = 'success';
+  } else if (deltaTonnagePercent != null && deltaTonnagePercent < -5) {
+    feedback = `😴 Ritmo reduzido ou deload neste treino (-${Math.abs(deltaTonnagePercent)}% de tonelagem). Em dias de cansaço, oscilações são normais e até recomendadas para recuperação.`;
+    badgeType = 'warning';
+  } else {
+    feedback = '⚖️ Carga e volume mantidos com consistência em relação ao treino anterior.';
+    badgeType = 'info';
+  }
+
+  return {
+    group: muscleGroup,
+    latest,
+    previous,
+    daysApart,
+    deltaMaxWeight,
+    deltaTonnage,
+    deltaTonnagePercent,
+    deltaSets,
+    feedback,
+    badgeType,
+    totalHistorySessions: sessionsList.length
+  };
+}

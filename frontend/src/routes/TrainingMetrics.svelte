@@ -7,6 +7,7 @@
   import { showConfirm, showAlert } from '../lib/modal.js';
   import LineChart from '../components/LineChart.svelte';
   import ConsistencyCalendar from '../components/ConsistencyCalendar.svelte';
+  import { MUSCLE_GROUPS } from '../lib/constants.js';
   import {
     weeklyCalendar,
     currentStreak,
@@ -17,7 +18,9 @@
     totalReps,
     computePRs,
     percentDelta,
-    tonnageByMuscleGroup
+    tonnageByMuscleGroup,
+    filterSetsByMuscleGroup,
+    compareMuscleGroupSessions
   } from '../lib/metrics.js';
 
   export const focusPlanId = null;
@@ -230,6 +233,25 @@
 
   let metric = 'carga'; // carga | volume | repeticoes | prs
   let period = 30; // 7 | 30 | 60 | null (Tudo)
+  let selectedGroup = 'all'; // 'all' ou nome do grupo (ex: 'Peito', 'Costas'...)
+
+  const GROUP_ICONS = {
+    all: '🏋️',
+    Peito: '🛡️',
+    Costas: '🦅',
+    Pernas: '🦵',
+    Ombro: '⚡',
+    'Bíceps': '💪',
+    'Tríceps': '🔥',
+    Core: '🎯',
+    'Glúteos': '🍑',
+    'Panturrilha': '👟',
+    Outro: '⚡'
+  };
+
+  function getGroupIcon(grp) {
+    return GROUP_ICONS[grp] || '⚡';
+  }
 
   const METRIC_CONFIG = {
     carga: { label: 'Carga', chartTitle: 'Evolução de Carga (kg)', totalLabel: 'Total levantado', unit: 'kg' },
@@ -238,10 +260,19 @@
     prs: { label: 'PRs', chartTitle: 'Evolução de PRs', totalLabel: 'Recordes pessoais', unit: '' }
   };
 
-  // PRs precisam do histórico completo pra saber o que é recorde — só
-  // depois disso filtramos pelo período escolhido, junto com as outras
-  // métricas.
-  $: prSets = $allSessionSets ? computePRs($allSessionSets) : [];
+  $: rawMuscleGroups = $allSessionSets && $catalog ? tonnageByMuscleGroup($allSessionSets, $catalog) : [];
+  
+  // Lista de grupos musculares disponíveis com base nos dados do usuário e constantes
+  $: availableMuscleGroups = ['all', ...Array.from(new Set([
+    ...MUSCLE_GROUPS,
+    ...(rawMuscleGroups.map(m => m.group))
+  ]))];
+
+  // Filtra as séries pelo grupo muscular selecionado
+  $: groupFilteredSets = filterSetsByMuscleGroup($allSessionSets, $catalog, selectedGroup);
+
+  // PRs calculados a partir das séries filtradas do grupo
+  $: prSets = groupFilteredSets ? computePRs(groupFilteredSets) : [];
 
   $: valueFn =
     metric === 'carga'
@@ -250,17 +281,16 @@
         ? totalSetCount
         : metric === 'repeticoes'
           ? totalReps
-          : (sets) => sets.length; // prs: os próprios "sets" já vêm filtrados de prSets
+          : (sets) => sets.length; // prs
 
-  $: sourceSets = metric === 'prs' ? prSets : ($allSessionSets ?? []);
+  $: sourceSets = metric === 'prs' ? prSets : (groupFilteredSets ?? []);
 
   $: buckets = $allSessionSets ? buildPeriodBuckets(sourceSets, period) : [];
   $: chartSeries = buckets.length > 0 ? bucketSeries(sourceSets, buckets, valueFn) : { labels: [], data: [] };
 
   $: periodTotal = chartSeries.data.reduce((a, b) => a + b, 0);
 
-  // Variação vs período anterior de mesmo tamanho — só faz sentido pra
-  // períodos fixos (7/30/60 dias); em "Tudo" não existe "período anterior".
+  // Variação vs período anterior de mesmo tamanho
   $: previousTotal = (() => {
     if (period == null || buckets.length === 0) return null;
     const spanDays = period;
@@ -275,7 +305,12 @@
 
   $: deltaPercent = previousTotal != null ? percentDelta(periodTotal, previousTotal) : null;
 
-  $: muscleGroups = $allSessionSets && $catalog ? tonnageByMuscleGroup($allSessionSets, $catalog) : [];
+  // Comparação detalhada treino a treino para o grupo muscular selecionado
+  $: muscleGroupComparison = selectedGroup !== 'all' && $allSessionSets && $catalog
+    ? compareMuscleGroupSessions($allSessionSets, $catalog, selectedGroup)
+    : null;
+
+  $: muscleGroups = rawMuscleGroups;
   let showAllGroups = false;
   $: visibleGroups = showAllGroups ? muscleGroups : muscleGroups.slice(0, 5);
   $: topGroupKg = muscleGroups.length > 0 ? muscleGroups[0].kg : 0;
@@ -283,6 +318,10 @@
   function formatTotal(value, unit) {
     const rounded = Math.round(value * 10) / 10;
     return unit ? `${rounded.toLocaleString('pt-BR')}${unit}` : rounded.toLocaleString('pt-BR');
+  }
+
+  function selectGroup(grp) {
+    selectedGroup = grp;
   }
 
   // ---------- Consistência ----------
@@ -448,6 +487,155 @@
     </section>
   {:else if tab === 'desempenho'}
     <section>
+      <!-- Seletor de Grupos Musculares com Rolagem Horizontal Suave -->
+      <div class="mb-4">
+        <div class="flex items-center justify-between mb-2 px-0.5">
+          <p class="text-[10px] text-white/50 font-bold uppercase tracking-wider flex items-center gap-1.5">
+            <span>Grupo Muscular:</span>
+            <span class="text-[#c084fc] font-black">
+              {selectedGroup === 'all' ? 'Todos os grupos' : selectedGroup}
+            </span>
+          </p>
+          {#if selectedGroup !== 'all'}
+            <button
+              class="text-[9px] font-bold text-[#c084fc] hover:text-white uppercase tracking-wider transition-colors"
+              on:click={() => (selectedGroup = 'all')}
+            >
+              Resetar para Todos
+            </button>
+          {/if}
+        </div>
+
+        <div class="flex gap-1.5 overflow-x-auto pb-2 scrollbar-none -mx-1 px-1">
+          {#each availableMuscleGroups as grp}
+            {@const isSelected = selectedGroup === grp}
+            <button
+              class="px-3 py-2 rounded-[12px] text-[11px] font-bold shrink-0 flex items-center gap-1.5 transition-all border {isSelected ? 'bg-gradient-to-r from-[#9333EA] to-[#7e22ce] text-white border-[#a855f7]/60 shadow-[0_0_15px_rgba(147,51,234,0.4)] scale-[1.02]' : 'bg-[#1C1C22]/80 border-white/5 text-white/50 hover:text-white hover:bg-white/5'}"
+              on:click={() => selectGroup(grp)}
+            >
+              <span class="text-sm">{getGroupIcon(grp)}</span>
+              <span>{grp === 'all' ? 'Todos' : grp}</span>
+            </button>
+          {/each}
+        </div>
+      </div>
+
+      <!-- Card Especial de Comparativo Direto: Último Treino vs Anterior (Exibido quando um grupo está selecionado) -->
+      {#if selectedGroup !== 'all'}
+        <div class="bg-gradient-to-br from-[#1C1C22] to-[#15151c] border border-white/10 rounded-[20px] p-5 mb-5 shadow-2xl relative overflow-hidden">
+          <div class="absolute -top-12 -right-12 w-32 h-32 bg-[#9333EA]/15 rounded-full blur-2xl pointer-events-none"></div>
+
+          <div class="flex justify-between items-start mb-4 relative z-10">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="text-xl">{getGroupIcon(selectedGroup)}</span>
+                <h3 class="text-[14px] font-black text-white">{selectedGroup}</h3>
+              </div>
+              <p class="text-[10px] text-white/50 mt-0.5">
+                {#if muscleGroupComparison?.previous}
+                  Último: {formatDate(muscleGroupComparison.latest.date)} vs {formatDate(muscleGroupComparison.previous.date)}
+                  {#if muscleGroupComparison.daysApart != null}
+                    <span class="text-white/30">({muscleGroupComparison.daysApart}d de intervalo)</span>
+                  {/if}
+                {:else if muscleGroupComparison?.latest}
+                  Primeiro treino em {formatDate(muscleGroupComparison.latest.date)}
+                {:else}
+                  Nenhum treino registrado ainda
+                {/if}
+              </p>
+            </div>
+
+            {#if muscleGroupComparison?.latest}
+              <span class="text-[9px] uppercase font-bold px-2 py-1 rounded-[6px] border {muscleGroupComparison.badgeType === 'success' ? 'bg-green-500/10 text-green-400 border-green-500/30' : muscleGroupComparison.badgeType === 'warning' ? 'bg-amber-500/10 text-amber-300 border-amber-500/30' : 'bg-purple-500/10 text-purple-300 border-purple-500/30'}">
+                {muscleGroupComparison.badgeType === 'success' ? 'Progressão' : muscleGroupComparison.badgeType === 'warning' ? 'Ajuste / Deload' : 'Consistência'}
+              </span>
+            {/if}
+          </div>
+
+          {#if muscleGroupComparison?.latest}
+            <!-- Grid de 3 Métricas Comparativas -->
+            <div class="grid grid-cols-3 gap-2.5 mb-4 relative z-10">
+              <!-- Carga Máxima -->
+              <div class="bg-white/5 border border-white/5 rounded-[14px] p-3 flex flex-col justify-between">
+                <p class="text-[9px] font-bold uppercase tracking-wider text-white/40 mb-1">Carga Máx</p>
+                <div>
+                  <p class="text-[15px] font-black text-white leading-tight">
+                    {muscleGroupComparison.latest.maxWeight} <span class="text-[10px] font-bold text-white/50">kg</span>
+                  </p>
+                  {#if muscleGroupComparison.previous}
+                    <p class="text-[9px] font-bold mt-1 {muscleGroupComparison.deltaMaxWeight > 0 ? 'text-green-400' : muscleGroupComparison.deltaMaxWeight < 0 ? 'text-amber-400' : 'text-white/40'}">
+                      {muscleGroupComparison.deltaMaxWeight > 0 ? `+${muscleGroupComparison.deltaMaxWeight}kg` : muscleGroupComparison.deltaMaxWeight < 0 ? `${muscleGroupComparison.deltaMaxWeight}kg` : 'Mantida'}
+                    </p>
+                  {:else}
+                    <p class="text-[9px] text-white/30 mt-1">Base</p>
+                  {/if}
+                </div>
+              </div>
+
+              <!-- Volume de Séries -->
+              <div class="bg-white/5 border border-white/5 rounded-[14px] p-3 flex flex-col justify-between">
+                <p class="text-[9px] font-bold uppercase tracking-wider text-white/40 mb-1">Volume</p>
+                <div>
+                  <p class="text-[15px] font-black text-white leading-tight">
+                    {muscleGroupComparison.latest.setsCount} <span class="text-[10px] font-bold text-white/50">séries</span>
+                  </p>
+                  {#if muscleGroupComparison.previous}
+                    <p class="text-[9px] font-bold mt-1 {muscleGroupComparison.deltaSets > 0 ? 'text-green-400' : muscleGroupComparison.deltaSets < 0 ? 'text-amber-400' : 'text-white/40'}">
+                      {muscleGroupComparison.deltaSets > 0 ? `+${muscleGroupComparison.deltaSets} s.` : muscleGroupComparison.deltaSets < 0 ? `${muscleGroupComparison.deltaSets} s.` : 'Mesmo'}
+                    </p>
+                  {:else}
+                    <p class="text-[9px] text-white/30 mt-1">Base</p>
+                  {/if}
+                </div>
+              </div>
+
+              <!-- Tonelagem Total -->
+              <div class="bg-white/5 border border-white/5 rounded-[14px] p-3 flex flex-col justify-between">
+                <p class="text-[9px] font-bold uppercase tracking-wider text-white/40 mb-1">Tonelagem</p>
+                <div>
+                  <p class="text-[15px] font-black text-white leading-tight truncate">
+                    {(muscleGroupComparison.latest.totalTonnage / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} <span class="text-[10px] font-bold text-white/50">t</span>
+                  </p>
+                  {#if muscleGroupComparison.previous && muscleGroupComparison.deltaTonnagePercent != null}
+                    <p class="text-[9px] font-bold mt-1 {muscleGroupComparison.deltaTonnagePercent > 0 ? 'text-green-400' : muscleGroupComparison.deltaTonnagePercent < 0 ? 'text-amber-400' : 'text-white/40'}">
+                      {muscleGroupComparison.deltaTonnagePercent > 0 ? '+' : ''}{muscleGroupComparison.deltaTonnagePercent}%
+                    </p>
+                  {:else}
+                    <p class="text-[9px] text-white/30 mt-1">Base</p>
+                  {/if}
+                </div>
+              </div>
+            </div>
+
+            <!-- Caixa de Feedback e Diagnóstico Inteligente de Esforço -->
+            <div class="bg-white/[0.03] border border-white/5 rounded-[14px] p-3 text-[10px] text-white/70 leading-relaxed mb-3 relative z-10 flex items-start gap-2.5">
+              <span>{muscleGroupComparison.badgeType === 'success' ? '🎯' : muscleGroupComparison.badgeType === 'warning' ? '⚡' : '📌'}</span>
+              <p class="flex-1">{muscleGroupComparison.feedback}</p>
+            </div>
+
+            <!-- Exercícios Realizados no Último Treino -->
+            {#if muscleGroupComparison.latest.exercises && muscleGroupComparison.latest.exercises.length > 0}
+              <div class="pt-3 border-t border-white/5 relative z-10">
+                <p class="text-[9px] font-bold uppercase tracking-wider text-white/40 mb-2">Exercícios executados na sessão:</p>
+                <div class="flex flex-wrap gap-1.5">
+                  {#each muscleGroupComparison.latest.exercises as ex}
+                    <div class="bg-white/5 border border-white/5 rounded-[8px] px-2.5 py-1 text-[10px] flex items-center gap-1.5">
+                      <span class="text-white font-medium">{ex.name}</span>
+                      <span class="text-[#c084fc] font-bold">{ex.maxWeight} kg</span>
+                    </div>
+                  {/each}
+                </div>
+              </div>
+            {/if}
+          {:else}
+            <p class="text-[10px] text-white/40 text-center py-4">
+              Ainda não há treinos registrados com exercícios de {selectedGroup}. Conclua um treino para ver a evolução comparativa aqui!
+            </p>
+          {/if}
+        </div>
+      {/if}
+
+      <!-- Seletores de Métrica (Carga, Volume, Repetições, PRs) -->
       <div class="flex bg-[#1C1C22]/80 border border-white/5 rounded-[16px] p-1 mb-2 text-[10px] font-bold shadow-inner gap-1">
         {#each Object.entries(METRIC_CONFIG) as [value, config]}
           <button
@@ -459,6 +647,7 @@
         {/each}
       </div>
 
+      <!-- Filtro de Período (7d, 30d, 60d, Tudo) -->
       <div class="flex bg-[#1C1C22]/80 border border-white/5 rounded-[16px] p-1 mb-5 text-[10px] font-bold shadow-inner gap-1">
         {#each [[7, '7 dias'], [30, '30 dias'], [60, '60 dias'], [null, 'Tudo']] as [value, label]}
           <button
@@ -470,10 +659,16 @@
         {/each}
       </div>
 
+      <!-- Gráfico de Evolução (LineChart) -->
       <div class="bg-[#1C1C22]/80 border border-white/5 rounded-[20px] p-5 mb-5 shadow-inner">
         <div class="flex justify-between items-start mb-4">
           <div>
-            <p class="text-[12px] font-bold text-white mb-0.5">{METRIC_CONFIG[metric].chartTitle}</p>
+            <div class="flex items-center gap-1.5">
+              <span class="text-sm">{getGroupIcon(selectedGroup)}</span>
+              <p class="text-[12px] font-bold text-white mb-0.5">
+                {selectedGroup === 'all' ? METRIC_CONFIG[metric].chartTitle : `Evolução de ${METRIC_CONFIG[metric].label} · ${selectedGroup}`}
+              </p>
+            </div>
             <p class="text-[9px] font-bold text-[#a855f7] uppercase tracking-wider">{METRIC_CONFIG[metric].totalLabel}</p>
           </div>
           <div class="text-right">
@@ -488,24 +683,57 @@
 
         {#if chartSeries.labels.length === 0 || periodTotal === 0}
           <p class="text-[10px] text-white/40 text-center py-6 px-4 bg-white/5 rounded-[12px] border border-white/5">
-            Sem dados de {METRIC_CONFIG[metric].label.toLowerCase()} nesse período. Registre nos seus treinos pra ver a evolução.
+            Sem dados de {METRIC_CONFIG[metric].label.toLowerCase()}{selectedGroup !== 'all' ? ` para ${selectedGroup}` : ''} nesse período.
           </p>
         {:else}
-          <LineChart labels={chartSeries.labels} data={chartSeries.data} label={METRIC_CONFIG[metric].label} />
+          <LineChart
+            labels={chartSeries.labels}
+            data={chartSeries.data}
+            label={selectedGroup === 'all' ? METRIC_CONFIG[metric].label : `${METRIC_CONFIG[metric].label} (${selectedGroup})`}
+          />
         {/if}
       </div>
 
+      <!-- Comparativo e Distribuição de Todos os Grupos Musculares -->
       <div class="bg-[#1C1C22]/80 border border-white/5 rounded-[20px] p-5 shadow-inner">
-        <p class="text-[12px] font-bold text-white mb-4">Grupos musculares</p>
+        <div class="flex justify-between items-center mb-4">
+          <div>
+            <p class="text-[12px] font-bold text-white">Distribuição Muscular</p>
+            <p class="text-[9px] text-white/40">Toque em qualquer grupo para detalhar a evolução</p>
+          </div>
+          {#if selectedGroup !== 'all'}
+            <button
+              class="text-[10px] font-bold text-[#a855f7] hover:text-white transition-colors"
+              on:click={() => (selectedGroup = 'all')}
+            >
+              Resetar filtro
+            </button>
+          {/if}
+        </div>
+
         {#if muscleGroups.length === 0}
-          <p class="text-[10px] text-white/40 text-center py-4">Cadastre exercícios com grupo muscular pra ver essa distribuição.</p>
+          <p class="text-[10px] text-white/40 text-center py-4">Cadastre exercícios com grupo muscular para ver essa distribuição.</p>
         {:else}
-          <div class="flex flex-col gap-3.5">
+          <div class="flex flex-col gap-3">
             {#each visibleGroups as g (g.group)}
-              <div>
-                <div class="flex justify-between text-[11px] font-bold mb-1.5">
-                  <span class="text-white/80">{g.group}</span>
-                  <span class="text-[#a855f7]">{(g.kg / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} ton</span>
+              {@const isCurrent = selectedGroup === g.group}
+              <button
+                type="button"
+                class="w-full text-left p-2.5 rounded-[14px] border transition-all {isCurrent ? 'bg-[#9333EA]/15 border-[#9333EA]/50 shadow-[0_0_12px_rgba(147,51,234,0.25)]' : 'bg-white/[0.02] border-white/5 hover:bg-white/5'}"
+                on:click={() => selectGroup(g.group)}
+              >
+                <div class="flex justify-between text-[11px] font-bold mb-1.5 items-center">
+                  <span class="flex items-center gap-1.5 {isCurrent ? 'text-white' : 'text-white/80'}">
+                    <span>{getGroupIcon(g.group)}</span>
+                    <span>{g.group}</span>
+                    {#if isCurrent}
+                      <span class="text-[8px] bg-[#9333EA] text-white px-1.5 py-0.5 rounded font-black uppercase">Ativo</span>
+                    {/if}
+                  </span>
+                  <div class="flex items-center gap-2">
+                    <span class="text-[#c084fc]">{(g.kg / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} ton</span>
+                    <span class="text-white/30 text-xs">→</span>
+                  </div>
                 </div>
                 <div class="w-full h-1.5 bg-white/5 rounded-full overflow-hidden border border-white/5">
                   <div
@@ -513,7 +741,7 @@
                     style="width: {topGroupKg > 0 ? Math.max(4, (g.kg / topGroupKg) * 100) : 0}%"
                   />
                 </div>
-              </div>
+              </button>
             {/each}
           </div>
 
@@ -522,7 +750,7 @@
               class="w-full text-[10px] font-bold text-[#a855f7] mt-4 pt-3 border-t border-white/5 hover:text-white transition-colors uppercase tracking-wider"
               on:click={() => (showAllGroups = !showAllGroups)}
             >
-              {showAllGroups ? 'Ver menos' : 'Ver todos os detalhes'}
+              {showAllGroups ? 'Ver menos' : 'Ver todos os grupos'}
             </button>
           {/if}
         {/if}

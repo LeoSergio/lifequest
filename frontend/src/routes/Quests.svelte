@@ -4,7 +4,7 @@
   import { generateId } from '../lib/id.js';
   import { todayIso } from '../lib/habits.js';
   import { applyXp } from '../lib/gamification.js';
-  import { ACHIEVEMENTS } from '../lib/achievements.js';
+  import { ACHIEVEMENTS, checkAchievements } from '../lib/achievements.js';
   import ShopList from '../components/ShopList.svelte';
   import { nav } from '../lib/nav.js';
   import { enqueue, pushSync } from '../services/syncService.js';
@@ -113,6 +113,8 @@
   onMount(() => {
     // Garante missões caso o serviço global ainda não tenha gerado
     checkAndAutoFetchQuests();
+    // Avalia e sincroniza conquistas pendentes/desbloqueadas
+    checkAchievements().catch(() => {});
   });
 
   async function getRecentQuestTitles() {

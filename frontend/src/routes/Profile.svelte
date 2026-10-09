@@ -1,9 +1,15 @@
 <script>
+  import { onMount } from 'svelte';
   import { liveQuery } from 'dexie';
   import { db } from '../db/db.js';
-  import { ACHIEVEMENTS } from '../lib/achievements.js';
+  import { ACHIEVEMENTS, checkAchievements } from '../lib/achievements.js';
+  import { getTitleForLevel } from '../lib/levels.js';
   import { navigate } from '../lib/nav.js';
   import { showAlert, showConfirm, showPrompt } from '../lib/modal.js';
+
+  onMount(() => {
+    checkAchievements().catch(() => {});
+  });
 
   const player = liveQuery(() => db.player.toCollection().first());
   const unlockedAchievements = liveQuery(async () => {
@@ -15,6 +21,7 @@
   $: totalXp = $player?.xp ?? 0; // Using current XP as total for simplicity
   $: nextLevelXp = ($player?.level ?? 1) * 100;
   $: progressPercent = Math.min(100, Math.round((totalXp / nextLevelXp) * 100));
+  $: titleInfo = getTitleForLevel($player?.level || 1);
 
   const completedGoalsCount = liveQuery(async () => {
     const goals = await db.goals.toArray();
@@ -239,8 +246,8 @@
         </div>
         
         <div class="mb-4">
-           <span class="bg-[#1C1C22]/80 text-[#c084fc] text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest border border-[#a855f7]/30 inline-block text-center shadow-[0_0_10px_rgba(168,85,247,0.15)]">
-             NÍVEL {$player.level} • INICIANTE
+           <span class="bg-[#1C1C22]/80 {titleInfo.color} text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest border border-[#a855f7]/30 inline-block text-center shadow-[0_0_10px_rgba(168,85,247,0.15)]">
+             NÍVEL {$player.level} • {titleInfo.title.toUpperCase()}
            </span>
         </div>
 

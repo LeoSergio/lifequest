@@ -1,5 +1,6 @@
 <script>
   import { xpToNextLevel, xpProgressPercent } from '../lib/gamification.js';
+  import { getTitleForLevel } from '../lib/levels.js';
 
   export let level;
   export let xp;
@@ -8,6 +9,7 @@
 
   $: progress = xpProgressPercent(level, xp);
   $: needed = xpToNextLevel(level);
+  $: titleInfo = getTitleForLevel(level);
 </script>
 
 <div class="bg-surface/80 border border-white/5 rounded-2xl p-4 flex gap-5 items-center">
@@ -23,7 +25,7 @@
       <span class="absolute -right-2 top-2 text-primary/60 text-lg rotate-12 scale-x-[-1]">🌿</span>
     </div>
     <span class="text-sm font-bold mt-1 text-white">Nível {level}</span>
-    <span class="text-[9px] bg-primary/20 text-primary px-2.5 py-0.5 rounded-full mt-1 border border-primary/20">{level < 5 ? 'Iniciante' : level < 15 ? 'Intermediário' : 'Avançado'}</span>
+    <span class="text-[9px] bg-primary/20 {titleInfo.color} px-2.5 py-0.5 rounded-full mt-1 border border-primary/20 font-bold">{titleInfo.title}</span>
   </div>
 
   <!-- Progress -->

@@ -38,7 +38,19 @@ export const ACHIEVEMENTS = [
   { id: 'fisico_esculpido', name: 'Físico Esculpido', description: 'Atingir 100% de uma meta complexa após meses.', icon: '🗿', color: 'text-purple-600', bg: 'bg-purple-600/10 border-purple-600/20', xp: 5000, coins: 1000 },
   { id: 'enciclopedia_humana', name: 'Enciclopédia Humana', description: 'Registrar progressão em 50 exercícios diferentes.', icon: '📖', color: 'text-yellow-500', bg: 'bg-yellow-500/10 border-yellow-500/20', xp: 2500, coins: 500 },
   { id: 'ano_transformacao', name: 'Ano da Transformação', description: 'Atualizar fotos e medidas sem pular nenhum mês em 1 ano.', icon: '🦋', color: 'text-pink-500', bg: 'bg-pink-500/10 border-pink-500/20', xp: 4500, coins: 900 },
-  { id: 'lenda_aplicativo', name: 'Lenda do Aplicativo', description: 'Completar 1 ano exato usando Treino + Dispensa.', icon: '🏆', color: 'text-yellow-300', bg: 'bg-yellow-300/10 border-yellow-300/20', xp: 10000, coins: 2000 }
+  { id: 'lenda_aplicativo', name: 'Lenda do Aplicativo', description: 'Completar 1 ano exato usando Treino + Dispensa.', icon: '🏆', color: 'text-yellow-300', bg: 'bg-yellow-300/10 border-yellow-300/20', xp: 10000, coins: 2000 },
+
+  // Marcos de Nível (Jornada)
+  { id: 'desperto_lvl5', name: 'Desperto', description: 'Alcançou o Nível 5 e conquistou a patente Desperto.', icon: '🌱', color: 'text-green-400', bg: 'bg-green-400/10 border-green-400/20', xp: 250, coins: 30 },
+  { id: 'aprendiz_lvl10', name: 'Aprendiz', description: 'Alcançou o Nível 10 da sua evolução.', icon: '⚔️', color: 'text-emerald-400', bg: 'bg-emerald-400/10 border-emerald-400/20', xp: 500, coins: 50 },
+  { id: 'guerreiro_lvl15', name: 'Guerreiro', description: 'Alcançou o Nível 15 de disciplina.', icon: '🛡️', color: 'text-blue-400', bg: 'bg-blue-400/10 border-blue-400/20', xp: 750, coins: 80 },
+  { id: 'gladiador_lvl20', name: 'Gladiador', description: 'Alcançou o Nível 20 nos treinos e hábitos.', icon: '🗡️', color: 'text-indigo-400', bg: 'bg-indigo-400/10 border-indigo-400/20', xp: 1000, coins: 100 },
+  { id: 'veterano_lvl25', name: 'Veterano', description: 'Alcançou o Nível 25.', icon: '🎖️', color: 'text-purple-400', bg: 'bg-purple-400/10 border-purple-400/20', xp: 1250, coins: 150 },
+  { id: 'guardiao_lvl30', name: 'Guardião', description: 'Alcançou o Nível 30.', icon: '🏰', color: 'text-[#a855f7]', bg: 'bg-[#a855f7]/10 border-[#a855f7]/20', xp: 1500, coins: 200 },
+  { id: 'campeao_lvl40', name: 'Campeão', description: 'Alcançou o Nível 40.', icon: '🏆', color: 'text-pink-400', bg: 'bg-pink-400/10 border-pink-400/20', xp: 2000, coins: 300 },
+  { id: 'tita_lvl50', name: 'Titã', description: 'Alcançou o Nível 50.', icon: '⚡', color: 'text-orange-400', bg: 'bg-orange-400/10 border-orange-400/20', xp: 3000, coins: 500 },
+  { id: 'imortal_lvl60', name: 'Imortal', description: 'Alcançou o Nível 60.', icon: '🔮', color: 'text-yellow-400', bg: 'bg-yellow-400/10 border-yellow-400/20', xp: 5000, coins: 800 },
+  { id: 'aura_lvl67', name: 'AURA Suprema', description: 'Alcançou o Nível 67 (Nível Máximo de Aura).', icon: '🌌', color: 'text-cyan-400', bg: 'bg-cyan-400/10 border-cyan-400/20', xp: 10000, coins: 2000 }
 ];
 
 export async function checkAchievements() {
@@ -48,6 +60,19 @@ export async function checkAchievements() {
 
   const player = await db.player.toCollection().first();
   if (!player) return;
+
+  // check niveis alcançados
+  const lvl = player.level || 1;
+  if (lvl >= 5 && !unlockedIds.has('desperto_lvl5')) newUnlocks.push('desperto_lvl5');
+  if (lvl >= 10 && !unlockedIds.has('aprendiz_lvl10')) newUnlocks.push('aprendiz_lvl10');
+  if (lvl >= 15 && !unlockedIds.has('guerreiro_lvl15')) newUnlocks.push('guerreiro_lvl15');
+  if (lvl >= 20 && !unlockedIds.has('gladiador_lvl20')) newUnlocks.push('gladiador_lvl20');
+  if (lvl >= 25 && !unlockedIds.has('veterano_lvl25')) newUnlocks.push('veterano_lvl25');
+  if (lvl >= 30 && !unlockedIds.has('guardiao_lvl30')) newUnlocks.push('guardiao_lvl30');
+  if (lvl >= 40 && !unlockedIds.has('campeao_lvl40')) newUnlocks.push('campeao_lvl40');
+  if (lvl >= 50 && !unlockedIds.has('tita_lvl50')) newUnlocks.push('tita_lvl50');
+  if (lvl >= 60 && !unlockedIds.has('imortal_lvl60')) newUnlocks.push('imortal_lvl60');
+  if (lvl >= 67 && !unlockedIds.has('aura_lvl67')) newUnlocks.push('aura_lvl67');
 
   // check invencivel
   if (player.streak >= 10 && !unlockedIds.has('invencivel_10')) newUnlocks.push('invencivel_10');

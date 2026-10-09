@@ -5,6 +5,7 @@
   import { getTitleForLevel, isMilestoneLevel, MAX_LEVEL, generateChestReward } from '../lib/levels.js';
   import { currentStreak, last7DaysActivity } from '../lib/metrics.js';
   import { completedToday, todayIso } from '../lib/habits.js';
+  import { checkAchievements } from '../lib/achievements.js';
   import { navigate } from '../lib/nav.js';
   import { onMount } from 'svelte';
   import { pushSync } from '../services/syncService.js';
@@ -73,6 +74,7 @@
   $: currentLevel = $player?.level ?? 1;
   $: nextLevelXp = xpToNextLevel(currentLevel);
   $: progressPercent = Math.min(100, Math.round((totalXp / nextLevelXp) * 100));
+  $: userTitle = getTitleForLevel(currentLevel);
 
   onMount(async () => {
     if (!sessionStorage.getItem('proWelcomeShown')) {
@@ -141,6 +143,9 @@
     } finally {
       rankingLoading = false;
     }
+
+    // Avalia conquistas merecidas (ex: novo nível alcançado)
+    checkAchievements().catch(() => {});
   });
 
   async function handleDashboardConsent(choice) {
@@ -300,8 +305,8 @@
           <div>
             <h2 class="text-white text-[19px] font-bold mb-1 leading-tight">{$player.name || 'Herói'}</h2>
             <div class="flex items-center gap-1.5 mb-2">
-              <span class="bg-[#9333EA]/20 text-[#c084fc] border border-[#a855f7]/30 text-[9px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wide flex items-center gap-1.5">
-                <svg class="w-3 h-3 text-[#c084fc]" viewBox="0 0 24 24" fill="currentColor"><path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7zM4 18h16v2H4z"/></svg> Iniciante
+              <span class="bg-[#9333EA]/20 {userTitle.color} border border-[#a855f7]/30 text-[9px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wide flex items-center gap-1.5">
+                <svg class="w-3 h-3 text-current" viewBox="0 0 24 24" fill="currentColor"><path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7zM4 18h16v2H4z"/></svg> {userTitle.title}
               </span>
             </div>
             <p class="text-[10px] text-white/50 italic">"Disciplina hoje, liberdade amanhã."</p>

@@ -5,17 +5,14 @@ const NAV_STORAGE_KEY = 'lifequest_nav_state';
 function getInitialNav() {
   if (typeof localStorage !== 'undefined') {
     try {
-      // Se há um treino explicitamente ativo registrado, prioriza a tela do treino
-      const activeWorkoutPlanId = localStorage.getItem('lifequest_active_workout_plan_id');
-      const activeSessionId = localStorage.getItem('lifequest_active_workout_session_id');
-      if (activeWorkoutPlanId && activeSessionId) {
-        return { name: 'workout-plan-detail', params: { planId: activeWorkoutPlanId } };
-      }
-
       const saved = localStorage.getItem(NAV_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed.name === 'string') {
+          // Se for workout-plan-detail sem um planId válido, volta para o dashboard
+          if (parsed.name === 'workout-plan-detail' && (!parsed.params?.planId || parsed.params.planId === 'undefined')) {
+            return { name: 'dashboard', params: {} };
+          }
           return { name: parsed.name, params: parsed.params || {} };
         }
       }

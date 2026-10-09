@@ -32,11 +32,27 @@ export const planExerciseLinksQuery = (planId) =>
 
 export async function removePlan(planId) {
   const normPlanId = normalizeId(planId);
-  await db.transaction('rw', db.workoutPlans, db.workoutPlanExercises, async () => {
+  await db.transaction('rw', db.workoutPlans, db.workoutPlanExercises, db.workoutSessions, db.sessionSets, async () => {
     await db.workoutPlans.delete(normPlanId);
     await db.workoutPlanExercises.where('workoutPlanId').equals(normPlanId).delete();
+    // Limpa sessões não finalizadas vinculadas a este plano
+    const danglingSessions = await db.workoutSessions.where('workoutPlanId').equals(normPlanId).toArray();
+    for (const s of danglingSessions) {
+      if (!s.finishedAt) {
+        await db.sessionSets.where('workoutSessionId').equals(s.id).delete();
+        await db.workoutSessions.delete(s.id);
+      }
+    }
   });
   await enqueue('delete', 'workoutPlans', String(normPlanId));
+
+  try {
+    const curPlan = localStorage.getItem('lifequest_active_workout_plan_id');
+    if (String(curPlan) === String(normPlanId)) {
+      localStorage.removeItem('lifequest_active_workout_plan_id');
+      localStorage.removeItem('lifequest_active_workout_session_id');
+    }
+  } catch (_) {}
 }
 
 export async function updatePlan(planId, updates) {

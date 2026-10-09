@@ -186,6 +186,16 @@
 
   $: currentPlan = ($plan ?? []).find((p) => String(p.id) === String(planId));
 
+  $: if ($plan !== undefined && !currentPlan && planId) {
+    try {
+      const curPlan = localStorage.getItem('lifequest_active_workout_plan_id');
+      if (String(curPlan) === String(planId)) {
+        localStorage.removeItem('lifequest_active_workout_plan_id');
+        localStorage.removeItem('lifequest_active_workout_session_id');
+      }
+    } catch (_) {}
+  }
+
   $: if (currentPlan && (isEditing || isNew)) {
      if (!hasInitializedEdit) {
        editName = currentPlan.name || '';
@@ -462,14 +472,25 @@
 <main class="min-h-screen p-4 pb-24 max-w-md mx-auto">
   <button class="text-[10px] text-[#a855f7] mb-4 flex items-center gap-1 font-bold uppercase tracking-wider hover:text-white transition-colors" on:click={() => navigate('training')}>← Voltar para Treinos</button>
 
-  <div class="flex justify-between items-center mb-6">
-    {#if currentPlan}
+  {#if $plan !== undefined && !currentPlan}
+    <div class="bg-[#1C1C22]/80 border border-white/5 rounded-[20px] p-8 text-center shadow-inner my-8">
+      <span class="text-4xl block mb-2">🏋️</span>
+      <h2 class="text-sm font-bold text-white mb-1">Treino não encontrado</h2>
+      <p class="text-[11px] text-white/40 mb-6">Este treino não existe ou foi removido.</p>
+      <button
+        class="bg-[#9333EA] text-white rounded-[12px] px-5 py-2.5 text-xs font-bold shadow-[0_0_15px_rgba(147,51,234,0.3)] hover:bg-[#a855f7] transition-colors"
+        on:click={() => navigate('training')}
+      >
+        Voltar para Treinos
+      </button>
+    </div>
+  {:else if currentPlan}
+    <div class="flex justify-between items-center mb-6">
       {#if isEditing || isNew}
         <input class="bg-white/5 border border-white/10 rounded-[10px] px-3 py-2 text-[16px] font-bold text-white focus:border-[#a855f7] outline-none placeholder:text-white/30 flex-1 mr-4" bind:value={editName} />
       {:else}
         <h1 class="text-2xl font-black text-white">{currentPlan.name}</h1>
       {/if}
-    {/if}
 
     {#if !activeSession && (isEditing || isNew)}
       <button 
@@ -749,6 +770,7 @@
         {/if}
       </button>
     {/if}
+  {/if}
   {/if}
   {/if}
 </main>

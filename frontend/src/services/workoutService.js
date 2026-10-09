@@ -104,3 +104,27 @@ export async function finishWorkout({ activeSession, exercises, activeSets, setI
 
   return { xpReward, leveledUp, level };
 }
+
+export async function cancelWorkoutSession(sessionId) {
+  if (!sessionId) return;
+  const { db } = await import('../db/db.js');
+  const { enqueue, pushSync } = await import('./syncService.js');
+
+  await db.transaction('rw', db.workoutSessions, db.sessionSets, async () => {
+    await db.sessionSets.where('workoutSessionId').equals(sessionId).delete();
+    await db.workoutSessions.delete(sessionId);
+  });
+
+  await enqueue('delete', 'workoutSessions', String(sessionId));
+
+  try {
+    localStorage.removeItem(`lifequest_workout_draft_${sessionId}`);
+    const cur = localStorage.getItem('lifequest_active_workout_session_id');
+    if (!sessionId || cur === String(sessionId)) {
+      localStorage.removeItem('lifequest_active_workout_session_id');
+      localStorage.removeItem('lifequest_active_workout_plan_id');
+    }
+  } catch (_) {}
+
+  pushSync().catch(() => {});
+}

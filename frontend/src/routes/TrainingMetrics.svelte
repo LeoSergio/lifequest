@@ -326,6 +326,7 @@
 
   // ---------- Consistência ----------
   const sessions = liveQuery(() => db.workoutSessions.toArray());
+  const workoutPlans = liveQuery(() => db.workoutPlans.toArray());
   $: calendarColumns = $sessions ? weeklyCalendar($sessions, 9) : [];
   $: totalTrained = $sessions ? new Set($sessions.filter((s) => s.finishedAt && !s.isRestDay).map((s) => s.finishedAt.slice(0, 10))).size : 0;
   $: streak = $sessions ? currentStreak($sessions) : 0;
@@ -758,14 +759,14 @@
     </section>
   {:else}
     <section>
-      <div class="bg-[#1C1C22]/80 border border-white/5 rounded-[20px] p-5 shadow-inner">
-        {#if $sessions && $sessions.length === 0}
-          <p class="text-[10px] text-white/40 text-center py-6">
-            Nenhuma sessão de treino concluída ainda — esse calendário marca em quais dias você treinou.
-          </p>
-        {:else}
-          <ConsistencyCalendar columns={calendarColumns} {totalTrained} {streak} />
-        {/if}
+      <div class="bg-black border border-white/10 rounded-[24px] p-5 shadow-2xl">
+        <ConsistencyCalendar
+          sessions={$sessions || []}
+          workoutPlans={$workoutPlans || []}
+          columns={calendarColumns}
+          {totalTrained}
+          {streak}
+        />
       </div>
     </section>
   {/if}
